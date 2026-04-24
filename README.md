@@ -46,6 +46,8 @@ Recommended required checks:
 
 ## Local Commands (same as CI)
 
+Use **Node.js 24.10+** locally (required by **semantic-release v25** and matched in GitHub Actions).
+
 - `npm run typecheck`
 - `npm run test:unit`
 - `npm run test:e2e`
