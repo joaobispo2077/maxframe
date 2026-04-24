@@ -18,6 +18,17 @@ export default /** @type import('electron-builder').Configuration */
    * as they can unpredictably change during deployment, making them impossible to locate and download for update.
    */
   artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
+  /**
+   * Optional yt-dlp binary for packaged installs (see `buildResources/yt-dlp/README.txt`).
+   * At runtime, `resolveYtdlpExecutable` in `src/infrastructure/youtube/` checks `resources/yt-dlp/` first.
+   */
+  extraResources: [
+    {
+      from: 'buildResources/yt-dlp',
+      to: 'yt-dlp',
+      filter: ['**/*'],
+    },
+  ],
   files: [
     pkg.main,
     '!node_modules/@maxframe/**',

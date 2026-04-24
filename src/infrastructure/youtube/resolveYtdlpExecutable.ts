@@ -24,9 +24,18 @@ export function resolveYtdlpExecutable(): string {
   const root = resourcesPath();
   if (root) {
     const isWin = process.platform === 'win32';
+    const bundledName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
     const candidates = isWin
-      ? [join(root, 'yt-dlp.exe'), join(root, 'bin', 'yt-dlp.exe')]
-      : [join(root, 'yt-dlp'), join(root, 'bin', 'yt-dlp')];
+      ? [
+          join(root, 'yt-dlp', bundledName),
+          join(root, bundledName),
+          join(root, 'bin', bundledName),
+        ]
+      : [
+          join(root, 'yt-dlp', bundledName),
+          join(root, bundledName),
+          join(root, 'bin', bundledName),
+        ];
     for (const candidate of candidates) {
       if (existsSync(candidate)) {
         return candidate;
