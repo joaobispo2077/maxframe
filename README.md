@@ -16,6 +16,7 @@ Two GitHub Actions workflows are configured:
     - `typecheck`
     - `unit-tests` (coverage summary generated and posted as sticky PR comment)
     - `e2e-tests` (Cypress component mode via `cypress-io/github-action@v7`; only for `dev -> release` and `release -> main` PRs)
+    - `mutation-tests` (Stryker mutation testing for promotion PRs only)
 - `Release` (`.github/workflows/release.yml`)
   - Runs on semantic tags: `v*.*.*`
   - Validates semantic tag format
@@ -48,6 +49,7 @@ Recommended required checks:
 - `npm run typecheck`
 - `npm run test:unit`
 - `npm run test:e2e`
+- `npm run test:mutation`
 - `npm run lint`
 
 ## Troubleshooting CI

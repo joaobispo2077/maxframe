@@ -147,3 +147,7 @@ vite.config.ts.timestamp-*
 .cursor-plugin/
 .sdd/
 specs/
+
+# Mutation testing outputs
+.stryker-tmp/
+reports/mutation/
