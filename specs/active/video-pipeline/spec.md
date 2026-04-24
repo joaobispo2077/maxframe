@@ -9,6 +9,7 @@
 |---------|------------|--------|---------|
 | 0.1.0   | 2026-04-24 | evolve | Initial spec from implementation review: document why yt-dlp is default and how axios + ffmpeg fit. |
 | 0.2.0   | 2026-04-24 | implement | Download IPC + `extraResources` bundle hook; `resolveYtdlpExecutable` checks `resources/yt-dlp/`. |
+| 0.3.0   | 2026-04-24 | implement | Phase 1 transparency UI: yt-dlp explainer, bitrates, Ranked #1 badge, hover/focus vs-best line. |
 
 ---
 
@@ -33,6 +34,7 @@ YouTube does not expose stable, public “file URLs” for arbitrary quality tie
 - **Escape hatches:** `YT_DLP_PATH` for binary location; `MAXFRAME_FAKE_VIDEO_METADATA=1` for deterministic tests / no binary.
 - **Download:** Main-process IPC + save dialog runs yt-dlp with merge to MP4; see `packages/main/src/downloadVideoHandler.ts` and preload `downloadVideo`.
 - **Packaged binary:** Optional `buildResources/yt-dlp/` → app `resources/yt-dlp/` via `electron-builder` `extraResources` (see `buildResources/yt-dlp/README.txt`).
+- **Transparency (UI):** Collapsible explainer after analyze; each row shows stream kind + optional bitrates; top-ranked row badge; hover/focus shows one-line comparison vs `bestQuality` (`packages/renderer/src/qualityTransparency.ts`).
 
 ## Discovery / refinement (2026-04-24)
 
@@ -53,3 +55,4 @@ YouTube does not expose stable, public “file URLs” for arbitrary quality tie
 - Code: `src/infrastructure/youtube/YtdlpVideoMetadataGateway.ts`, `mapYtdlpFormatsToQualityOptions.ts`, `runYtdlpDownload.ts`, `resolveYtdlpExecutable.ts`
 - Handlers: `src/interface/ipc/analyzeVideoHandler.ts`, `packages/main/src/downloadVideoHandler.ts`
 - Build: `electron-builder.mjs`, `buildResources/yt-dlp/README.txt`
+- Renderer: `packages/renderer/src/App.tsx`, `packages/renderer/src/qualityTransparency.ts`, `packages/renderer/src/index.css`

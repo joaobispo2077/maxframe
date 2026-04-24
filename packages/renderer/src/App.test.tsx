@@ -169,6 +169,50 @@ describe('App', () => {
     });
   });
 
+  it('shows transparency explainer after analyze', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: {
+        formatId: '299',
+        container: 'mp4',
+        resolutionLabel: '1080p60',
+        width: 1920,
+        height: 1080,
+        fps: 60,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      qualities: [
+        {
+          formatId: '299',
+          container: 'mp4',
+          resolutionLabel: '1080p60',
+          width: 1920,
+          height: 1080,
+          fps: 60,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('region', { name: 'quality-results' }),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByText('What this list shows')).toBeInTheDocument();
+    expect(screen.getByText(/Qualities are whatever/)).toBeInTheDocument();
+  });
+
   it('lists multiple quality rows', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
