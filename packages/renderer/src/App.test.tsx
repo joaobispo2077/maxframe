@@ -10,6 +10,7 @@ describe('App', () => {
       getInitialAppState: vi.fn(),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
+      downloadVideo: vi.fn(),
     };
   });
 
@@ -217,5 +218,64 @@ describe('App', () => {
       expect(screen.getByText(/format a/)).toBeInTheDocument();
     });
     expect(screen.getByText(/format b/)).toBeInTheDocument();
+  });
+
+  it('downloads a quality row and shows saved path', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: {
+        formatId: '137',
+        container: 'mp4',
+        resolutionLabel: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      qualities: [
+        {
+          formatId: '137',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+    });
+    const downloadVideo = vi.fn().mockResolvedValue({
+      outputPath: 'C:\\Videos\\out.mp4',
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+    window.maxframeApi.downloadVideo = downloadVideo;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/format 137/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+
+    await waitFor(() => {
+      expect(downloadVideo).toHaveBeenCalledWith({
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        formatId: '137',
+        hasAudio: false,
+        suggestedFileName: 'dQw4w9WgXcQ-137.mp4',
+      });
+    });
+
+    expect(
+      screen.getByText('Saved to C:\\Videos\\out.mp4'),
+    ).toBeInTheDocument();
   });
 });

@@ -23,12 +23,26 @@ type AnalyzeVideoUrlResult = {
   bestQuality?: QualityOption;
 };
 
+type DownloadVideoRequest = {
+  url: string;
+  formatId: string;
+  hasAudio: boolean;
+  suggestedFileName: string;
+};
+
+type DownloadVideoResult = {
+  outputPath: string;
+};
+
 declare global {
   interface Window {
     maxframeApi: {
       getInitialAppState: () => Promise<InitialAppState>;
       ping: (payload: string) => Promise<string>;
       analyzeVideoUrl: (url: string) => Promise<AnalyzeVideoUrlResult>;
+      downloadVideo: (
+        request: DownloadVideoRequest,
+      ) => Promise<DownloadVideoResult>;
     };
   }
 }

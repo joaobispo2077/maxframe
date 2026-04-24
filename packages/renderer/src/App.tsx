@@ -8,12 +8,15 @@ type AnalyzeResult = Awaited<
 function App() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [downloadFormatId, setDownloadFormatId] = useState<string>();
   const [error, setError] = useState<string>();
+  const [downloadNote, setDownloadNote] = useState<string>();
   const [result, setResult] = useState<AnalyzeResult>();
 
   async function analyzeUrl(): Promise<void> {
     setLoading(true);
     setError(undefined);
+    setDownloadNote(undefined);
 
     try {
       const analysis = await window.maxframeApi.analyzeVideoUrl(url);
@@ -25,6 +28,30 @@ function App() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function downloadQuality(formatId: string, hasAudio: boolean): Promise<void> {
+    if (!result) {
+      return;
+    }
+    setDownloadFormatId(formatId);
+    setError(undefined);
+    setDownloadNote(undefined);
+    try {
+      const { outputPath } = await window.maxframeApi.downloadVideo({
+        url: result.url,
+        formatId,
+        hasAudio,
+        suggestedFileName: `${result.videoId ?? 'video'}-${formatId}.mp4`,
+      });
+      setDownloadNote(`Saved to ${outputPath}`);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : 'Unknown error',
+      );
+    } finally {
+      setDownloadFormatId(undefined);
     }
   }
 
@@ -47,6 +74,7 @@ function App() {
         </button>
 
         {error ? <p role="alert">{error}</p> : null}
+        {downloadNote ? <p role="status">{downloadNote}</p> : null}
 
         {result ? (
           <section aria-label="quality-results">
@@ -71,7 +99,18 @@ function App() {
               {result.qualities.map((quality) => (
                 <li key={quality.formatId}>
                   {quality.resolutionLabel} @ {quality.fps}fps (
-                  {quality.container}) - format {quality.formatId}
+                  {quality.container}) - format {quality.formatId}{' '}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void downloadQuality(quality.formatId, quality.hasAudio)
+                    }
+                    disabled={Boolean(downloadFormatId) || loading}
+                  >
+                    {downloadFormatId === quality.formatId
+                      ? 'Downloading…'
+                      : 'Download'}
+                  </button>
                 </li>
               ))}
             </ul>

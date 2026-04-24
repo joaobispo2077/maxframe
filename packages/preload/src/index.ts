@@ -25,6 +25,17 @@ export type AnalyzeVideoUrlResult = {
   bestQuality?: QualityOption;
 };
 
+export type DownloadVideoRequest = {
+  url: string;
+  formatId: string;
+  hasAudio: boolean;
+  suggestedFileName: string;
+};
+
+export type DownloadVideoResult = {
+  outputPath: string;
+};
+
 export async function getInitialAppState(): Promise<InitialAppState> {
   return ipcRenderer.invoke('app:get-initial-state');
 }
@@ -37,4 +48,10 @@ export async function analyzeVideoUrl(
   url: string,
 ): Promise<AnalyzeVideoUrlResult> {
   return ipcRenderer.invoke('app:analyze-video-url', url);
+}
+
+export async function downloadVideo(
+  request: DownloadVideoRequest,
+): Promise<DownloadVideoResult> {
+  return ipcRenderer.invoke('app:download-video', request);
 }

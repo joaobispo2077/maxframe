@@ -8,6 +8,9 @@ describe('App analyze flow', () => {
         status: 'ready' as const,
       }),
       ping: async (payload: string) => payload,
+      downloadVideo: async () => ({
+        outputPath: '/tmp/mock.mp4',
+      }),
       analyzeVideoUrl: async () => ({
         url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         videoId: 'dQw4w9WgXcQ',

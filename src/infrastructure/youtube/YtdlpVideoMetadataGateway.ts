@@ -4,10 +4,9 @@ import { promisify } from 'node:util';
 import type { VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
 
 import { mapYtdlpFormatsToQualityOptions } from './mapYtdlpFormatsToQualityOptions.js';
+import { resolveYtdlpExecutable } from './resolveYtdlpExecutable.js';
 
 const execFileAsync = promisify(execFile);
-
-const DEFAULT_YT_DLP_BIN = 'yt-dlp';
 const JSON_ARGS = ['-J', '--no-warnings', '--skip-download'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -38,11 +37,7 @@ function ytdlpNotFoundMessage(executable: string): string {
 export function createYtdlpVideoMetadataGateway(
   options: YtdlpGatewayOptions = {},
 ): VideoMetadataGateway {
-  const executable =
-    options.ytdlpExecutable ??
-    (typeof process.env.YT_DLP_PATH === 'string' && process.env.YT_DLP_PATH.trim()
-      ? process.env.YT_DLP_PATH.trim()
-      : DEFAULT_YT_DLP_BIN);
+  const executable = options.ytdlpExecutable ?? resolveYtdlpExecutable();
   const timeoutMs = options.timeoutMs ?? 90_000;
 
   return {
