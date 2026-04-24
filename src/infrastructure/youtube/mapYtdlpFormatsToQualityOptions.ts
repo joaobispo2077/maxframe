@@ -20,6 +20,18 @@ function asString(value: unknown): string | undefined {
   return undefined;
 }
 
+/** Descending height thresholds → common resolution labels. */
+const RESOLUTION_HEIGHT_BUCKETS: { minHeight: number; label: string }[] = [
+  { minHeight: 4320, label: '4320p' },
+  { minHeight: 2160, label: '2160p' },
+  { minHeight: 1440, label: '1440p' },
+  { minHeight: 1080, label: '1080p' },
+  { minHeight: 720, label: '720p' },
+  { minHeight: 480, label: '480p' },
+  { minHeight: 360, label: '360p' },
+  { minHeight: 240, label: '240p' },
+];
+
 function resolutionLabelFromHeight(height: number, formatNote?: string): string {
   const note = formatNote?.trim();
   if (note && /^\d+p(\d+)?$/i.test(note)) {
@@ -28,62 +40,32 @@ function resolutionLabelFromHeight(height: number, formatNote?: string): string 
   if (height <= 0) {
     return 'unknown';
   }
-  if (height >= 4320) {
-    return '4320p';
-  }
-  if (height >= 2160) {
-    return '2160p';
-  }
-  if (height >= 1440) {
-    return '1440p';
-  }
-  if (height >= 1080) {
-    return '1080p';
-  }
-  if (height >= 720) {
-    return '720p';
-  }
-  if (height >= 480) {
-    return '480p';
-  }
-  if (height >= 360) {
-    return '360p';
-  }
-  if (height >= 240) {
-    return '240p';
+  for (const { minHeight, label } of RESOLUTION_HEIGHT_BUCKETS) {
+    if (height >= minHeight) {
+      return label;
+    }
   }
   return `${height}p`;
 }
 
-function mapOneFormat(entry: unknown): QualityOption | undefined {
-  if (!isRecord(entry)) {
-    return undefined;
-  }
-
+function formatIdFromEntry(entry: UnknownRecord): string | undefined {
   const formatIdRaw = entry.format_id;
-  const formatId =
-    typeof formatIdRaw === 'string' || typeof formatIdRaw === 'number'
-      ? String(formatIdRaw)
-      : undefined;
-  if (!formatId) {
-    return undefined;
+  if (typeof formatIdRaw === 'string' || typeof formatIdRaw === 'number') {
+    return String(formatIdRaw);
   }
+  return undefined;
+}
 
+function qualityOptionFromVideoEntry(
+  formatId: string,
+  entry: UnknownRecord,
+): QualityOption {
   const ext = asString(entry.ext) ?? 'unknown';
-  const vcodec = asString(entry.vcodec) ?? 'none';
   const acodec = asString(entry.acodec) ?? 'none';
-  const hasVideo = vcodec !== 'none';
-  const hasAudio = acodec !== 'none';
-
-  if (!hasVideo) {
-    return undefined;
-  }
-
   const width = asNumber(entry.width) ?? 0;
   const height = asNumber(entry.height) ?? 0;
   const fps = asNumber(entry.fps) ?? 30;
   const formatNote = asString(entry.format_note);
-
   const videoBitrateKbps =
     asNumber(entry.vbr) ?? asNumber(entry.tbr) ?? undefined;
   const audioBitrateKbps = asNumber(entry.abr) ?? undefined;
@@ -95,11 +77,29 @@ function mapOneFormat(entry: unknown): QualityOption | undefined {
     width,
     height,
     fps,
-    hasVideo,
-    hasAudio,
+    hasVideo: true,
+    hasAudio: acodec !== 'none',
     videoBitrateKbps,
     audioBitrateKbps,
   };
+}
+
+function mapOneFormat(entry: unknown): QualityOption | undefined {
+  if (!isRecord(entry)) {
+    return undefined;
+  }
+
+  const formatId = formatIdFromEntry(entry);
+  if (!formatId) {
+    return undefined;
+  }
+
+  const vcodec = asString(entry.vcodec) ?? 'none';
+  if (vcodec === 'none') {
+    return undefined;
+  }
+
+  return qualityOptionFromVideoEntry(formatId, entry);
 }
 
 /**
