@@ -1,0 +1,24 @@
+# Optional maintainer check: real yt-dlp + ffmpeg on PATH (not run on PRs by default).
+name: yt-dlp smoke (optional)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  versions:
+    name: Tooling versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: ffmpeg -version
+        run: ffmpeg -hide_banner -version
+
+      - name: yt-dlp (pip)
+        run: |
+          python3 -m pip install --user yt-dlp
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: yt-dlp --version
+        run: yt-dlp --version

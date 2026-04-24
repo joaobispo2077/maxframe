@@ -75,6 +75,8 @@ jobs:
         run: npm ci --force
 
       - name: Run unit tests
+        env:
+          MAXFRAME_FAKE_VIDEO_METADATA: '1'
         run: npm run test:unit -- --coverage --coverage.reporter=json-summary --coverage.reporter=cobertura
 
       - name: Upload unit coverage artifact

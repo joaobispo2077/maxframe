@@ -11,6 +11,7 @@
 | 0.2.0   | 2026-04-24 | implement | Download IPC + `extraResources` bundle hook; `resolveYtdlpExecutable` checks `resources/yt-dlp/`. |
 | 0.3.0   | 2026-04-24 | implement | Phase 1 transparency UI: yt-dlp explainer, bitrates, Ranked #1 badge, hover/focus vs-best line. |
 | 0.4.0   | 2026-04-24 | evolve | Presentation requirements: modern “Cyberpunk 2077–inspired” shell; Chakra-first UI; layout/spacing overhaul. |
+| 0.5.0   | 2026-04-24 | implement | Download path: probe **ffmpeg** before merge downloads; resolve output file on disk; Chakra shell + global theme; cookies explicitly **out of v1**. |
 
 ---
 
@@ -49,7 +50,8 @@ YouTube does not expose stable, public “file URLs” for arbitrary quality tie
 - **Escape hatches:** `YT_DLP_PATH` for binary location; `MAXFRAME_FAKE_VIDEO_METADATA=1` for deterministic tests / no binary.
 - **Download:** Main-process IPC + save dialog runs yt-dlp with merge to MP4; see `packages/main/src/downloadVideoHandler.ts` and preload `downloadVideo`.
 - **Packaged binary:** Optional `buildResources/yt-dlp/` → app `resources/yt-dlp/` via `electron-builder` `extraResources` (see `buildResources/yt-dlp/README.txt`).
-- **Transparency (UI):** Collapsible explainer after analyze; each row shows stream kind + optional bitrates; top-ranked row badge; hover/focus shows one-line comparison vs `bestQuality` (`packages/renderer/src/qualityTransparency.ts`). **Styling** is interim (plain CSS); **v0.4.0+** targets Chakra-based cyberpunk-modern shell (see Presentation layer).
+- **Transparency (UI):** Collapsible explainer after analyze; each row shows stream kind + optional bitrates; top-ranked row badge; hover/focus shows one-line comparison vs `bestQuality` (`packages/renderer/src/qualityTransparency.ts`). **Styling:** Chakra v3 dark shell + `maxframeTheme` global chrome (`packages/renderer/src/maxframeTheme.ts`, `App.tsx`); **Tailwind** not added (Chakra-only per `plan.md`).
+- **ffmpeg:** Before a **video+audio merge** download, the main process probes `ffmpeg` (`FFMPEG_PATH` → optional bundled layout under `resourcesPath` → `PATH`). Missing ffmpeg surfaces a clear error before yt-dlp runs.
 
 ## Discovery / refinement (2026-04-24 — presentation)
 
@@ -76,10 +78,19 @@ YouTube does not expose stable, public “file URLs” for arbitrary quality tie
 - Download **progress** streaming / cancel tokens.
 - Automatic per-arch yt-dlp fetch in CI (manual copy or separate release job).
 - Pixel-perfect recreation of third-party game UIs or use of unlicensed marks beyond **stylistic inspiration**.
+- **Netscape cookies / age-gate bypass** for yt-dlp in **v1** (no UI or IPC); may be revisited when product wants restricted-title support—document limitation in-app via explainer only.
+
+## Discovery / refinement (2026-04-24 — cookies / restricted titles)
+
+**Type:** Scope decision  
+**Context:** Some titles need cookies or account flows; supporting that safely implies file pickers, storage guidance, and support burden.  
+**Decision:** **Out of v1** — no `--cookies` wiring in this iteration; README + spec document ffmpeg + yt-dlp only.  
+**Impact:** Users hitting age-gated or login-only streams see normal yt-dlp failures until a future milestone adds an explicit, reviewed design.
 
 ## Cross-references
 
-- Code: `src/infrastructure/youtube/YtdlpVideoMetadataGateway.ts`, `mapYtdlpFormatsToQualityOptions.ts`, `runYtdlpDownload.ts`, `resolveYtdlpExecutable.ts`
+- Code: `src/infrastructure/youtube/YtdlpVideoMetadataGateway.ts`, `mapYtdlpFormatsToQualityOptions.ts`, `runYtdlpDownload.ts`, `resolveYtdlpExecutable.ts`, `findYtdlpOutputFile.ts`, `ytdlpDownloadNeedsFfmpeg.ts`
+- ffmpeg: `src/infrastructure/ffmpeg/resolveFfmpegExecutable.ts`, `src/infrastructure/ffmpeg/probeFfmpegAvailable.ts`
 - Handlers: `src/interface/ipc/analyzeVideoHandler.ts`, `packages/main/src/downloadVideoHandler.ts`
 - Build: `electron-builder.mjs`, `buildResources/yt-dlp/README.txt`
-- Renderer: `packages/renderer/src/App.tsx`, `packages/renderer/src/qualityTransparency.ts`, `packages/renderer/src/index.css` (interim); future **Chakra theme / recipes** for v0.4.0 presentation layer (TBD path under `packages/renderer/`).
+- Renderer: `packages/renderer/src/App.tsx`, `packages/renderer/src/qualityTransparency.ts`, `packages/renderer/src/maxframeTheme.ts`, `packages/renderer/src/index.css` (minimal; global chrome in theme).

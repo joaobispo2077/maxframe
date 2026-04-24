@@ -4,9 +4,16 @@ import { join, parse as parsePath } from 'node:path';
 import { BrowserWindow, dialog } from 'electron';
 
 import { createVideoUrl } from '../../../src/domain/video/VideoUrl.js';
+import {
+  ffmpegMissingMessage,
+  probeFfmpegAvailable,
+} from '../../../src/infrastructure/ffmpeg/probeFfmpegAvailable.js';
+import { resolveFfmpegExecutable } from '../../../src/infrastructure/ffmpeg/resolveFfmpegExecutable.js';
 import { buildYtdlpFormatSelector } from '../../../src/infrastructure/youtube/buildYtdlpFormatSelector.js';
+import { findYtdlpOutputFile } from '../../../src/infrastructure/youtube/findYtdlpOutputFile.js';
 import { resolveYtdlpExecutable } from '../../../src/infrastructure/youtube/resolveYtdlpExecutable.js';
 import { runYtdlpDownload } from '../../../src/infrastructure/youtube/runYtdlpDownload.js';
+import { ytdlpDownloadNeedsFfmpeg } from '../../../src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg.js';
 
 export type DownloadVideoRequest = {
   url: string;
@@ -19,16 +26,6 @@ export type DownloadVideoRequest = {
 export type DownloadVideoResult = {
   outputPath: string;
 };
-
-function guessOutputPath(outputTemplateBase: string): string | undefined {
-  for (const ext of ['.mp4', '.mkv', '.webm', '.m4a', '.opus']) {
-    const p = outputTemplateBase + ext;
-    if (existsSync(p)) {
-      return p;
-    }
-  }
-  return undefined;
-}
 
 export async function downloadVideoHandler(
   params: DownloadVideoRequest,
@@ -58,6 +55,14 @@ export async function downloadVideoHandler(
     params.hasAudio,
   );
 
+  if (ytdlpDownloadNeedsFfmpeg(params.hasAudio)) {
+    const ffmpeg = resolveFfmpegExecutable();
+    const ok = await probeFfmpegAvailable(ffmpeg);
+    if (!ok) {
+      throw new Error(ffmpegMissingMessage(ffmpeg));
+    }
+  }
+
   await runYtdlpDownload({
     executable: resolveYtdlpExecutable(),
     url: params.url,
@@ -67,8 +72,16 @@ export async function downloadVideoHandler(
     timeoutMs: 0,
   });
 
-  const base = join(parsed.dir, parsed.name);
-  const resolved = guessOutputPath(base) ?? filePath;
+  const resolved =
+    findYtdlpOutputFile(parsed.dir, parsed.name) ??
+    (existsSync(filePath) ? filePath : undefined);
+
+  if (!resolved) {
+    throw new Error(
+      'Download finished but no output file was found next to the path you chose. ' +
+        'Check the folder for a new .mp4 or .mkv file, or inspect the yt-dlp error output above.',
+    );
+  }
 
   return { outputPath: resolved };
 }

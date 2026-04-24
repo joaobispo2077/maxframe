@@ -50,4 +50,15 @@ describe('App analyze flow', () => {
     cy.contains('Best raw quality: 1080p60 @ 60fps (mp4)').should('be.visible');
     cy.get('[aria-label="quality-results"]').should('be.visible');
   });
+
+  it('downloads a row and shows saved path', () => {
+    cy.mount(<App />);
+    cy.get('#youtube-url').type(
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+    cy.contains('button', 'Analyze quality').click();
+    cy.contains('Video ID: dQw4w9WgXcQ').should('be.visible');
+    cy.contains('button', 'Download').click();
+    cy.contains('Saved to /tmp/mock.mp4').should('be.visible');
+  });
 });

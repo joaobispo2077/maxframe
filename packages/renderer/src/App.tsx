@@ -2,6 +2,23 @@ import { useState } from 'react';
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
 import {
+  Badge,
+  Box,
+  Button,
+  Card,
+  Collapsible,
+  Container,
+  Field,
+  Heading,
+  HStack,
+  Image,
+  Input,
+  Stack,
+  Text,
+  VStack,
+} from '@chakra-ui/react';
+
+import {
   describeQualityAgainstBest,
   formatAudioBitrateKbps,
   formatVideoBitrateKbps,
@@ -64,132 +81,277 @@ function App() {
     }
   }
 
+  const downloadBusy = Boolean(downloadFormatId);
+
   return (
-    <main className="foundation-shell">
-      <section className="foundation-card">
-        <img className="foundation-logo" src={maxframeLogo} alt="Maxframe logo" />
-        <h1>Maxframe</h1>
-        <p>Paste your URL below and check the Quality available</p>
-        <label htmlFor="youtube-url">YouTube URL</label>
-        <input
-          id="youtube-url"
-          type="url"
-          placeholder="https://www.youtube.com/watch?v=..."
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-        />
-        <button type="button" onClick={analyzeUrl} disabled={!url || loading}>
-          {loading ? 'Analyzing...' : 'Analyze quality'}
-        </button>
+    <Box minH="100vh" py={{ base: 6, md: 10 }} px={4}>
+      <Container maxW="720px">
+        <Card.Root
+          bg="#0f141c"
+          borderWidth="1px"
+          borderColor="rgba(0, 240, 255, 0.22)"
+          boxShadow="0 0 40px rgba(0, 240, 255, 0.06)"
+          borderRadius="xl"
+        >
+          <Card.Body>
+            <VStack gap={6} align="stretch">
+              <VStack gap={3} textAlign="center">
+                <Image
+                  src={maxframeLogo}
+                  alt="Maxframe logo"
+                  boxSize="96px"
+                  mx="auto"
+                  objectFit="contain"
+                />
+                <Heading size="xl" letterSpacing="tight">
+                  Maxframe
+                </Heading>
+                <Text fontSize="lg" color="fg.muted">
+                  Paste your URL below and check the Quality available
+                </Text>
+              </VStack>
 
-        {error ? <p role="alert">{error}</p> : null}
-        {downloadNote ? <p role="status">{downloadNote}</p> : null}
+              <Stack gap={4}>
+                <Field.Root>
+                  <Field.Label htmlFor="youtube-url">YouTube URL</Field.Label>
+                  <Input
+                    id="youtube-url"
+                    type="url"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={url}
+                    onChange={(event) => setUrl(event.target.value)}
+                    bg="blackAlpha.400"
+                    borderColor="panelBorder"
+                    _focusVisible={{
+                      borderColor: 'cyan.400',
+                      boxShadow: '0 0 0 1px #00f0ff',
+                    }}
+                  />
+                </Field.Root>
+                <Button
+                  colorPalette="cyan"
+                  variant="surface"
+                  onClick={() => void analyzeUrl()}
+                  disabled={!url || loading || downloadBusy}
+                  loading={loading}
+                  loadingText="Analyzing..."
+                  alignSelf={{ base: 'stretch', sm: 'flex-start' }}
+                >
+                  Analyze quality
+                </Button>
+              </Stack>
 
-        {result ? (
-          <section className="quality-results" aria-label="quality-results">
-            <h2>Available quality</h2>
+              {error ? (
+                <Text role="alert" color="red.300">
+                  {error}
+                </Text>
+              ) : null}
 
-            <details className="quality-explainer">
-              <summary>What this list shows</summary>
-              <p style={{ marginTop: '10px', marginBottom: 0 }}>
-                Qualities are whatever <strong>yt-dlp</strong> reports for this URL at
-                analyze time—not every option YouTube may show in other apps or on the
-                web. The highlighted <strong>Ranked #1</strong> row is the best option in
-                this app using height, then frame rate, then listed video bitrate. This is
-                not a legal guarantee of “maximum” quality everywhere; it is the top entry
-                in this list only.
-              </p>
-              <p style={{ marginTop: '10px', marginBottom: 0 }}>
-                If a row is <strong>video only</strong>, downloading it asks yt-dlp to
-                merge in the best separate audio when possible (same as many CLI
-                workflows).
-              </p>
-            </details>
+              {downloadNote ? (
+                <HStack
+                  role="status"
+                  justify="space-between"
+                  gap={3}
+                  p={3}
+                  borderRadius="md"
+                  bg="blackAlpha.500"
+                  borderWidth="1px"
+                  borderColor="green.700"
+                >
+                  <Text fontSize="sm" flex="1">
+                    {downloadNote}
+                  </Text>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => setDownloadNote(undefined)}
+                    aria-label="Dismiss save message"
+                  >
+                    Dismiss
+                  </Button>
+                </HStack>
+              ) : null}
 
-            {result.videoId ? (
-              <p style={{ marginTop: '12px', textAlign: 'center' }}>
-                Video ID: {result.videoId}
-              </p>
-            ) : (
-              <p style={{ marginTop: '12px', textAlign: 'center' }}>
-                Video ID could not be parsed from this URL; confirm the link uses a
-                standard watch, shorts, embed, or youtu.be shape.
-              </p>
-            )}
-            {result.bestQuality ? (
-              <p style={{ marginTop: '8px', textAlign: 'center' }}>
-                Best raw quality: {result.bestQuality.resolutionLabel} @{' '}
-                {result.bestQuality.fps}fps ({result.bestQuality.container})
-              </p>
-            ) : (
-              <p style={{ marginTop: '8px', textAlign: 'center' }}>
-                No downloadable video quality available for this URL.
-              </p>
-            )}
+              {result ? (
+                <Box
+                  as="section"
+                  aria-label="quality-results"
+                  aria-busy={downloadBusy}
+                  borderTopWidth="1px"
+                  borderColor="whiteAlpha.200"
+                  pt={6}
+                >
+                  <Heading size="md" textAlign="center" mb={4}>
+                    Available quality
+                  </Heading>
 
-            <ul className="quality-list">
-              {result.qualities.map((quality) => {
-                const isBest = result.bestQuality?.formatId === quality.formatId;
-                const videoBr = formatVideoBitrateKbps(quality.videoBitrateKbps);
-                const audioBr = formatAudioBitrateKbps(quality.audioBitrateKbps);
-                const showCompare =
-                  hoveredFormatId === quality.formatId ||
-                  downloadFormatId === quality.formatId;
-                return (
-                  <li key={quality.formatId}>
-                    <div
-                      className={`quality-row${isBest ? ' quality-row--best' : ''}`}
-                      tabIndex={0}
-                      onMouseEnter={() => setHoveredFormatId(quality.formatId)}
-                      onMouseLeave={() => setHoveredFormatId(null)}
-                      onFocus={() => setHoveredFormatId(quality.formatId)}
-                      onBlur={(event) => {
-                        if (!event.currentTarget.contains(event.relatedTarget)) {
-                          setHoveredFormatId(null);
-                        }
-                      }}
-                    >
-                      <div>
-                        <strong>
-                          {quality.resolutionLabel} @ {quality.fps}fps (
-                          {quality.container}) — format {quality.formatId}
-                        </strong>
-                        {isBest ? (
-                          <span className="quality-row__badge">Ranked #1 (app)</span>
-                        ) : null}
-                      </div>
-                      <p className="quality-row__meta">
-                        {streamKindLabel(quality)}
-                        {videoBr ? ` · ${videoBr}` : ''}
-                        {audioBr ? ` · ${audioBr}` : ''}
-                      </p>
-                      {showCompare ? (
-                        <p className="quality-row__compare" aria-live="polite">
-                          {describeQualityAgainstBest(quality, result.bestQuality)}
-                        </p>
-                      ) : null}
-                      <div className="quality-row__actions">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void downloadQuality(quality.formatId, quality.hasAudio)
-                          }
-                          disabled={Boolean(downloadFormatId) || loading}
-                        >
-                          {downloadFormatId === quality.formatId
-                            ? 'Downloading…'
-                            : 'Download'}
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ) : null}
-      </section>
-    </main>
+                  <Collapsible.Root defaultOpen>
+                    <Collapsible.Trigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        w="100%"
+                        justifyContent="flex-start"
+                        borderColor="whiteAlpha.300"
+                        _hover={{ borderColor: 'cyan.400' }}
+                      >
+                        What this list shows
+                      </Button>
+                    </Collapsible.Trigger>
+                    <Collapsible.Content>
+                      <VStack
+                        gap={3}
+                        align="stretch"
+                        mt={3}
+                        p={3}
+                        borderRadius="md"
+                        bg="blackAlpha.400"
+                        fontSize="sm"
+                        lineHeight="tall"
+                        color="fg.muted"
+                      >
+                        <Text>
+                          Qualities are whatever <Text as="strong" color="fg">yt-dlp</Text>{' '}
+                          reports for this URL at analyze time—not every option YouTube may
+                          show in other apps or on the web. The highlighted{' '}
+                          <Text as="strong" color="fg">
+                            Ranked #1
+                          </Text>{' '}
+                          row is the best option in this app using height, then frame rate,
+                          then listed video bitrate. This is not a legal guarantee of
+                          “maximum” quality everywhere; it is the top entry in this list
+                          only.
+                        </Text>
+                        <Text>
+                          If a row is <Text as="strong" color="fg">video only</Text>,
+                          downloading it asks yt-dlp to merge in the best separate audio when
+                          possible (same as many CLI workflows). That path needs{' '}
+                          <Text as="strong" color="fg">
+                            ffmpeg
+                          </Text>{' '}
+                          installed.
+                        </Text>
+                      </VStack>
+                    </Collapsible.Content>
+                  </Collapsible.Root>
+
+                  {result.videoId ? (
+                    <Text mt={4} textAlign="center" fontSize="sm">
+                      Video ID: {result.videoId}
+                    </Text>
+                  ) : (
+                    <Text mt={4} textAlign="center" fontSize="sm" color="orange.300">
+                      Video ID could not be parsed from this URL; confirm the link uses a
+                      standard watch, shorts, embed, or youtu.be shape.
+                    </Text>
+                  )}
+                  {result.bestQuality ? (
+                    <Text mt={2} textAlign="center" fontSize="sm">
+                      Best raw quality: {result.bestQuality.resolutionLabel} @{' '}
+                      {result.bestQuality.fps}fps ({result.bestQuality.container})
+                    </Text>
+                  ) : (
+                    <Text mt={2} textAlign="center" fontSize="sm" color="fg.muted">
+                      No downloadable video quality available for this URL.
+                    </Text>
+                  )}
+
+                  <Stack
+                    as="ul"
+                    role="list"
+                    gap={3}
+                    listStyleType="none"
+                    m={0}
+                    mt={4}
+                    p={0}
+                  >
+                    {result.qualities.map((quality) => {
+                      const isBest = result.bestQuality?.formatId === quality.formatId;
+                      const videoBr = formatVideoBitrateKbps(quality.videoBitrateKbps);
+                      const audioBr = formatAudioBitrateKbps(quality.audioBitrateKbps);
+                      const showCompare =
+                        hoveredFormatId === quality.formatId ||
+                        downloadFormatId === quality.formatId;
+                      return (
+                        <Box as="li" key={quality.formatId}>
+                          <Box
+                            role="group"
+                            tabIndex={0}
+                            p={3}
+                            borderRadius="md"
+                            borderWidth="1px"
+                            borderColor={isBest ? 'green.600' : 'whiteAlpha.200'}
+                            bg={isBest ? 'rgba(56, 161, 105, 0.12)' : 'blackAlpha.400'}
+                            outline="none"
+                            _focusVisible={{
+                              boxShadow: '0 0 0 2px #00f0ff',
+                            }}
+                            _hover={{
+                              borderColor: isBest ? 'green.400' : 'cyan.500',
+                            }}
+                            onMouseEnter={() => setHoveredFormatId(quality.formatId)}
+                            onMouseLeave={() => setHoveredFormatId(null)}
+                            onFocus={() => setHoveredFormatId(quality.formatId)}
+                            onBlur={(event) => {
+                              if (!event.currentTarget.contains(event.relatedTarget)) {
+                                setHoveredFormatId(null);
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' && !downloadBusy && !loading) {
+                                event.preventDefault();
+                                void downloadQuality(quality.formatId, quality.hasAudio);
+                              }
+                            }}
+                          >
+                            <HStack gap={2} flexWrap="wrap" align="baseline">
+                              <Text fontWeight="bold">
+                                {quality.resolutionLabel} @ {quality.fps}fps (
+                                {quality.container}) — format {quality.formatId}
+                              </Text>
+                              {isBest ? (
+                                <Badge colorPalette="green" variant="solid" size="sm">
+                                  Ranked #1 (app)
+                                </Badge>
+                              ) : null}
+                            </HStack>
+                            <Text fontSize="sm" color="fg.muted" mt={2}>
+                              {streamKindLabel(quality)}
+                              {videoBr ? ` · ${videoBr}` : ''}
+                              {audioBr ? ` · ${audioBr}` : ''}
+                            </Text>
+                            {showCompare ? (
+                              <Text fontSize="xs" color="fg.muted" fontStyle="italic" mt={2} aria-live="polite">
+                                {describeQualityAgainstBest(quality, result.bestQuality)}
+                              </Text>
+                            ) : null}
+                            <Box mt={3}>
+                              <Button
+                                size="sm"
+                                colorPalette="cyan"
+                                variant="outline"
+                                onClick={() =>
+                                  void downloadQuality(quality.formatId, quality.hasAudio)
+                                }
+                                disabled={downloadBusy || loading}
+                                loading={downloadFormatId === quality.formatId}
+                                loadingText="Downloading…"
+                              >
+                                Download
+                              </Button>
+                            </Box>
+                          </Box>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                </Box>
+              ) : null}
+            </VStack>
+          </Card.Body>
+        </Card.Root>
+      </Container>
+    </Box>
   );
 }
 

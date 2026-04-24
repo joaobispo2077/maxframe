@@ -1,7 +1,21 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ChakraProvider } from '@chakra-ui/react';
+import {
+  fireEvent,
+  render as rtlRender,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { createElement, type ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from './App';
+import { maxframeSystem } from './maxframeTheme';
+
+function render(ui: ReactElement) {
+  return rtlRender(
+    createElement(ChakraProvider, { value: maxframeSystem }, ui),
+  );
+}
 
 describe('App', () => {
   beforeEach(() => {
@@ -321,5 +335,117 @@ describe('App', () => {
     expect(
       screen.getByText('Saved to C:\\Videos\\out.mp4'),
     ).toBeInTheDocument();
+  });
+
+  it('keeps analyze results when download fails', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: {
+        formatId: '137',
+        container: 'mp4',
+        resolutionLabel: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      qualities: [
+        {
+          formatId: '137',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+    });
+    const downloadVideo = vi
+      .fn()
+      .mockRejectedValue(new Error('Could not run "ffmpeg".'));
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+    window.maxframeApi.downloadVideo = downloadVideo;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/format 137/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Could not run');
+    });
+
+    expect(screen.getByText('Video ID: dQw4w9WgXcQ')).toBeInTheDocument();
+  });
+
+  it('dismisses the save path message', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: {
+        formatId: '137',
+        container: 'mp4',
+        resolutionLabel: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      qualities: [
+        {
+          formatId: '137',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+    });
+    const downloadVideo = vi.fn().mockResolvedValue({
+      outputPath: 'C:\\Videos\\out.mp4',
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+    window.maxframeApi.downloadVideo = downloadVideo;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/format 137/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Saved to C:\\Videos\\out.mp4'),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Dismiss save message' }),
+    );
+
+    expect(
+      screen.queryByText('Saved to C:\\Videos\\out.mp4'),
+    ).not.toBeInTheDocument();
   });
 });
