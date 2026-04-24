@@ -26,6 +26,14 @@ body {
   text-align: center;
 }
 
+.foundation-logo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  margin: 0 auto 12px;
+  display: block;
+}
+
 .foundation-card h1 {
   margin: 0 0 12px;
 }

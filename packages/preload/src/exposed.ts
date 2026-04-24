@@ -11,5 +11,7 @@ for (const exportsKey in exports) {
   }
 }
 
+contextBridge.exposeInMainWorld('maxframeApi', exports);
+
 // Re-export for tests
 export * from './index.js';
