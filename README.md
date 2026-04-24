@@ -19,10 +19,9 @@ Two GitHub Actions workflows are configured:
     - `e2e-tests` (Cypress component mode via `cypress-io/github-action@v7`; only for `dev -> release` and `release -> main` PRs)
     - `mutation-tests` (Stryker mutation testing for promotion PRs only)
 - `Release` (`.github/workflows/release.yml`)
-  - Runs on semantic tags: `v*.*.*`
-  - Validates semantic tag format
-  - Verifies tag commit is from `release` branch
-  - Runs release checks and drafts a GitHub release
+  - Runs on every push to the `release` branch (and manual `workflow_dispatch`), matching the [semantic-release on `release` pattern](https://github.com/joaobispo2077/joaobispo2077.com/blob/main/.github/workflows/release.yml) used in [joaobispo2077.com](https://github.com/joaobispo2077/joaobispo2077.com).
+  - Uses [semantic-release](https://github.com/semantic-release/semantic-release) with `release.config.mjs` (same plugin stack as [`.releaserc.js` there](https://github.com/joaobispo2077/joaobispo2077.com/blob/main/.releaserc.js): changelog, GitHub release, no npm publish, git-committed version bump).
+  - Requires a repository secret **`GH_TOKEN`**: a fine-grained or classic PAT with permission to push to `release`, create releases, and bypass branch protection if your rules block bot pushes (semantic-release commits `CHANGELOG.md`, `package.json`, and `package-lock.json`).
 
 ## GitFlow Branch Model
 
@@ -52,9 +51,10 @@ Recommended required checks:
 - `npm run test:e2e`
 - `npm run test:mutation`
 - `npm run lint`
+- `npm run release:local` (local semantic-release with `--no-ci`; CI uses `npm run release`)
 
 ## Troubleshooting CI
 
 - If Cypress fails due to environment dependencies, confirm Linux packages in `ci.yml` match your Cypress/Electron version.
-- If release tagging fails, confirm your tag uses semantic format (`v1.2.3`) and was created from a commit reachable from `release`.
+- If the release workflow fails, confirm `GH_TOKEN` is set and has sufficient scope, and that commits on `release` follow [Conventional Commits](https://www.conventionalcommits.org/) so semantic-release can infer the next version.
 - If peer dependency conflicts appear in CI install, check lockfile consistency before merges.
