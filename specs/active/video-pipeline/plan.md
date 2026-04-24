@@ -1,3 +1,6 @@
+> **[STALE]** — Upstream spec updated on 2026-04-24. Review needed.  
+> Change: Presentation layer + cyberpunk-modern UI direction (spec.md v0.4.0)
+
 # Plan: video-pipeline (yt-dlp)
 
 **Task ID:** video-pipeline  

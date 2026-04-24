@@ -1,3 +1,6 @@
+> **[STALE]** — Upstream spec updated on 2026-04-24. Review needed.  
+> Change: Presentation layer + cyberpunk-modern UI direction (spec.md v0.4.0)
+
 # Implementation Tasks: transparent quality + selected download
 
 **Task ID:** video-pipeline  
