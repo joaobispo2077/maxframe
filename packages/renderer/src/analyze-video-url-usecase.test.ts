@@ -32,8 +32,11 @@ describe('AnalyzeVideoUrlUseCase', () => {
     };
     const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(gateway);
 
-    const result = await analyzeVideoUrl('https://www.youtube.com/watch?v=test');
+    const result = await analyzeVideoUrl(
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
 
+    expect(result.videoId).toBe('dQw4w9WgXcQ');
     expect(result.bestQuality?.formatId).toBe('299');
     expect(result.qualities.map((quality) => quality.formatId)).toEqual([
       '299',
@@ -68,6 +71,20 @@ describe('AnalyzeVideoUrlUseCase', () => {
     );
   });
 
+  it('returns undefined videoId when the v parameter is not a valid id', async () => {
+    const gateway: VideoMetadataGateway = {
+      analyzeVideo: async () => [],
+    };
+    const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(gateway);
+
+    const result = await analyzeVideoUrl(
+      'https://www.youtube.com/watch?v=not11chars',
+    );
+
+    expect(result.videoId).toBeUndefined();
+    expect(result.qualities).toEqual([]);
+  });
+
   it('maps metadata provider failures to typed user-safe errors', async () => {
     const gateway: VideoMetadataGateway = {
       analyzeVideo: async () => {
@@ -77,7 +94,7 @@ describe('AnalyzeVideoUrlUseCase', () => {
     const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(gateway);
 
     await expect(
-      analyzeVideoUrl('https://www.youtube.com/watch?v=test'),
+      analyzeVideoUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
     ).rejects.toEqual(
       new AnalyzeVideoUrlError(
         'METADATA_UNAVAILABLE',

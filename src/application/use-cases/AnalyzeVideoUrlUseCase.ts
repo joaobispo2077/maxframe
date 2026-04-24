@@ -2,10 +2,13 @@ import { AnalyzeVideoUrlError } from '../errors/AnalyzeVideoErrors.js';
 import { rankQualityOptions, selectBestQuality } from '../../domain/quality/QualityRankingPolicy.js';
 import type { QualityOption } from '../../domain/quality/QualityOption.js';
 import { InvalidVideoUrlError, createVideoUrl } from '../../domain/video/VideoUrl.js';
+import { parseYoutubeVideoId } from '../../domain/video/youtubeVideoId.js';
 import type { VideoMetadataGateway } from '../ports/VideoMetadataGateway.js';
 
 export type AnalyzeVideoUrlResult = {
   url: string;
+  /** Parsed 11-character YouTube id when the URL shape allows it; otherwise undefined. */
+  videoId: string | undefined;
   qualities: QualityOption[];
   bestQuality?: QualityOption;
 };
@@ -36,9 +39,11 @@ export function createAnalyzeVideoUrlUseCase(
       );
     }
     const qualities = rankQualityOptions(rawQualities);
+    const videoId = parseYoutubeVideoId(videoUrl);
 
     return {
       url,
+      videoId,
       qualities,
       bestQuality: selectBestQuality(qualities),
     };

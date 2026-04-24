@@ -51,6 +51,14 @@ function App() {
         {result ? (
           <section aria-label="quality-results">
             <h2>Available quality</h2>
+            {result.videoId ? (
+              <p>Video ID: {result.videoId}</p>
+            ) : (
+              <p>
+                Video ID could not be parsed from this URL; confirm the link
+                uses a standard watch, shorts, embed, or youtu.be shape.
+              </p>
+            )}
             {result.bestQuality ? (
               <p>
                 Best raw quality: {result.bestQuality.resolutionLabel} @{' '}

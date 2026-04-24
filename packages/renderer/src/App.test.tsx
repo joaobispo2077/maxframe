@@ -23,7 +23,8 @@ describe('App', () => {
 
   it('analyzes URL and shows best quality details', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
-      url: 'https://www.youtube.com/watch?v=test',
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
       bestQuality: {
         formatId: '299',
         container: 'mp4',
@@ -51,16 +52,45 @@ describe('App', () => {
 
     render(<App />);
     fireEvent.change(screen.getByLabelText('YouTube URL'), {
-      target: { value: 'https://www.youtube.com/watch?v=test' },
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
       expect(analyzeVideoUrl).toHaveBeenCalledWith(
-        'https://www.youtube.com/watch?v=test',
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       );
     });
 
+    expect(
+      screen.getByText('Video ID: dQw4w9WgXcQ'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Best raw quality: 1080p60 @ 60fps (mp4)')).toBeInTheDocument();
+  });
+
+  it('shows a message when video id cannot be parsed', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      url: 'https://www.youtube.com/watch?v=bad',
+      videoId: undefined,
+      bestQuality: undefined,
+      qualities: [],
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=bad' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(analyzeVideoUrl).toHaveBeenCalled();
+    });
+
+    expect(
+      screen.getByText(
+        'Video ID could not be parsed from this URL; confirm the link uses a standard watch, shorts, embed, or youtu.be shape.',
+      ),
+    ).toBeInTheDocument();
   });
 });

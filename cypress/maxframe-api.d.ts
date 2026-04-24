@@ -23,17 +23,14 @@ type AnalyzeVideoUrlResult = {
   bestQuality?: QualityOption;
 };
 
-type MaxframeApi = {
-  getInitialAppState: () => Promise<InitialAppState>;
-  ping: (payload: string) => Promise<string>;
-  analyzeVideoUrl: (url: string) => Promise<AnalyzeVideoUrlResult>;
-};
-
 declare global {
   interface Window {
-    maxframeApi: MaxframeApi;
+    maxframeApi: {
+      getInitialAppState: () => Promise<InitialAppState>;
+      ping: (payload: string) => Promise<string>;
+      analyzeVideoUrl: (url: string) => Promise<AnalyzeVideoUrlResult>;
+    };
   }
 }
 
 export {};
-

@@ -20,6 +20,7 @@ export type QualityOption = {
 
 export type AnalyzeVideoUrlResult = {
   url: string;
+  videoId: string | undefined;
   qualities: QualityOption[];
   bestQuality?: QualityOption;
 };
