@@ -12,6 +12,7 @@
 | 0.3.0   | 2026-04-24 | implement | Phase 1 transparency UI: yt-dlp explainer, bitrates, Ranked #1 badge, hover/focus vs-best line. |
 | 0.4.0   | 2026-04-24 | evolve | Presentation requirements: modern “Cyberpunk 2077–inspired” shell; Chakra-first UI; layout/spacing overhaul. |
 | 0.5.0   | 2026-04-24 | implement | Download path: probe **ffmpeg** before merge downloads; resolve output file on disk; Chakra shell + global theme; cookies explicitly **out of v1**. |
+| 0.5.1   | 2026-04-24 | implement | Optional **ffmpeg** bundle: `buildResources/ffmpeg/` → `resources/ffmpeg/` via `extraResources` (same pattern as yt-dlp). |
 
 ---
 
@@ -49,7 +50,7 @@ YouTube does not expose stable, public “file URLs” for arbitrary quality tie
 - **Rationale:** Reliability and velocity for a desktop downloader outweigh saving a subprocess on analyze; correctness drift is outsourced to yt-dlp.
 - **Escape hatches:** `YT_DLP_PATH` for binary location; `MAXFRAME_FAKE_VIDEO_METADATA=1` for deterministic tests / no binary.
 - **Download:** Main-process IPC + save dialog runs yt-dlp with merge to MP4; see `packages/main/src/downloadVideoHandler.ts` and preload `downloadVideo`.
-- **Packaged binary:** Optional `buildResources/yt-dlp/` → app `resources/yt-dlp/` via `electron-builder` `extraResources` (see `buildResources/yt-dlp/README.txt`).
+- **Packaged binaries:** Optional `buildResources/yt-dlp/` → `resources/yt-dlp/` and optional `buildResources/ffmpeg/` → `resources/ffmpeg/` via `electron-builder` `extraResources` (see `buildResources/yt-dlp/README.txt`, `buildResources/ffmpeg/README.txt`).
 - **Transparency (UI):** Collapsible explainer after analyze; each row shows stream kind + optional bitrates; top-ranked row badge; hover/focus shows one-line comparison vs `bestQuality` (`packages/renderer/src/qualityTransparency.ts`). **Styling:** Chakra v3 dark shell + `maxframeTheme` global chrome (`packages/renderer/src/maxframeTheme.ts`, `App.tsx`); **Tailwind** not added (Chakra-only per `plan.md`).
 - **ffmpeg:** Before a **video+audio merge** download, the main process probes `ffmpeg` (`FFMPEG_PATH` → optional bundled layout under `resourcesPath` → `PATH`). Missing ffmpeg surfaces a clear error before yt-dlp runs.
 
@@ -92,5 +93,5 @@ YouTube does not expose stable, public “file URLs” for arbitrary quality tie
 - Code: `src/infrastructure/youtube/YtdlpVideoMetadataGateway.ts`, `mapYtdlpFormatsToQualityOptions.ts`, `runYtdlpDownload.ts`, `resolveYtdlpExecutable.ts`, `findYtdlpOutputFile.ts`, `ytdlpDownloadNeedsFfmpeg.ts`
 - ffmpeg: `src/infrastructure/ffmpeg/resolveFfmpegExecutable.ts`, `src/infrastructure/ffmpeg/probeFfmpegAvailable.ts`
 - Handlers: `src/interface/ipc/analyzeVideoHandler.ts`, `packages/main/src/downloadVideoHandler.ts`
-- Build: `electron-builder.mjs`, `buildResources/yt-dlp/README.txt`
+- Build: `electron-builder.mjs`, `buildResources/yt-dlp/README.txt`, `buildResources/ffmpeg/README.txt`
 - Renderer: `packages/renderer/src/App.tsx`, `packages/renderer/src/qualityTransparency.ts`, `packages/renderer/src/maxframeTheme.ts`, `packages/renderer/src/index.css` (minimal; global chrome in theme).

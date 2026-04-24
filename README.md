@@ -9,7 +9,7 @@ Electron + React + TypeScript desktop app for transparent, high-quality video do
 ## First run (analyze + download)
 
 - **yt-dlp** — Required for real metadata and downloads. Install a release from [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp/releases) and ensure `yt-dlp` is on your `PATH`, or set **`YT_DLP_PATH`** to the binary. Packaged builds can drop an executable under `buildResources/yt-dlp/` (see `buildResources/yt-dlp/README.txt`); the app also checks `resources/yt-dlp/` at runtime.
-- **ffmpeg** — Required when you download a **video-only** row (yt-dlp merges best audio). Install from [ffmpeg.org](https://ffmpeg.org/download.html) and keep `ffmpeg` on your `PATH`, or set **`FFMPEG_PATH`** to the binary.
+- **ffmpeg** — Required when you download a **video-only** row (yt-dlp merges best audio). Install from [ffmpeg.org](https://ffmpeg.org/download.html) and keep `ffmpeg` on your `PATH`, or set **`FFMPEG_PATH`**. For packaged builds you can drop `ffmpeg` / `ffmpeg.exe` under `buildResources/ffmpeg/` (see `buildResources/ffmpeg/README.txt`); the app checks `resources/ffmpeg/` at runtime.
 - **Tests / CI without yt-dlp** — Set **`MAXFRAME_FAKE_VIDEO_METADATA=1`** so analyze uses deterministic in-memory metadata (default for the `unit-tests` job in `.github/workflows/ci.yml`).
 - **Optional real-tool smoke** — Use the manual workflow [yt-dlp smoke](.github/workflows/yt-dlp-smoke.yml) (`workflow_dispatch`) when you want a maintainer-only check with network and upstream binaries (not part of default PR CI).
 

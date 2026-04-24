@@ -134,9 +134,8 @@
 
 ## Next steps
 
-1. Optional: bundle **ffmpeg** next to yt-dlp under `extraResources` and extend `resolveFfmpegExecutable` docs.
-2. Optional: richer listbox roving tabindex + `aria-activedescendant` if UX review asks for it.
-3. Optional: cookies / age-gate milestone when scoped.
+1. Optional: richer listbox roving tabindex + `aria-activedescendant` if UX review asks for it.
+2. Optional: cookies / age-gate milestone when scoped.
 
 ---
 

@@ -160,3 +160,7 @@ reports/mutation/
 # Optional bundled yt-dlp (see buildResources/yt-dlp/README.txt)
 /buildResources/yt-dlp/yt-dlp
 /buildResources/yt-dlp/yt-dlp.exe
+
+# Optional bundled ffmpeg (see buildResources/ffmpeg/README.txt)
+/buildResources/ffmpeg/ffmpeg
+/buildResources/ffmpeg/ffmpeg.exe

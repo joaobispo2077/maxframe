@@ -19,13 +19,19 @@ export default /** @type import('electron-builder').Configuration */
    */
   artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
   /**
-   * Optional yt-dlp binary for packaged installs (see `buildResources/yt-dlp/README.txt`).
-   * At runtime, `resolveYtdlpExecutable` in `src/infrastructure/youtube/` checks `resources/yt-dlp/` first.
+   * Optional binaries for packaged installs:
+   * - yt-dlp: `buildResources/yt-dlp/README.txt`; runtime `resolveYtdlpExecutable` checks `resources/yt-dlp/`.
+   * - ffmpeg: `buildResources/ffmpeg/README.txt`; runtime `resolveFfmpegExecutable` checks `resources/ffmpeg/`.
    */
   extraResources: [
     {
       from: 'buildResources/yt-dlp',
       to: 'yt-dlp',
+      filter: ['**/*'],
+    },
+    {
+      from: 'buildResources/ffmpeg',
+      to: 'ffmpeg',
       filter: ['**/*'],
     },
   ],

@@ -14,3 +14,5 @@ Do not commit the binary to git (see repository .gitignore).
 
 If this folder only contains README.txt, packaged builds still work when
 yt-dlp is installed on the user's PATH or when YT_DLP_PATH is set.
+
+For merge downloads, see also ../ffmpeg/README.txt (optional bundled ffmpeg).
