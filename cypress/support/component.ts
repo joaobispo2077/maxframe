@@ -1,5 +1,5 @@
-import { mount } from "cypress/react";
-import "../../packages/renderer/src/index.css";
+import { mount } from 'cypress/react';
+import '../../packages/renderer/src/index.css';
 
 declare global {
   namespace Cypress {
@@ -9,4 +9,4 @@ declare global {
   }
 }
 
-Cypress.Commands.add("mount", mount);
+Cypress.Commands.add('mount', mount);

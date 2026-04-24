@@ -1,23 +1,25 @@
-import {AppModule} from '../AppModule.js';
-import electronUpdater, {type AppUpdater, type Logger} from 'electron-updater';
+import electronUpdater, {
+  type AppUpdater,
+  type Logger,
+} from 'electron-updater';
 
-type DownloadNotification = Parameters<AppUpdater['checkForUpdatesAndNotify']>[0];
+import { AppModule } from '../AppModule.js';
+
+type DownloadNotification = Parameters<
+  AppUpdater['checkForUpdatesAndNotify']
+>[0];
 
 export class AutoUpdater implements AppModule {
-
   readonly #logger: Logger | null;
   readonly #notification: DownloadNotification;
 
-  constructor(
-    {
-      logger = null,
-      downloadNotification = undefined,
-    }:
-      {
-        logger?: Logger | null | undefined,
-        downloadNotification?: DownloadNotification
-      } = {},
-  ) {
+  constructor({
+    logger = null,
+    downloadNotification = undefined,
+  }: {
+    logger?: Logger | null | undefined;
+    downloadNotification?: DownloadNotification;
+  } = {}) {
     this.#logger = logger;
     this.#notification = downloadNotification;
   }
@@ -29,7 +31,7 @@ export class AutoUpdater implements AppModule {
   getAutoUpdater(): AppUpdater {
     // Using destructuring to access autoUpdater due to the CommonJS module of 'electron-updater'.
     // It is a workaround for ESM compatibility issues, see https://github.com/electron-userland/electron-builder/issues/7976.
-    const {autoUpdater} = electronUpdater;
+    const { autoUpdater } = electronUpdater;
     return autoUpdater;
   }
 
@@ -56,7 +58,8 @@ export class AutoUpdater implements AppModule {
   }
 }
 
-
-export function autoUpdater(...args: ConstructorParameters<typeof AutoUpdater>) {
+export function autoUpdater(
+  ...args: ConstructorParameters<typeof AutoUpdater>
+) {
   return new AutoUpdater(...args);
 }

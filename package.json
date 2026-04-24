@@ -15,6 +15,10 @@
   "scripts": {
     "build": "npm run build -ws --if-present",
     "compile": "npm run build && electron-builder build --config electron-builder.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "test": "npm run test:unit",
     "test:unit": "npm run test:unit --workspace @maxframe/renderer",
     "test:unit:watch": "npm run test:unit:watch --workspace @maxframe/renderer",
@@ -25,8 +29,18 @@
     "integrate-renderer": "npm start --workspace @maxframe/integrate-renderer",
     "init": "npm run create-renderer && npm run integrate-renderer && npm install"
   },
+  "dependencies": {
+    "@chakra-ui/react": "^3.35.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@maxframe/main": "*",
+    "axios": "^1.15.2",
+    "framer-motion": "^12.38.0",
+    "zod": "^4.3.6"
+  },
   "devDependencies": {
     "@cypress/vite-dev-server": "^7.3.1",
+    "@eslint/js": "^10.0.1",
     "@npmcli/map-workspaces": "5.0.3",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -36,17 +50,18 @@
     "cypress": "^15.14.1",
     "electron": "41.0.3",
     "electron-builder": "26.8.1",
+    "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "eslint-plugin-sonarjs": "^4.0.3",
     "glob": "13.0.6",
+    "globals": "^17.5.0",
     "jsdom": "^29.0.2",
+    "prettier": "^3.6.2",
+    "typescript-eslint": "^8.59.0",
     "vitest": "^4.1.5"
-  },
-  "dependencies": {
-    "@maxframe/main": "*",
-    "@chakra-ui/react": "^3.35.0",
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "axios": "^1.15.2",
-    "framer-motion": "^12.38.0",
-    "zod": "^4.3.6"
   }
 }
