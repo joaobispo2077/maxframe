@@ -1,0 +1,25 @@
+{
+  "name": "@maxframe/main",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@maxframe/preload": "*",
+    "@maxframe/renderer": "*",
+    "electron-updater": "6.8.3"
+  },
+  "devDependencies": {
+    "@maxframe/electron-versions": "*",
+    "electron-devtools-installer": "4.0.0",
+    "typescript": "6.0.2",
+    "vite": "8.0.3"
+  }
+}

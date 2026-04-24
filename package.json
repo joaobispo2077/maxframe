@@ -1,0 +1,52 @@
+{
+  "name": "maxframe",
+  "description": "Maxframe desktop app (Electron + React + TypeScript)",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "author": "vitor",
+  "main": "packages/entry-point.mjs",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=23.0.0"
+  },
+  "scripts": {
+    "build": "npm run build -ws --if-present",
+    "compile": "npm run build && electron-builder build --config electron-builder.mjs",
+    "test": "npm run test:unit",
+    "test:unit": "npm run test:unit --workspace @maxframe/renderer",
+    "test:unit:watch": "npm run test:unit:watch --workspace @maxframe/renderer",
+    "test:e2e": "cypress run --component",
+    "start": "node packages/dev-mode.js",
+    "typecheck": "npm run typecheck -ws --if-present",
+    "create-renderer": "cd packages && node ./integrate-renderer/create-renderer.js",
+    "integrate-renderer": "npm start --workspace @maxframe/integrate-renderer",
+    "init": "npm run create-renderer && npm run integrate-renderer && npm install"
+  },
+  "devDependencies": {
+    "@cypress/vite-dev-server": "^7.3.1",
+    "@npmcli/map-workspaces": "5.0.3",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "25.5.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "create-vite": "9.0.3",
+    "cypress": "^15.14.1",
+    "electron": "41.0.3",
+    "electron-builder": "26.8.1",
+    "glob": "13.0.6",
+    "jsdom": "^29.0.2",
+    "vitest": "^4.1.5"
+  },
+  "dependencies": {
+    "@maxframe/main": "*",
+    "@chakra-ui/react": "^3.35.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "axios": "^1.15.2",
+    "framer-motion": "^12.38.0",
+    "zod": "^4.3.6"
+  }
+}
