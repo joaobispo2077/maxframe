@@ -1,3 +1,4 @@
+import { defineConfig } from 'eslint/config';
 import globals from "globals";
 import importPlugin from "eslint-plugin-import";
 import prettierPlugin from "eslint-plugin-prettier";
@@ -7,7 +8,7 @@ import sonarjs from "eslint-plugin-sonarjs";
 import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
 
-export default tseslint.config(
+export default defineConfig([
   {
     ignores: [
       "**/dist/**",
@@ -97,4 +98,4 @@ export default tseslint.config(
     },
   },
   eslintConfigPrettier,
-);
+]);
