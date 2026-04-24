@@ -1,5 +1,7 @@
+import { AnalyzeVideoUrlError } from '../errors/AnalyzeVideoErrors.js';
 import { rankQualityOptions, selectBestQuality } from '../../domain/quality/QualityRankingPolicy.js';
 import type { QualityOption } from '../../domain/quality/QualityOption.js';
+import { InvalidVideoUrlError, createVideoUrl } from '../../domain/video/VideoUrl.js';
 import type { VideoMetadataGateway } from '../ports/VideoMetadataGateway.js';
 
 export type AnalyzeVideoUrlResult = {
@@ -8,36 +10,31 @@ export type AnalyzeVideoUrlResult = {
   bestQuality?: QualityOption;
 };
 
-const YOUTUBE_URL_HOSTS = new Set([
-  'youtube.com',
-  'www.youtube.com',
-  'm.youtube.com',
-  'youtu.be',
-]);
-
-function assertValidYoutubeUrl(url: string): void {
-  let parsedUrl: URL;
-
-  try {
-    parsedUrl = new URL(url);
-  } catch {
-    throw new Error('Invalid URL format.');
-  }
-
-  if (!YOUTUBE_URL_HOSTS.has(parsedUrl.hostname)) {
-    throw new Error('Only YouTube URLs are supported.');
-  }
-}
-
 export function createAnalyzeVideoUrlUseCase(
   metadataGateway: VideoMetadataGateway,
 ) {
   return async function analyzeVideoUrl(
     url: string,
   ): Promise<AnalyzeVideoUrlResult> {
-    assertValidYoutubeUrl(url);
+    let videoUrl: URL;
+    try {
+      videoUrl = createVideoUrl(url);
+    } catch (error) {
+      if (error instanceof InvalidVideoUrlError) {
+        throw new AnalyzeVideoUrlError('INVALID_URL', error.message);
+      }
+      throw error;
+    }
 
-    const rawQualities = await metadataGateway.analyzeVideo(url);
+    let rawQualities: QualityOption[];
+    try {
+      rawQualities = await metadataGateway.analyzeVideo(videoUrl.toString());
+    } catch {
+      throw new AnalyzeVideoUrlError(
+        'METADATA_UNAVAILABLE',
+        'Could not analyze this video right now. Please try again.',
+      );
+    }
     const qualities = rankQualityOptions(rawQualities);
 
     return {

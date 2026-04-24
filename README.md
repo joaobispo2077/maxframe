@@ -1,7 +1,7 @@
 # Maxframe
 
-![CI](https://github.com/YOUR_ORG/YOUR_REPO/actions/workflows/ci.yml/badge.svg)
-![Release](https://github.com/YOUR_ORG/YOUR_REPO/actions/workflows/release.yml/badge.svg)
+![CI](https://github.com/joaobispo2077/maxframe/actions/workflows/ci.yml/badge.svg)
+![Release](https://github.com/joaobispo2077/maxframe/actions/workflows/release.yml/badge.svg)
 ![Maxframe Logo](.github/assets/maxframe-logo.png)
 
 Electron + React + TypeScript desktop app for transparent, high-quality video downloads.

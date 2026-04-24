@@ -51,5 +51,34 @@ describe('QualityRankingPolicy', () => {
     expect(rankQualityOptions(options)).toHaveLength(0);
     expect(selectBestQuality(options)).toBeUndefined();
   });
+
+  it('breaks ties using higher bitrate after same resolution and fps', () => {
+    const options: QualityOption[] = [
+      {
+        formatId: 'x-low',
+        container: 'mp4',
+        resolutionLabel: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+        videoBitrateKbps: 3200,
+      },
+      {
+        formatId: 'x-high',
+        container: 'mp4',
+        resolutionLabel: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+        videoBitrateKbps: 4200,
+      },
+    ];
+
+    expect(selectBestQuality(options)?.formatId).toBe('x-high');
+  });
 });
 
