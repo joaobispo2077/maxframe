@@ -4,6 +4,39 @@ import { rankQualityOptions, selectBestQuality } from '../../../src/domain/quali
 import type { QualityOption } from '../../../src/domain/quality/QualityOption.js';
 
 describe('QualityRankingPolicy', () => {
+  it('prioritizes higher vertical resolution first', () => {
+    const options: QualityOption[] = [
+      {
+        formatId: '720',
+        container: 'mp4',
+        resolutionLabel: '720p',
+        width: 1280,
+        height: 720,
+        fps: 60,
+        hasVideo: true,
+        hasAudio: false,
+        videoBitrateKbps: 9000,
+      },
+      {
+        formatId: '1080',
+        container: 'mp4',
+        resolutionLabel: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+        videoBitrateKbps: 3000,
+      },
+    ];
+
+    expect(selectBestQuality(options)?.formatId).toBe('1080');
+    expect(rankQualityOptions(options).map((q) => q.formatId)).toEqual([
+      '1080',
+      '720',
+    ]);
+  });
+
   it('prioritizes higher fps when resolution is equal', () => {
     const options: QualityOption[] = [
       {
@@ -79,6 +112,34 @@ describe('QualityRankingPolicy', () => {
     ];
 
     expect(selectBestQuality(options)?.formatId).toBe('x-high');
+  });
+
+  it('treats missing bitrate as zero when comparing equal resolution and fps', () => {
+    const options: QualityOption[] = [
+      {
+        formatId: 'a',
+        container: 'mp4',
+        resolutionLabel: '720p',
+        width: 1280,
+        height: 720,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      {
+        formatId: 'b',
+        container: 'mp4',
+        resolutionLabel: '720p',
+        width: 1280,
+        height: 720,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+        videoBitrateKbps: 1,
+      },
+    ];
+
+    expect(selectBestQuality(options)?.formatId).toBe('b');
   });
 });
 

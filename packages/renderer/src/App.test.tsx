@@ -93,4 +93,129 @@ describe('App', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it('disables analyze until a URL is entered', () => {
+    render(<App />);
+    expect(
+      screen.getByRole('button', { name: 'Analyze quality' }),
+    ).toBeDisabled();
+  });
+
+  it('shows loading label while analyzing', async () => {
+    let resolveAnalysis: (value: unknown) => void = () => {};
+    const analysisPromise = new Promise((resolve) => {
+      resolveAnalysis = resolve;
+    });
+    const analyzeVideoUrl = vi.fn().mockReturnValue(analysisPromise);
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    expect(screen.getByRole('button', { name: 'Analyzing...' })).toBeDisabled();
+
+    resolveAnalysis({
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: undefined,
+      qualities: [],
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Analyze quality' }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows unknown error when analyze rejects a non-Error', async () => {
+    const analyzeVideoUrl = vi.fn().mockRejectedValue('boom');
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Unknown error');
+    });
+  });
+
+  it('shows empty-quality message when best quality is missing', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: undefined,
+      qualities: [],
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('No downloadable video quality available for this URL.'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('lists multiple quality rows', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: {
+        formatId: 'b',
+        container: 'mp4',
+        resolutionLabel: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      qualities: [
+        {
+          formatId: 'a',
+          container: 'mp4',
+          resolutionLabel: '720p',
+          width: 1280,
+          height: 720,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+        {
+          formatId: 'b',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/format a/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/format b/)).toBeInTheDocument();
+  });
 });

@@ -11,9 +11,11 @@ const config = {
   mutate: [
     'packages/renderer/src/**/*.ts',
     'packages/renderer/src/**/*.tsx',
+    '!packages/renderer/src/**/*.test.ts',
     '!packages/renderer/src/**/*.test.tsx',
     '!packages/renderer/src/test/**',
     '!packages/renderer/src/main.tsx',
+    'src/**/*.ts',
   ],
   reporters: ['html', 'clear-text', 'progress'],
   tempDirName: '.stryker-tmp',

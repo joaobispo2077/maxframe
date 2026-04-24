@@ -11,13 +11,19 @@ describe('VideoUrl', () => {
 
   it('rejects malformed urls', () => {
     expect(() => createVideoUrl('not-a-url')).toThrowError(
-      new InvalidVideoUrlError('Invalid URL format.'),
+      expect.objectContaining({
+        name: 'InvalidVideoUrlError',
+        message: 'Invalid URL format.',
+      }),
     );
   });
 
   it('rejects non-youtube hosts', () => {
     expect(() => createVideoUrl('https://example.com/video')).toThrowError(
-      new InvalidVideoUrlError('Only YouTube URLs are supported.'),
+      expect.objectContaining({
+        name: 'InvalidVideoUrlError',
+        message: 'Only YouTube URLs are supported.',
+      }),
     );
   });
 });

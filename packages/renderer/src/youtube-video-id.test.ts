@@ -40,4 +40,35 @@ describe('parseYoutubeVideoId', () => {
       parseYoutubeVideoId(new URL('https://www.youtube.com/watch?v=bad')),
     ).toBeUndefined();
   });
+
+  it('parses m.youtube.com watch URLs', () => {
+    const id = parseYoutubeVideoId(
+      new URL('https://m.youtube.com/watch?v=dQw4w9WgXcQ'),
+    );
+    expect(id).toBe('dQw4w9WgXcQ');
+  });
+
+  it('parses music.youtube.com watch URLs', () => {
+    const id = parseYoutubeVideoId(
+      new URL('https://music.youtube.com/watch?v=dQw4w9WgXcQ'),
+    );
+    expect(id).toBe('dQw4w9WgXcQ');
+  });
+
+  it('parses live path segment', () => {
+    const id = parseYoutubeVideoId(
+      new URL('https://www.youtube.com/live/dQw4w9WgXcQ'),
+    );
+    expect(id).toBe('dQw4w9WgXcQ');
+  });
+
+  it('returns undefined for id longer than 11 characters', () => {
+    expect(
+      parseYoutubeVideoId(
+        new URL(
+          'https://www.youtube.com/watch?v=dQw4w9WgXcQextra',
+        ),
+      ),
+    ).toBeUndefined();
+  });
 });

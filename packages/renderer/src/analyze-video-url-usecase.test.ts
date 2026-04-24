@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { AnalyzeVideoUrlError } from '../../../src/application/errors/AnalyzeVideoErrors.js';
 import { createAnalyzeVideoUrlUseCase } from '../../../src/application/use-cases/AnalyzeVideoUrlUseCase.js';
 import type { VideoMetadataGateway } from '../../../src/application/ports/VideoMetadataGateway.js';
 
@@ -52,12 +51,11 @@ describe('AnalyzeVideoUrlUseCase', () => {
 
     await expect(
       analyzeVideoUrl('https://example.com/not-youtube'),
-    ).rejects.toEqual(
-      new AnalyzeVideoUrlError(
-        'INVALID_URL',
-        'Only YouTube URLs are supported.',
-      ),
-    );
+    ).rejects.toMatchObject({
+      name: 'AnalyzeVideoUrlError',
+      code: 'INVALID_URL',
+      message: 'Only YouTube URLs are supported.',
+    });
   });
 
   it('rejects malformed urls', async () => {
@@ -66,9 +64,11 @@ describe('AnalyzeVideoUrlUseCase', () => {
     };
     const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(gateway);
 
-    await expect(analyzeVideoUrl('not-a-url')).rejects.toEqual(
-      new AnalyzeVideoUrlError('INVALID_URL', 'Invalid URL format.'),
-    );
+    await expect(analyzeVideoUrl('not-a-url')).rejects.toMatchObject({
+      name: 'AnalyzeVideoUrlError',
+      code: 'INVALID_URL',
+      message: 'Invalid URL format.',
+    });
   });
 
   it('returns undefined videoId when the v parameter is not a valid id', async () => {
@@ -95,12 +95,11 @@ describe('AnalyzeVideoUrlUseCase', () => {
 
     await expect(
       analyzeVideoUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
-    ).rejects.toEqual(
-      new AnalyzeVideoUrlError(
-        'METADATA_UNAVAILABLE',
-        'Could not analyze this video right now. Please try again.',
-      ),
-    );
+    ).rejects.toMatchObject({
+      name: 'AnalyzeVideoUrlError',
+      code: 'METADATA_UNAVAILABLE',
+      message: 'Could not analyze this video right now. Please try again.',
+    });
   });
 });
 
