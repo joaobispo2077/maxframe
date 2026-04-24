@@ -1,3 +1,5 @@
+> **[STALE]** — Upstream spec v0.4.0 (presentation layer). Add Chakra/cyberpunk UI tasks when replanned.
+
 # Todo: video-pipeline
 
 | # | Task | Status |
