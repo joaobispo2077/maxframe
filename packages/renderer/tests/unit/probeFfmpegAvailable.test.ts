@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   ffmpegMissingMessage,
   probeFfmpegAvailable,
-} from '../../../src/infrastructure/ffmpeg/probeFfmpegAvailable.js';
+} from '../../../../src/infrastructure/ffmpeg/probeFfmpegAvailable.js';
 
 function findExecCallback(
   args: unknown[],

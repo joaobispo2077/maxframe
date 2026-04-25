@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import type { QualityOption } from '../../../src/domain/quality/QualityOption.js';
+import type { QualityOption } from '../../../../src/domain/quality/QualityOption.js';
 
 import {
   describeQualityAgainstBest,
   formatAudioBitrateKbps,
   formatVideoBitrateKbps,
   streamKindLabel,
-} from './qualityTransparency.js';
+} from '../../src/qualityTransparency.js';
 
 const base: QualityOption = {
   formatId: '137',

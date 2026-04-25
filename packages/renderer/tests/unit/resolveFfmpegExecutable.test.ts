@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { resolveFfmpegExecutable } from '../../../src/infrastructure/ffmpeg/resolveFfmpegExecutable.js';
+import { resolveFfmpegExecutable } from '../../../../src/infrastructure/ffmpeg/resolveFfmpegExecutable.js';
 
 describe('resolveFfmpegExecutable', () => {
   const prev = process.env.FFMPEG_PATH;

@@ -8,8 +8,8 @@ import {
 import { type ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import App from './App';
-import { maxframeSystem } from './maxframeTheme';
+import App from '../../src/App';
+import { maxframeSystem } from '../../src/maxframeTheme';
 
 function render(ui: ReactElement) {
   return rtlRender(
