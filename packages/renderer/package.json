@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:unit": "vitest run",
+    "test:unit:coverage": "vitest run --coverage --coverage.reporter=json-summary --coverage.reporter=cobertura",
     "test:unit:watch": "vitest"
   },
   "dependencies": {
