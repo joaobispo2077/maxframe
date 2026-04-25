@@ -52,13 +52,41 @@ if (-not $appExe) {
 }
 Write-Host "Resolved app executable: $appExe"
 
-$launched = Start-Process -FilePath $appExe -PassThru
-$startupDeadline = (Get-Date).AddSeconds(20)
-while ((Get-Date) -lt $startupDeadline) {
-  Start-Sleep -Seconds 2
-  if ($launched.HasExited) {
-    throw "Maxframe.exe exited during startup window; exit code: $($launched.ExitCode)"
+$launchAttempts = @(
+  @{ Name = 'ci-flags'; Args = @('--disable-gpu', '--disable-software-rasterizer', '--no-sandbox') },
+  @{ Name = 'plain'; Args = @() }
+)
+$launched = $null
+$lastExitCode = $null
+$startupGraceSeconds = 12
+
+foreach ($attempt in $launchAttempts) {
+  $attemptName = [string]$attempt.Name
+  $attemptArgs = [string[]]$attempt.Args
+  $argText = if ($attemptArgs.Count -gt 0) { $attemptArgs -join ' ' } else { '(none)' }
+  Write-Host "Launching Maxframe ($attemptName), args: $argText"
+
+  $launched = Start-Process -FilePath $appExe -ArgumentList $attemptArgs -PassThru
+  $startupDeadline = (Get-Date).AddSeconds($startupGraceSeconds)
+  $stayedUp = $true
+  while ((Get-Date) -lt $startupDeadline) {
+    Start-Sleep -Seconds 2
+    if ($launched.HasExited) {
+      $stayedUp = $false
+      $lastExitCode = $launched.ExitCode
+      Write-Host "Maxframe exited early on attempt '$attemptName' with code: $lastExitCode"
+      break
+    }
   }
+
+  if ($stayedUp) {
+    Write-Host "Maxframe stayed alive for startup grace window on attempt '$attemptName'."
+    break
+  }
+}
+
+if (-not $launched -or $launched.HasExited) {
+  throw "Maxframe.exe exited during startup window on all attempts; last exit code: $lastExitCode"
 }
 
 # Prefer stopping the exact PID (Electron can spawn children with other names)
