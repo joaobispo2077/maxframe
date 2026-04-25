@@ -1,4 +1,4 @@
-import type { QualityOption } from '../../../../src/domain/quality/QualityOption.js';
+import type { QualityOption } from '@src/domain/quality/QualityOption.js';
 
 import { describe, expect, it } from 'vitest';
 
@@ -7,7 +7,7 @@ import {
   formatAudioBitrateKbps,
   formatVideoBitrateKbps,
   streamKindLabel,
-} from '../../src/lib/qualityTransparency.js';
+} from '@ui/lib/qualityTransparency.js';
 
 const base: QualityOption = {
   formatId: '137',

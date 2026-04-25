@@ -43,7 +43,7 @@ describe('resolveFfmpegExecutable bundled candidates', () => {
       candidate.endsWith('\\ffmpeg\\ffmpeg.exe'),
     );
     const { resolveFfmpegExecutable } = await import(
-      '../../../../src/infrastructure/ffmpeg/resolveFfmpegExecutable.js'
+      '@src/infrastructure/ffmpeg/resolveFfmpegExecutable.js'
     );
 
     expect(resolveFfmpegExecutable()).toBe('C:\\app\\resources\\ffmpeg\\ffmpeg.exe');
@@ -52,7 +52,7 @@ describe('resolveFfmpegExecutable bundled candidates', () => {
   it('falls through candidates and uses ffmpeg on PATH when none exist', async () => {
     existsSyncMock.mockReturnValue(false);
     const { resolveFfmpegExecutable } = await import(
-      '../../../../src/infrastructure/ffmpeg/resolveFfmpegExecutable.js'
+      '@src/infrastructure/ffmpeg/resolveFfmpegExecutable.js'
     );
 
     expect(resolveFfmpegExecutable()).toBe('ffmpeg');

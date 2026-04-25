@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { maxframeSystem } from '../../src/theme/maxframeTheme';
+import { maxframeSystem } from '@ui/theme/maxframeTheme';
 
 describe('maxframeTheme', () => {
   it('defines dark global shell chrome', () => {

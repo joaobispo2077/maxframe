@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { findYtdlpOutputFile } from '../../../../src/infrastructure/youtube/findYtdlpOutputFile.js';
+import { findYtdlpOutputFile } from '@src/infrastructure/youtube/findYtdlpOutputFile.js';
 
 describe('findYtdlpOutputFile', () => {
   const dirs: string[] = [];

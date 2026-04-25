@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useDownloadProgressLog } from '../../src/hooks/useDownloadProgressLog';
+import { useDownloadProgressLog } from '@ui/hooks/useDownloadProgressLog';
 
 describe('useDownloadProgressLog', () => {
   beforeEach(() => {

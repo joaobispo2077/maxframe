@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { createInMemoryVideoMetadataGateway } from '../../../../src/infrastructure/youtube/InMemoryVideoMetadataGateway.js';
-import { createAnalyzeVideoHandler } from '../../../../src/interface/ipc/analyzeVideoHandler.js';
+import { createInMemoryVideoMetadataGateway } from '@src/infrastructure/youtube/InMemoryVideoMetadataGateway.js';
+import { createAnalyzeVideoHandler } from '@src/interface/ipc/analyzeVideoHandler.js';
 
 describe('analyzeVideoHandler', () => {
   it('returns ranked qualities from the wired use case', async () => {

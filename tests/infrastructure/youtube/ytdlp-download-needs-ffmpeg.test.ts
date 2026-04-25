@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ytdlpDownloadNeedsFfmpeg } from '../../../../src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg.js';
+import { ytdlpDownloadNeedsFfmpeg } from '@src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg.js';
 
 describe('ytdlpDownloadNeedsFfmpeg', () => {
   it('requires ffmpeg when selected format has no audio', () => {

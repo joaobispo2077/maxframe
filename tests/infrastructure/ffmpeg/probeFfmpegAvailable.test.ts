@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   ffmpegMissingMessage,
   probeFfmpegAvailable,
-} from '../../../../src/infrastructure/ffmpeg/probeFfmpegAvailable.js';
+} from '@src/infrastructure/ffmpeg/probeFfmpegAvailable.js';
 
 function findExecCallback(
   args: unknown[],
@@ -63,7 +63,9 @@ describe('probeFfmpegAvailable', () => {
 
   it('returns false when error code is ENOENT', async () => {
     const exec = vi.fn((...args: unknown[]) => {
-      findExecCallback(args)?.(Object.assign(new Error('not found'), { code: 'ENOENT' }));
+      findExecCallback(args)?.(
+        Object.assign(new Error('not found'), { code: 'ENOENT' }),
+      );
       return {} as ReturnType<typeof execFile>;
     }) as unknown as typeof execFile;
 

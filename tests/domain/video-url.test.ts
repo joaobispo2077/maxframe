@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createVideoUrl } from '../../../../src/domain/video/VideoUrl.js';
+import { createVideoUrl } from '@src/domain/video/VideoUrl.js';
 
 describe('VideoUrl', () => {
   it('accepts a youtube url and returns parsed url', () => {

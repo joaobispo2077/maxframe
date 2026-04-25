@@ -9,8 +9,8 @@ import {
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import App from '../../src/App';
-import { maxframeSystem } from '../../src/theme/maxframeTheme';
+import App from '@ui/App';
+import { maxframeSystem } from '@ui/theme/maxframeTheme';
 
 function render(ui: ReactElement) {
   return rtlRender(
