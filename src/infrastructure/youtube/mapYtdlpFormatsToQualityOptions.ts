@@ -32,7 +32,10 @@ const RESOLUTION_HEIGHT_BUCKETS: { minHeight: number; label: string }[] = [
   { minHeight: 240, label: '240p' },
 ];
 
-function resolutionLabelFromHeight(height: number, formatNote?: string): string {
+function resolutionLabelFromHeight(
+  height: number,
+  formatNote?: string,
+): string {
   const note = formatNote?.trim();
   if (note && /^\d+p(\d+)?$/i.test(note)) {
     return note;
@@ -106,7 +109,9 @@ function mapOneFormat(entry: unknown): QualityOption | undefined {
  * Maps yt-dlp `-J` / `--dump-single-json` payload into {@link QualityOption} rows
  * (video-capable formats only).
  */
-export function mapYtdlpFormatsToQualityOptions(payload: unknown): QualityOption[] {
+export function mapYtdlpFormatsToQualityOptions(
+  payload: unknown,
+): QualityOption[] {
   if (!isRecord(payload)) {
     return [];
   }

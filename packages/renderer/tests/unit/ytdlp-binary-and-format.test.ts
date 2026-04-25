@@ -17,7 +17,8 @@ describe('resolveYtdlpExecutable', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     delete process.env.YT_DLP_PATH;
-    delete (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+    delete (process as NodeJS.Process & { resourcesPath?: string })
+      .resourcesPath;
   });
 
   it('prefers YT_DLP_PATH when set', () => {

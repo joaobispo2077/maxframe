@@ -57,7 +57,9 @@ function attachLineStream(
 /**
  * Runs yt-dlp with streaming stderr/stdout so callers can show progress and support cancel.
  */
-export async function runYtdlpDownload(params: YtdlpDownloadParams): Promise<void> {
+export async function runYtdlpDownload(
+  params: YtdlpDownloadParams,
+): Promise<void> {
   const args: string[] = [
     '--no-warnings',
     '--no-playlist',

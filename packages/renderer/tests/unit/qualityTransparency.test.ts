@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
-
 import type { QualityOption } from '../../../../src/domain/quality/QualityOption.js';
+
+import { describe, expect, it } from 'vitest';
 
 import {
   describeQualityAgainstBest,

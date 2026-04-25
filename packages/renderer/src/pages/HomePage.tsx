@@ -265,7 +265,10 @@ function HomePage() {
                         justifyContent="flex-start"
                         color="fg"
                         borderColor="whiteAlpha.400"
-                        _hover={{ borderColor: 'cyan.400', bg: 'whiteAlpha.100' }}
+                        _hover={{
+                          borderColor: 'cyan.400',
+                          bg: 'whiteAlpha.100',
+                        }}
                       >
                         What this list shows
                       </Button>
@@ -379,7 +382,9 @@ function HomePage() {
                             p={3}
                             borderRadius="md"
                             borderWidth="1px"
-                            borderColor={isBest ? 'green.500' : 'whiteAlpha.300'}
+                            borderColor={
+                              isBest ? 'green.500' : 'whiteAlpha.300'
+                            }
                             bg={
                               isBest
                                 ? 'rgba(56, 161, 105, 0.16)'

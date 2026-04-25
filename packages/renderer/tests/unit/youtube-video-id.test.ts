@@ -65,9 +65,7 @@ describe('parseYoutubeVideoId', () => {
   it('returns undefined for id longer than 11 characters', () => {
     expect(
       parseYoutubeVideoId(
-        new URL(
-          'https://www.youtube.com/watch?v=dQw4w9WgXcQextra',
-        ),
+        new URL('https://www.youtube.com/watch?v=dQw4w9WgXcQextra'),
       ),
     ).toBeUndefined();
   });

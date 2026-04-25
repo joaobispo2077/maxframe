@@ -14,4 +14,3 @@ export type QualityOption = {
 export function isDownloadableQuality(option: QualityOption): boolean {
   return option.hasVideo;
 }
-

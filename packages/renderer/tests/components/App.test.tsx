@@ -1,3 +1,5 @@
+import { type ReactElement } from 'react';
+
 import { ChakraProvider } from '@chakra-ui/react';
 import {
   fireEvent,
@@ -5,7 +7,6 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { type ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../../src/App';
@@ -79,10 +80,10 @@ describe('App', () => {
       );
     });
 
+    expect(screen.getByText('Video ID: dQw4w9WgXcQ')).toBeInTheDocument();
     expect(
-      screen.getByText('Video ID: dQw4w9WgXcQ'),
+      screen.getByText('Best raw quality: 1080p60 @ 60fps (mp4)'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Best raw quality: 1080p60 @ 60fps (mp4)')).toBeInTheDocument();
   });
 
   it('shows a message when video id cannot be parsed', async () => {
@@ -180,7 +181,9 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('No downloadable video quality available for this URL.'),
+        screen.getByText(
+          'No downloadable video quality available for this URL.',
+        ),
       ).toBeInTheDocument();
     });
   });

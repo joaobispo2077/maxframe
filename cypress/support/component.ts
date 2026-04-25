@@ -1,6 +1,7 @@
+import { createElement, type ReactNode } from 'react';
+
 import { ChakraProvider } from '@chakra-ui/react';
 import { mount } from 'cypress/react';
-import { createElement, type ReactNode } from 'react';
 
 import { maxframeSystem } from '../../packages/renderer/src/theme/maxframeTheme';
 import '../../packages/renderer/src/index.css';

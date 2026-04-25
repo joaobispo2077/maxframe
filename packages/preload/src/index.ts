@@ -1,4 +1,5 @@
 import type { IpcRendererEvent } from 'electron';
+
 import { ipcRenderer } from 'electron';
 
 export type InitialAppState = {

@@ -15,7 +15,10 @@ const maxframeSemColors = defineSemanticTokens.colors({
       value: { _light: '{colors.black}', _dark: '#f1f7fd' },
     },
     muted: {
-      value: { _light: '{colors.gray.600}', _dark: 'rgba(200, 220, 240, 0.92)' },
+      value: {
+        _light: '{colors.gray.600}',
+        _dark: 'rgba(200, 220, 240, 0.92)',
+      },
     },
   },
   border: {

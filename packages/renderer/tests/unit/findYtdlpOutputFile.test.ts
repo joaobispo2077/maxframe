@@ -21,7 +21,10 @@ describe('findYtdlpOutputFile', () => {
   });
 
   function tempDir(): string {
-    const dir = join(tmpdir(), `mf-ytdlp-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    const dir = join(
+      tmpdir(),
+      `mf-ytdlp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    );
     mkdirSync(dir, { recursive: true });
     dirs.push(dir);
     return dir;

@@ -2,6 +2,7 @@ import type { AppModule } from '../AppModule.js';
 import type { ModuleContext } from '../ModuleContext.js';
 
 import { ipcMain } from 'electron';
+
 import { analyzeVideoHandler } from '../../../../src/interface/ipc/analyzeVideoHandler.js';
 import {
   type DownloadVideoRequest,

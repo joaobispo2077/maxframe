@@ -25,9 +25,7 @@ export function useDownloadProgressLog(): {
         line.length > MAX_LINE_LENGTH
           ? `${line.slice(0, MAX_LINE_LENGTH - 3)}…`
           : line;
-      setLines((prev) =>
-        [...prev, trimmed].slice(-TRAILING_LINE_COUNT),
-      );
+      setLines((prev) => [...prev, trimmed].slice(-TRAILING_LINE_COUNT));
     });
   }, []);
 

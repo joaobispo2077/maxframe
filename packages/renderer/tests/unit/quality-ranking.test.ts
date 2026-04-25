@@ -1,7 +1,11 @@
+import type { QualityOption } from '../../../../src/domain/quality/QualityOption.js';
+
 import { describe, expect, it } from 'vitest';
 
-import { rankQualityOptions, selectBestQuality } from '../../../../src/domain/quality/QualityRankingPolicy.js';
-import type { QualityOption } from '../../../../src/domain/quality/QualityOption.js';
+import {
+  rankQualityOptions,
+  selectBestQuality,
+} from '../../../../src/domain/quality/QualityRankingPolicy.js';
 
 describe('QualityRankingPolicy', () => {
   it('prioritizes higher vertical resolution first', () => {
@@ -142,4 +146,3 @@ describe('QualityRankingPolicy', () => {
     expect(selectBestQuality(options)?.formatId).toBe('b');
   });
 });
-
