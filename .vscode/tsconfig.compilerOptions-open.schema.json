@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TypeScript / JS config (permissive compilerOptions)",
+  "description": "Uses additionalProperties for compilerOptions so the editor is not out of date vs SchemaStore when TypeScript adds new options before schemastore updates.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "compilerOptions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

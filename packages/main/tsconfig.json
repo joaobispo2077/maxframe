@@ -1,4 +1,5 @@
 {
+  "$schema": "../../.vscode/tsconfig.compilerOptions-open.schema.json",
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "module": "NodeNext",
