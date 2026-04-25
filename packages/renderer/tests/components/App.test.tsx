@@ -39,6 +39,18 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
+  it('opens settings and returns to home', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to home' }));
+    expect(
+      screen.getByText('Paste your URL below and check the Quality available'),
+    ).toBeInTheDocument();
+  });
+
   it('analyzes URL and shows best quality details', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',

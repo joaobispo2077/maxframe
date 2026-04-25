@@ -19,6 +19,7 @@ import {
 
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
+import { SettingsPage } from './pages/SettingsPage.js';
 import { useDownloadProgressLog } from './hooks/useDownloadProgressLog.js';
 import {
   describeQualityAgainstBest,
@@ -32,6 +33,7 @@ type AnalyzeResult = Awaited<
 >;
 
 function App() {
+  const [activeView, setActiveView] = useState<'home' | 'settings'>('home');
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [downloadFormatId, setDownloadFormatId] = useState<string>();
@@ -105,6 +107,10 @@ function App() {
 
   const downloadBusy = Boolean(downloadFormatId);
 
+  if (activeView === 'settings') {
+    return <SettingsPage onBack={() => setActiveView('home')} />;
+  }
+
   return (
     <Box minH="100vh" py={{ base: 6, md: 10 }} px={4}>
       <Container maxW="720px">
@@ -131,6 +137,17 @@ function App() {
                 <Text fontSize="lg" color="fg.muted">
                   Paste your URL below and check the Quality available
                 </Text>
+                <HStack justify="flex-end" w="100%">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    colorPalette="cyan"
+                    onClick={() => setActiveView('settings')}
+                  >
+                    Settings
+                  </Button>
+                </HStack>
               </VStack>
 
               <Stack gap={4}>
