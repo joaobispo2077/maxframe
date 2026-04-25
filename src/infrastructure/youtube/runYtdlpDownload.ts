@@ -1,7 +1,4 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
-const execFileAsync = promisify(execFile);
+import { spawn } from 'node:child_process';
 
 export type YtdlpDownloadParams = {
   executable: string;
@@ -11,20 +8,13 @@ export type YtdlpDownloadParams = {
   /** Output path template, e.g. `C:\\Videos\\name.%(ext)s`. */
   outputTemplate: string;
   mergeOutputFormat?: 'mp4' | 'mkv' | 'webm';
-  /** `0` = no timeout (Node semantics for `execFile`). */
+  /** `0` = no timeout (Node semantics). */
   timeoutMs?: number;
+  /** Called for each non-empty line of stderr/stdout (yt-dlp progress). */
+  onProgressLine?: (line: string) => void;
+  /** When aborted, the child process is terminated and the promise rejects. */
+  signal?: AbortSignal;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function asString(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    return value;
-  }
-  return undefined;
-}
 
 function ytdlpNotFoundMessage(executable: string): string {
   return (
@@ -33,9 +23,41 @@ function ytdlpNotFoundMessage(executable: string): string {
   );
 }
 
-export async function runYtdlpDownload(
-  params: YtdlpDownloadParams,
-): Promise<void> {
+function attachLineStream(
+  stream: NodeJS.ReadableStream,
+  onLine: (line: string) => void,
+  onRaw: (chunk: string) => void,
+): void {
+  stream.setEncoding('utf8');
+  let buffer = '';
+  stream.on('data', (chunk: string) => {
+    onRaw(chunk);
+    buffer += chunk;
+    for (;;) {
+      const nl = buffer.indexOf('\n');
+      if (nl < 0) {
+        break;
+      }
+      const line = buffer.slice(0, nl).replace(/\r$/, '').trim();
+      buffer = buffer.slice(nl + 1);
+      if (line.length > 0) {
+        onLine(line);
+      }
+    }
+  });
+  stream.on('end', () => {
+    const tail = buffer.replace(/\r$/, '').trim();
+    buffer = '';
+    if (tail.length > 0) {
+      onLine(tail);
+    }
+  });
+}
+
+/**
+ * Runs yt-dlp with streaming stderr/stdout so callers can show progress and support cancel.
+ */
+export async function runYtdlpDownload(params: YtdlpDownloadParams): Promise<void> {
   const args: string[] = [
     '--no-warnings',
     '--no-playlist',
@@ -49,24 +71,80 @@ export async function runYtdlpDownload(
   }
   args.push(params.url);
 
-  try {
-    await execFileAsync(params.executable, args, {
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: params.timeoutMs ?? 0,
+  const logTail: string[] = [];
+  const pushTail = (s: string) => {
+    logTail.push(s);
+    if (logTail.length > 80) {
+      logTail.splice(0, logTail.length - 80);
+    }
+  };
+
+  const emit = (line: string) => {
+    params.onProgressLine?.(line);
+  };
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(params.executable, args, {
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-  } catch (error: unknown) {
-    const code = isRecord(error) ? error.code : undefined;
-    if (code === 'ENOENT') {
-      throw new Error(ytdlpNotFoundMessage(params.executable));
+
+    const onAbort = () => {
+      child.kill();
+    };
+    const signal = params.signal;
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+      } else {
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
     }
-    const stderr = isRecord(error) ? asString(error.stderr) : undefined;
-    let message = 'yt-dlp download failed';
-    if (typeof stderr === 'string' && stderr.trim()) {
-      message = stderr.trim().slice(0, 800);
-    } else if (error instanceof Error) {
-      message = error.message;
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (params.timeoutMs && params.timeoutMs > 0) {
+      timeoutId = setTimeout(() => child.kill(), params.timeoutMs);
     }
-    throw new Error(message);
-  }
+
+    const cleanup = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      signal?.removeEventListener('abort', onAbort);
+    };
+
+    if (child.stdout) {
+      attachLineStream(child.stdout, emit, pushTail);
+    }
+    if (child.stderr) {
+      attachLineStream(child.stderr, emit, pushTail);
+    }
+
+    child.on('error', (error: NodeJS.ErrnoException) => {
+      cleanup();
+      if (error.code === 'ENOENT') {
+        reject(new Error(ytdlpNotFoundMessage(params.executable)));
+        return;
+      }
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      cleanup();
+      if (signal?.aborted) {
+        reject(new Error('Download canceled.'));
+        return;
+      }
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      const joined = logTail.join('').trim();
+      const message =
+        joined.length > 0
+          ? joined.slice(-800)
+          : `yt-dlp download failed (exit code ${code ?? 'unknown'})`;
+      reject(new Error(message));
+    });
+  });
 }
