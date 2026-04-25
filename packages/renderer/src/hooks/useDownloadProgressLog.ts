@@ -17,7 +17,7 @@ export function useDownloadProgressLog(): {
 
   useEffect(() => {
     const api = window.maxframeApi;
-    if (typeof api.subscribeDownloadProgress !== 'function') {
+    if (!api || typeof api.subscribeDownloadProgress !== 'function') {
       return undefined;
     }
     return api.subscribeDownloadProgress(({ line }) => {
