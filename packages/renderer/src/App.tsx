@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
 import {
@@ -18,12 +18,13 @@ import {
   VStack,
 } from '@chakra-ui/react';
 
+import { useDownloadProgressLog } from './hooks/useDownloadProgressLog.js';
 import {
   describeQualityAgainstBest,
   formatAudioBitrateKbps,
   formatVideoBitrateKbps,
   streamKindLabel,
-} from './qualityTransparency.js';
+} from './lib/qualityTransparency.js';
 
 type AnalyzeResult = Awaited<
   ReturnType<(typeof window)['maxframeApi']['analyzeVideoUrl']>
@@ -37,20 +38,8 @@ function App() {
   const [downloadNote, setDownloadNote] = useState<string>();
   const [result, setResult] = useState<AnalyzeResult>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
-  const [downloadProgressLines, setDownloadProgressLines] = useState<string[]>(
-    [],
-  );
-
-  useEffect(() => {
-    const api = window.maxframeApi;
-    if (typeof api.subscribeDownloadProgress !== 'function') {
-      return undefined;
-    }
-    return api.subscribeDownloadProgress(({ line }) => {
-      const trimmed = line.length > 140 ? `${line.slice(0, 137)}…` : line;
-      setDownloadProgressLines((prev) => [...prev, trimmed].slice(-8));
-    });
-  }, []);
+  const { lines: downloadProgressLines, clear: clearDownloadProgressLog } =
+    useDownloadProgressLog();
 
   async function analyzeUrl(): Promise<void> {
     setLoading(true);
@@ -84,7 +73,7 @@ function App() {
       return;
     }
     setDownloadFormatId(formatId);
-    setDownloadProgressLines([]);
+    clearDownloadProgressLog();
     setError(undefined);
     setDownloadNote(undefined);
     try {
@@ -106,7 +95,7 @@ function App() {
       }
     } finally {
       setDownloadFormatId(undefined);
-      setDownloadProgressLines([]);
+      clearDownloadProgressLog();
     }
   }
 

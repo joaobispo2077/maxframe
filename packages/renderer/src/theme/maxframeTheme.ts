@@ -1,7 +1,7 @@
 import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react';
 
 /**
- * Dark “neon on graphite” shell (Chakra tokens + global chrome only).
+ * Dark "neon on graphite" shell (Chakra tokens + global chrome only).
  * Decision: Chakra-only (no Tailwind) for a thinner stack — see specs/active/video-pipeline/plan.md.
  */
 export const maxframeSystem = createSystem(

@@ -7,7 +7,7 @@ import {
   formatAudioBitrateKbps,
   formatVideoBitrateKbps,
   streamKindLabel,
-} from '../../src/qualityTransparency.js';
+} from '../../src/lib/qualityTransparency.js';
 
 const base: QualityOption = {
   formatId: '137',
