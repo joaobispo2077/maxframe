@@ -1,0 +1,11 @@
+[
+  {
+    "name": "built-js-total",
+    "path": [
+      "packages/renderer/dist/assets/*.js",
+      "packages/main/dist/index.js",
+      "packages/preload/dist/**/*.mjs"
+    ],
+    "limit": "500 kB"
+  }
+]

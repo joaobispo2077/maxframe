@@ -1,6 +1,6 @@
 {
   "name": "maxframe",
-  "description": "Maxframe desktop app (Electron + React + TypeScript)",
+  "description": "Maxframe is a lightweight Electron application that lets you download YouTube videos in your preferred resolution and frame rate, with a focus on performance, quality, and simplicity.",
   "version": "3.1.0",
   "private": true,
   "type": "module",
@@ -33,7 +33,8 @@
     "integrate-renderer": "npm start --workspace @maxframe/integrate-renderer",
     "init": "npm run create-renderer && npm run integrate-renderer && npm install",
     "release": "semantic-release",
-    "release:local": "semantic-release --no-ci"
+    "release:local": "semantic-release --no-ci",
+    "size": "size-limit"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.35.0",
@@ -54,6 +55,7 @@
     "@semantic-release/github": "^12.0.6",
     "@semantic-release/npm": "^13.1.5",
     "@semantic-release/release-notes-generator": "^14.1.0",
+    "@size-limit/file": "^12.1.0",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@testing-library/dom": "^10.4.1",
@@ -79,6 +81,7 @@
     "jsdom": "^29.0.2",
     "prettier": "^3.6.2",
     "semantic-release": "^25.0.3",
+    "size-limit": "^12.1.0",
     "typescript": "6.0.2",
     "typescript-eslint": "^8.59.0",
     "vitest": "^4.1.5"
