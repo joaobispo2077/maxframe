@@ -17,7 +17,21 @@ Write-Host "Running installer: $($installer.FullName)"
 Write-Host "Install prefix: $dest"
 
 $instArgs = @('/S', ('/D=' + $dest))
-$exit = (Start-Process -FilePath $installer.FullName -ArgumentList $instArgs -Wait -PassThru).ExitCode
+function Invoke-SilentInstall {
+  param(
+    [string]$InstallerPath,
+    [string[]]$Arguments
+  )
+  return (Start-Process -FilePath $InstallerPath -ArgumentList $Arguments -Wait -PassThru).ExitCode
+}
+
+$exit = Invoke-SilentInstall -InstallerPath $installer.FullName -Arguments $instArgs
+if ($exit -eq -1073741819) {
+  # Retry once for transient NSIS access violation crashes observed on ephemeral CI runners.
+  Write-Host "Installer crashed with access violation ($exit). Retrying once..."
+  Start-Sleep -Seconds 2
+  $exit = Invoke-SilentInstall -InstallerPath $installer.FullName -Arguments $instArgs
+}
 if ($exit -ne 0) { throw "NSIS installer exited with code $exit" }
 
 Write-Host "Installer search root: $searchRoot"
