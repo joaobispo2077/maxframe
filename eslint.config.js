@@ -15,6 +15,7 @@ export default defineConfig([
       "**/node_modules/**",
       "**/.sdd/**",
       "**/.cursor/**",
+      "**/.stryker-tmp/**",
       "coverage/**",
       "cypress/screenshots/**",
       "cypress/videos/**",
