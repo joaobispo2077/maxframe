@@ -1,3 +1,4 @@
+import type { IpcRendererEvent } from 'electron';
 import { ipcRenderer } from 'electron';
 
 export type InitialAppState = {
@@ -50,8 +51,29 @@ export async function analyzeVideoUrl(
   return ipcRenderer.invoke('app:analyze-video-url', url);
 }
 
+const CHANNEL_DOWNLOAD_PROGRESS = 'app:download-video-progress';
+const CHANNEL_DOWNLOAD_CANCEL = 'app:download-video-cancel';
+
 export async function downloadVideo(
   request: DownloadVideoRequest,
 ): Promise<DownloadVideoResult> {
   return ipcRenderer.invoke('app:download-video', request);
+}
+
+/** Subscribe to yt-dlp progress lines during an active `downloadVideo` call. */
+export function subscribeDownloadProgress(
+  listener: (payload: { line: string }) => void,
+): () => void {
+  const handler = (_event: IpcRendererEvent, payload: { line: string }) => {
+    listener(payload);
+  };
+  ipcRenderer.on(CHANNEL_DOWNLOAD_PROGRESS, handler);
+  return () => {
+    ipcRenderer.removeListener(CHANNEL_DOWNLOAD_PROGRESS, handler);
+  };
+}
+
+/** Request cancellation of the in-flight download (main process aborts yt-dlp). */
+export async function cancelDownload(): Promise<{ canceled: boolean }> {
+  return ipcRenderer.invoke(CHANNEL_DOWNLOAD_CANCEL);
 }

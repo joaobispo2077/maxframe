@@ -6,12 +6,17 @@ import { analyzeVideoHandler } from '../../../../src/interface/ipc/analyzeVideoH
 import {
   type DownloadVideoRequest,
   downloadVideoHandler,
+  type DownloadVideoSink,
 } from '../downloadVideoHandler.js';
 
 const CHANNEL_GET_INITIAL_STATE = 'app:get-initial-state';
 const CHANNEL_PING = 'app:ping';
 const CHANNEL_ANALYZE_VIDEO_URL = 'app:analyze-video-url';
 const CHANNEL_DOWNLOAD_VIDEO = 'app:download-video';
+const CHANNEL_DOWNLOAD_VIDEO_PROGRESS = 'app:download-video-progress';
+const CHANNEL_DOWNLOAD_VIDEO_CANCEL = 'app:download-video-cancel';
+
+let activeDownloadAbort: AbortController | undefined;
 
 class IpcBridge implements AppModule {
   enable(_context: ModuleContext): void {
@@ -24,10 +29,38 @@ class IpcBridge implements AppModule {
     ipcMain.handle(CHANNEL_ANALYZE_VIDEO_URL, (_event, url: string) =>
       analyzeVideoHandler(url),
     );
+
     ipcMain.handle(
       CHANNEL_DOWNLOAD_VIDEO,
-      (_event, payload: DownloadVideoRequest) => downloadVideoHandler(payload),
+      async (event, payload: DownloadVideoRequest) => {
+        if (activeDownloadAbort) {
+          throw new Error('A download is already in progress.');
+        }
+        const controller = new AbortController();
+        activeDownloadAbort = controller;
+        const sink: DownloadVideoSink = {
+          signal: controller.signal,
+          onProgressLine: (line) => {
+            if (!event.sender.isDestroyed()) {
+              event.sender.send(CHANNEL_DOWNLOAD_VIDEO_PROGRESS, { line });
+            }
+          },
+        };
+        try {
+          return await downloadVideoHandler(payload, sink);
+        } finally {
+          activeDownloadAbort = undefined;
+        }
+      },
     );
+
+    ipcMain.handle(CHANNEL_DOWNLOAD_VIDEO_CANCEL, () => {
+      if (!activeDownloadAbort) {
+        return { canceled: false };
+      }
+      activeDownloadAbort.abort();
+      return { canceled: true };
+    });
   }
 }
 
