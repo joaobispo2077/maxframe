@@ -11,6 +11,8 @@ describe('App analyze flow', () => {
       downloadVideo: async () => ({
         outputPath: '/tmp/mock.mp4',
       }),
+      subscribeDownloadProgress: () => () => {},
+      cancelDownload: async () => ({ canceled: false }),
       analyzeVideoUrl: async () => ({
         url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         videoId: 'dQw4w9WgXcQ',
@@ -59,6 +61,28 @@ describe('App analyze flow', () => {
     cy.contains('button', 'Analyze quality').click();
     cy.contains('Video ID: dQw4w9WgXcQ').should('be.visible');
     cy.contains('button', 'Download').click();
+    cy.contains('Saved to /tmp/mock.mp4').should('be.visible');
+  });
+
+  it('shows cancel while a download is pending', () => {
+    let resolveDownload!: (value: { outputPath: string }) => void;
+    const pending = new Promise<{ outputPath: string }>((resolve) => {
+      resolveDownload = resolve;
+    });
+    window.maxframeApi.downloadVideo = () => pending;
+
+    cy.mount(<App />);
+    cy.get('#youtube-url').type(
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+    cy.contains('button', 'Analyze quality').click();
+    cy.contains('Video ID: dQw4w9WgXcQ').should('be.visible');
+    cy.contains('button', 'Download').click();
+    cy.contains('Download in progress').should('be.visible');
+    cy.get('[data-testid="download-cancel-btn"]').should('be.visible');
+    cy.then(() => {
+      resolveDownload({ outputPath: '/tmp/mock.mp4' });
+    });
     cy.contains('Saved to /tmp/mock.mp4').should('be.visible');
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
 import {
@@ -37,6 +37,20 @@ function App() {
   const [downloadNote, setDownloadNote] = useState<string>();
   const [result, setResult] = useState<AnalyzeResult>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
+  const [downloadProgressLines, setDownloadProgressLines] = useState<string[]>(
+    [],
+  );
+
+  useEffect(() => {
+    const api = window.maxframeApi;
+    if (typeof api.subscribeDownloadProgress !== 'function') {
+      return undefined;
+    }
+    return api.subscribeDownloadProgress(({ line }) => {
+      const trimmed = line.length > 140 ? `${line.slice(0, 137)}…` : line;
+      setDownloadProgressLines((prev) => [...prev, trimmed].slice(-8));
+    });
+  }, []);
 
   async function analyzeUrl(): Promise<void> {
     setLoading(true);
@@ -57,11 +71,20 @@ function App() {
     }
   }
 
+  async function cancelActiveDownload(): Promise<void> {
+    try {
+      await window.maxframeApi.cancelDownload();
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function downloadQuality(formatId: string, hasAudio: boolean): Promise<void> {
     if (!result) {
       return;
     }
     setDownloadFormatId(formatId);
+    setDownloadProgressLines([]);
     setError(undefined);
     setDownloadNote(undefined);
     try {
@@ -73,11 +96,17 @@ function App() {
       });
       setDownloadNote(`Saved to ${outputPath}`);
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : 'Unknown error',
-      );
+      const msg =
+        caughtError instanceof Error ? caughtError.message : 'Unknown error';
+      if (msg === 'Download canceled.') {
+        setError(undefined);
+        setDownloadNote(undefined);
+      } else {
+        setError(msg);
+      }
     } finally {
       setDownloadFormatId(undefined);
+      setDownloadProgressLines([]);
     }
   }
 
@@ -170,6 +199,50 @@ function App() {
                     Dismiss
                   </Button>
                 </HStack>
+              ) : null}
+
+              {downloadBusy ? (
+                <Box
+                  p={3}
+                  borderRadius="md"
+                  bg="blackAlpha.500"
+                  borderWidth="1px"
+                  borderColor="whiteAlpha.200"
+                >
+                  <HStack justify="space-between" gap={3} mb={2} align="center">
+                    <Text fontSize="sm" fontWeight="medium">
+                      Download in progress…
+                    </Text>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      colorPalette="red"
+                      data-testid="download-cancel-btn"
+                      onClick={() => void cancelActiveDownload()}
+                    >
+                      Cancel
+                    </Button>
+                  </HStack>
+                  {downloadProgressLines.length > 0 ? (
+                    <Box
+                      as="pre"
+                      fontSize="xs"
+                      lineHeight="short"
+                      maxH="140px"
+                      overflowY="auto"
+                      whiteSpace="pre-wrap"
+                      color="fg.muted"
+                      aria-live="polite"
+                    >
+                      {downloadProgressLines.join('\n')}
+                    </Box>
+                  ) : (
+                    <Text fontSize="xs" color="fg.muted">
+                      Waiting for yt-dlp output…
+                    </Text>
+                  )}
+                </Box>
               ) : null}
 
               {result ? (

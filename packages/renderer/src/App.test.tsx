@@ -25,6 +25,8 @@ describe('App', () => {
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
       downloadVideo: vi.fn(),
+      subscribeDownloadProgress: vi.fn(() => () => {}),
+      cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
     };
   });
 
