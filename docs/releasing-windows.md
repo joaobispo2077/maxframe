@@ -54,6 +54,13 @@ Releases are **unsigned** in phase 1. Users should expect to **allow** the app t
 
 `semantic-release` is configured for the **`release`** branch only. See [release.config.mjs](../release.config.mjs) and the **Release** section in the root [README.md](../README.md) for **`GH_TOKEN`**.
 
+## On-demand installer smoke (manual)
+
+- Use `.github/workflows/installer-smoke.yml` when you want to validate installer generation and smoke behavior from any branch.
+- This workflow is **manual-only** (`workflow_dispatch`) and does not publish releases.
+- It follows the same artifact handoff pattern as release: build installer artifact first, then run smoke against the downloaded artifact.
+- The smoke script resolves `Maxframe.exe` recursively under the install prefix to avoid brittle assumptions about NSIS install layout.
+
 ## Version alignment
 
 The build uses the `version` field in `package.json` at compile time, while `semantic-release` may bump the version on publish. In practice, merge meaningful releasable commits to `release` in the usual way so the tagged release and the built installer stay aligned. If you need a stricter “next version in the binary before the tag” flow, that is a follow-up (e.g. a dry-run version job).
