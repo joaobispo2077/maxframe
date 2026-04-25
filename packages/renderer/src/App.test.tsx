@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { createElement, type ReactElement } from 'react';
+import { type ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from './App';
@@ -13,7 +13,7 @@ import { maxframeSystem } from './maxframeTheme';
 
 function render(ui: ReactElement) {
   return rtlRender(
-    createElement(ChakraProvider, { value: maxframeSystem }, ui),
+    <ChakraProvider value={maxframeSystem}>{ui}</ChakraProvider>,
   );
 }
 
