@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildYtdlpFormatSelector } from '../../../src/infrastructure/youtube/buildYtdlpFormatSelector.js';
-import { resolveYtdlpExecutable } from '../../../src/infrastructure/youtube/resolveYtdlpExecutable.js';
+import { buildYtdlpFormatSelector } from '../../../../src/infrastructure/youtube/buildYtdlpFormatSelector.js';
+import { resolveYtdlpExecutable } from '../../../../src/infrastructure/youtube/resolveYtdlpExecutable.js';
 
 describe('buildYtdlpFormatSelector', () => {
   it('returns format id only when audio is present', () => {
@@ -17,7 +17,8 @@ describe('resolveYtdlpExecutable', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     delete process.env.YT_DLP_PATH;
-    delete (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+    delete (process as NodeJS.Process & { resourcesPath?: string })
+      .resourcesPath;
   });
 
   it('prefers YT_DLP_PATH when set', () => {

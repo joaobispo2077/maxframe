@@ -81,6 +81,8 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+# CI copies the Windows .exe into this dir before `semantic-release` attaches it to the GitHub Release
+release-assets
 .output
 
 # Gatsby files
@@ -156,6 +158,7 @@ specs/active/**
 # Mutation testing outputs
 .stryker-tmp/
 reports/mutation/
+reports/stryker-incremental.json
 
 # Optional bundled yt-dlp (see buildResources/yt-dlp/README.txt)
 /buildResources/yt-dlp/yt-dlp

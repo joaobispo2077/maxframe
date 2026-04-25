@@ -1,7 +1,8 @@
+import type { VideoMetadataGateway } from '../../../../src/application/ports/VideoMetadataGateway.js';
+
 import { describe, expect, it } from 'vitest';
 
-import { createAnalyzeVideoUrlUseCase } from '../../../src/application/use-cases/AnalyzeVideoUrlUseCase.js';
-import type { VideoMetadataGateway } from '../../../src/application/ports/VideoMetadataGateway.js';
+import { createAnalyzeVideoUrlUseCase } from '../../../../src/application/use-cases/AnalyzeVideoUrlUseCase.js';
 
 describe('AnalyzeVideoUrlUseCase', () => {
   it('returns ranked qualities and best quality', async () => {
@@ -102,4 +103,3 @@ describe('AnalyzeVideoUrlUseCase', () => {
     });
   });
 });
-

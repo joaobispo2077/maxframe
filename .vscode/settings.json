@@ -1,0 +1,19 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "**/tsconfig.json",
+        "**/tsconfig.*.json",
+        "**/jsconfig.json",
+        "**/jsconfig.*.json"
+      ],
+      "url": "./.vscode/tsconfig.compilerOptions-open.schema.json"
+    }
+  ],
+  "files.associations": {
+    "tsconfig*.json": "jsonc",
+    "jsconfig*.json": "jsonc"
+  }
+}

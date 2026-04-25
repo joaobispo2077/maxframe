@@ -39,7 +39,9 @@ export function findYtdlpOutputFile(
     .map((name) => {
       const lower = name.toLowerCase();
       const ext = DIRECT_EXTENSIONS.find((e) => lower.endsWith(e));
-      const score = ext ? DIRECT_EXTENSIONS.indexOf(ext) : DIRECT_EXTENSIONS.length;
+      const score = ext
+        ? DIRECT_EXTENSIONS.indexOf(ext)
+        : DIRECT_EXTENSIONS.length;
       return { name, score };
     })
     .sort((a, b) => a.score - b.score);

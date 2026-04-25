@@ -1,4 +1,5 @@
 import type { VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
+
 import { createAnalyzeVideoUrlUseCase } from '../../application/use-cases/AnalyzeVideoUrlUseCase.js';
 import { createInMemoryVideoMetadataGateway } from '../../infrastructure/youtube/InMemoryVideoMetadataGateway.js';
 import { createYtdlpVideoMetadataGateway } from '../../infrastructure/youtube/YtdlpVideoMetadataGateway.js';

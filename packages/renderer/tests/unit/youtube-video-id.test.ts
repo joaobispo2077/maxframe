@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseYoutubeVideoId } from '../../../src/domain/video/youtubeVideoId.js';
+import { parseYoutubeVideoId } from '../../../../src/domain/video/youtubeVideoId.js';
 
 describe('parseYoutubeVideoId', () => {
   it('parses watch URLs', () => {
@@ -65,9 +65,7 @@ describe('parseYoutubeVideoId', () => {
   it('returns undefined for id longer than 11 characters', () => {
     expect(
       parseYoutubeVideoId(
-        new URL(
-          'https://www.youtube.com/watch?v=dQw4w9WgXcQextra',
-        ),
+        new URL('https://www.youtube.com/watch?v=dQw4w9WgXcQextra'),
       ),
     ).toBeUndefined();
   });

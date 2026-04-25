@@ -1,0 +1,30 @@
+# Full mutation testing without incremental cache (drift mitigation).
+# See README CI section and https://stryker-mutator.io/docs/stryker-js/incremental/
+
+name: Stryker full
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  stryker-full:
+    name: Mutation tests (full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.10'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --force
+
+      - name: Run mutation tests (full)
+        run: npm run test:mutation

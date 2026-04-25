@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mapYtdlpFormatsToQualityOptions } from '../../../src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions.js';
+import { mapYtdlpFormatsToQualityOptions } from '../../../../src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions.js';
 
 describe('mapYtdlpFormatsToQualityOptions', () => {
   it('maps video formats and skips audio-only', () => {

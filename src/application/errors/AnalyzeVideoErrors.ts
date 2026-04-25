@@ -7,4 +7,3 @@ export class AnalyzeVideoUrlError extends Error {
     this.name = 'AnalyzeVideoUrlError';
   }
 }
-

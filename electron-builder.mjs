@@ -1,15 +1,46 @@
-import pkg from './package.json' with {type: 'json'};
+import {readFile} from 'node:fs/promises';
+import {readFileSync} from 'node:fs';
 import mapWorkspaces from '@npmcli/map-workspaces';
-import {join} from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {dirname, join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const pkg = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'package.json'), 'utf8'),
+);
+
+const isGitHubOrCi = process.env.CI === 'true';
+/** On CI (e.g. GHA) we do full PE edits. Locally default off — enables builds without Windows symlink / Developer Mode. Opt-in: `MAXFRAME_WIN_FULL_PE=1`. */
+const useFullWinExecutableEdit = isGitHubOrCi || process.env.MAXFRAME_WIN_FULL_PE === '1';
 
 export default /** @type import('electron-builder').Configuration */
 ({
+  appId: 'com.maxframe.app',
+  productName: 'Maxframe',
   directories: {
     output: 'dist',
     buildResources: 'buildResources',
   },
   generateUpdatesFilesForAllChannels: true,
+  /**
+   * Windows (NSIS) — phase 1 only; portable zip is **not** built (see docs/releasing-windows.md).
+   * Expected `dist/` outputs for `npm run compile:win` (x64), with `artifactName` below:
+   * - `Maxframe-${version}-win-x64.exe` — NSIS installer (user-facing)
+   * - `Maxframe-${version}-win-x64.exe.blockmap` — block map (auto-update)
+   * - `latest.yml` — update metadata (generateUpdatesFilesForAllChannels)
+   * Silent install (NSIS): run the installer with `/S` and put `/D=...` last, e.g. `Maxframe-x.y.z-win-x64.exe /S /D=C:\path\to\prefix`
+   */
+  win: {
+    target: [{ target: 'nsis', arch: ['x64'] }],
+    /**
+     * `false` skips rcedit + asar-integrity (winCodeSign) when not on CI. GHA sets `CI=true` so release builds use the full path.
+     * Local: set `MAXFRAME_WIN_FULL_PE=1` (and usually Windows Developer Mode) to match CI. See docs/releasing-windows.md.
+     */
+    signAndEditExecutable: useFullWinExecutableEdit,
+  },
+  nsis: {
+    oneClick: false,
+    allowToChangeInstallationDirectory: true,
+  },
   linux: {
     target: ['deb'],
   },
@@ -114,7 +145,7 @@ async function getListOfFilesFromEachWorkspace() {
 
   for (const [name, path] of workspaces) {
     const pkgPath = join(path, 'package.json');
-    const {default: workspacePkg} = await import(pathToFileURL(pkgPath), {with: {type: 'json'}});
+    const workspacePkg = JSON.parse(await readFile(pkgPath, 'utf8'));
 
     let patterns = workspacePkg.files || ['dist/**', 'package.json'];
 

@@ -1,11 +1,10 @@
 import { StrictMode } from 'react';
 
 import { ChakraProvider } from '@chakra-ui/react';
-
-import { maxframeSystem } from './maxframeTheme';
 import { createRoot } from 'react-dom/client';
 
 import App from './App.tsx';
+import { maxframeSystem } from './theme/maxframeTheme';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
