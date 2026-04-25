@@ -17,21 +17,23 @@ import {
   VStack,
 } from '@chakra-ui/react';
 
-import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
-
-import { useDownloadProgressLog } from './hooks/useDownloadProgressLog.js';
+import maxframeLogo from '../../../../.github/assets/maxframe-logo.png';
+import { useDownloadProgressLog } from '../hooks/useDownloadProgressLog.js';
 import {
   describeQualityAgainstBest,
   formatAudioBitrateKbps,
   formatVideoBitrateKbps,
   streamKindLabel,
-} from './lib/qualityTransparency.js';
+} from '../lib/qualityTransparency.js';
 
 type AnalyzeResult = Awaited<
   ReturnType<(typeof window)['maxframeApi']['analyzeVideoUrl']>
 >;
 
-function App() {
+/**
+ * Main window: single-page analyze + quality list (container).
+ */
+function HomePage() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [downloadFormatId, setDownloadFormatId] = useState<string>();
@@ -481,4 +483,4 @@ function App() {
   );
 }
 
-export default App;
+export default HomePage;
