@@ -1,7 +1,7 @@
+import type { VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
+
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-
-import type { VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
 
 import { mapYtdlpFormatsToQualityOptions } from './mapYtdlpFormatsToQualityOptions.js';
 import { resolveYtdlpExecutable } from './resolveYtdlpExecutable.js';
@@ -44,15 +44,11 @@ export function createYtdlpVideoMetadataGateway(
     async analyzeVideo(url: string) {
       let stdout: string;
       try {
-        const result = await execFileAsync(
-          executable,
-          [...JSON_ARGS, url],
-          {
-            maxBuffer: 50 * 1024 * 1024,
-            timeout: timeoutMs,
-            windowsHide: true,
-          },
-        );
+        const result = await execFileAsync(executable, [...JSON_ARGS, url], {
+          maxBuffer: 50 * 1024 * 1024,
+          timeout: timeoutMs,
+          windowsHide: true,
+        });
         stdout = result.stdout;
       } catch (error: unknown) {
         const code = isRecord(error) ? error.code : undefined;

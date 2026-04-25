@@ -1,3 +1,11 @@
+import {existsSync, readdirSync} from 'node:fs';
+import {join} from 'node:path';
+
+const releaseAssetsDir = join(process.cwd(), 'release-assets');
+const hasWindowsInstallerInWorkspace =
+  existsSync(releaseAssetsDir) &&
+  readdirSync(releaseAssetsDir).some(f => /-win-x64\.exe$/i.test(f));
+
 /** @type {import('semantic-release').Options} */
 export default {
   branches: ['release'],
@@ -16,7 +24,15 @@ export default {
       },
     ],
     '@semantic-release/changelog',
-    '@semantic-release/github',
+    hasWindowsInstallerInWorkspace
+      ? [
+          '@semantic-release/github',
+          {
+            /** GHA release job downloads the Windows .exe to `release-assets/` before `npm run release`. */
+            assets: [{ path: 'release-assets/*-win-x64.exe' }],
+          },
+        ]
+      : '@semantic-release/github',
     ['@semantic-release/npm', { npmPublish: false }],
     [
       '@semantic-release/git',

@@ -1,9 +1,16 @@
-import { AnalyzeVideoUrlError } from '../errors/AnalyzeVideoErrors.js';
-import { rankQualityOptions, selectBestQuality } from '../../domain/quality/QualityRankingPolicy.js';
 import type { QualityOption } from '../../domain/quality/QualityOption.js';
-import { InvalidVideoUrlError, createVideoUrl } from '../../domain/video/VideoUrl.js';
-import { parseYoutubeVideoId } from '../../domain/video/youtubeVideoId.js';
 import type { VideoMetadataGateway } from '../ports/VideoMetadataGateway.js';
+
+import {
+  rankQualityOptions,
+  selectBestQuality,
+} from '../../domain/quality/QualityRankingPolicy.js';
+import {
+  InvalidVideoUrlError,
+  createVideoUrl,
+} from '../../domain/video/VideoUrl.js';
+import { parseYoutubeVideoId } from '../../domain/video/youtubeVideoId.js';
+import { AnalyzeVideoUrlError } from '../errors/AnalyzeVideoErrors.js';
 
 export type AnalyzeVideoUrlResult = {
   url: string;

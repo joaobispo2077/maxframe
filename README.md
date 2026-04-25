@@ -26,9 +26,10 @@ Two GitHub Actions workflows are configured:
     - `e2e-tests` (Cypress component mode via `cypress-io/github-action@v7`; only for `dev -> release` and `release -> main` PRs)
     - `mutation-tests` (Stryker mutation testing for promotion PRs only)
 - `Release` (`.github/workflows/release.yml`)
-  - Runs on every push to the `release` branch (and manual `workflow_dispatch`), matching the [semantic-release on `release` pattern](https://github.com/joaobispo2077/joaobispo2077.com/blob/main/.github/workflows/release.yml) used in [joaobispo2077.com](https://github.com/joaobispo2077/joaobispo2077.com).
-  - Uses [semantic-release](https://github.com/semantic-release/semantic-release) with `release.config.mjs` (same plugin stack as [`.releaserc.js` there](https://github.com/joaobispo2077/joaobispo2077.com/blob/main/.releaserc.js): changelog, GitHub release, no npm publish, git-committed version bump).
-  - Requires a repository secret **`GH_TOKEN`**: a fine-grained or classic PAT with permission to push to `release`, create releases, and bypass branch protection if your rules block bot pushes (semantic-release commits `CHANGELOG.md`, `package.json`, and `package-lock.json`).
+  - **Windows (phase 1):** the pipeline is **gated** — `build-windows` (NSIS on `windows-latest`) → `smoke-windows` (silent install + launch) → `release` (semantic-release on `ubuntu-latest`). A push to `release` (or `workflow_dispatch`) will **not** publish a GitHub release if the Windows build or smoke job fails. macOS and Linux packaged builds are not part of this workflow yet.
+  - The **Windows** `*-win-x64.exe` from the build is downloaded on the `release` job and attached to the same GitHub Release as the changelog; see [docs/releasing-windows.md](docs/releasing-windows.md) for artifacts, NSIS flags, and **unsigned** binary notes.
+  - Uses [semantic-release](https://github.com/semantic-release/semantic-release) on the **`release`** branch with `release.config.mjs` (changelog, GitHub release, no npm publish, git-committed version bump).
+  - Requires a repository secret **`GH_TOKEN`**: a fine-grained or classic PAT with permission to push to `release`, create releases, and bypass branch protection if your rules block bot pushes (semantic-release commits `CHANGELOG.md`, `package.json`, and `package-lock.json`). The `release` job sets both `GH_TOKEN` and `GITHUB_TOKEN` to this value for GitHub API access.
 
 ## GitFlow Branch Model
 

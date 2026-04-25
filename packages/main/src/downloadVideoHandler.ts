@@ -27,8 +27,15 @@ export type DownloadVideoResult = {
   outputPath: string;
 };
 
+/** Optional hooks for Phase 5 (progress + cancel). */
+export type DownloadVideoSink = {
+  signal?: AbortSignal;
+  onProgressLine?: (line: string) => void;
+};
+
 export async function downloadVideoHandler(
   params: DownloadVideoRequest,
+  sink?: DownloadVideoSink,
 ): Promise<DownloadVideoResult> {
   createVideoUrl(params.url);
 
@@ -70,6 +77,8 @@ export async function downloadVideoHandler(
     outputTemplate,
     mergeOutputFormat: 'mp4',
     timeoutMs: 0,
+    onProgressLine: sink?.onProgressLine,
+    signal: sink?.signal,
   });
 
   const resolved =

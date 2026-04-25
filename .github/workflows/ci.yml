@@ -77,7 +77,9 @@ jobs:
       - name: Run unit tests
         env:
           MAXFRAME_FAKE_VIDEO_METADATA: '1'
-        run: npm run test:unit -- --coverage --coverage.reporter=json-summary --coverage.reporter=cobertura
+        # Coverage flags must live in the workspace script; `npm run test:unit -- --coverage`
+        # is parsed as npm CLI options and never reaches Vitest, so no coverage JSON is written.
+        run: npm run test:unit:coverage -w @maxframe/renderer
 
       - name: Upload unit coverage artifact
         uses: actions/upload-artifact@v4

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   ffmpegMissingMessage,
   probeFfmpegAvailable,
-} from '../../../src/infrastructure/ffmpeg/probeFfmpegAvailable.js';
+} from '../../../../src/infrastructure/ffmpeg/probeFfmpegAvailable.js';
 
 function findExecCallback(
   args: unknown[],
@@ -26,7 +26,9 @@ describe('probeFfmpegAvailable', () => {
       return {} as ReturnType<typeof execFile>;
     }) as unknown as typeof execFile;
 
-    await expect(probeFfmpegAvailable('/mock/ffmpeg', exec)).resolves.toBe(true);
+    await expect(probeFfmpegAvailable('/mock/ffmpeg', exec)).resolves.toBe(
+      true,
+    );
   });
 
   it('returns false when execFile invokes error callback', async () => {
@@ -35,7 +37,9 @@ describe('probeFfmpegAvailable', () => {
       return {} as ReturnType<typeof execFile>;
     }) as unknown as typeof execFile;
 
-    await expect(probeFfmpegAvailable('/mock/ffmpeg', exec)).resolves.toBe(false);
+    await expect(probeFfmpegAvailable('/mock/ffmpeg', exec)).resolves.toBe(
+      false,
+    );
   });
 });
 
