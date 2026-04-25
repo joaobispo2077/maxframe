@@ -20,13 +20,31 @@ $instArgs = @('/S', ('/D=' + $dest))
 $exit = (Start-Process -FilePath $installer.FullName -ArgumentList $instArgs -Wait -PassThru).ExitCode
 if ($exit -ne 0) { throw "NSIS installer exited with code $exit" }
 
-$appExe = Join-Path $dest 'Maxframe.exe'
-if (-not (Test-Path -LiteralPath $appExe)) { throw "Expected $appExe after silent install" }
+Write-Host "Installer search root: $searchRoot"
+Write-Host "Installer path: $($installer.FullName)"
+Write-Host "Install process exit code: $exit"
+
+$resolvedExeCandidates = Get-ChildItem -Path $dest -Recurse -File -Filter 'Maxframe.exe' -ErrorAction SilentlyContinue |
+  Sort-Object FullName
+$appExe = $null
+if ($resolvedExeCandidates) {
+  $appExe = $resolvedExeCandidates[0].FullName
+}
+if (-not $appExe) {
+  $installTree = Get-ChildItem -Path $dest -Recurse -File -ErrorAction SilentlyContinue |
+    Select-Object -First 50 -ExpandProperty FullName
+  $installTreeText = if ($installTree) { $installTree -join [Environment]::NewLine } else { '(no files found under install prefix)' }
+  throw "Could not find Maxframe.exe under install prefix '$dest'. Install tree sample:`n$installTreeText"
+}
+Write-Host "Resolved app executable: $appExe"
 
 $launched = Start-Process -FilePath $appExe -PassThru
-Start-Sleep -Seconds 8
-if ($launched.HasExited) {
-  throw "Maxframe.exe exited before smoke window; exit code: $($launched.ExitCode)"
+$startupDeadline = (Get-Date).AddSeconds(20)
+while ((Get-Date) -lt $startupDeadline) {
+  Start-Sleep -Seconds 2
+  if ($launched.HasExited) {
+    throw "Maxframe.exe exited during startup window; exit code: $($launched.ExitCode)"
+  }
 }
 
 # Prefer stopping the exact PID (Electron can spawn children with other names)
