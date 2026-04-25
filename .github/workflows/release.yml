@@ -48,6 +48,10 @@ jobs:
         env:
           # No code-signing cert: do not search for one. Full PE / asar-integrity still runs (CI=true; see electron-builder.mjs).
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # electron-builder checks GH_TOKEN / GITHUB_TOKEN when preparing publish metadata.
+          # Use built-in github.token here because this job only needs repo-scoped runtime auth.
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: npm run compile:win
 
       - name: Upload Windows installer
@@ -86,6 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      # Keep explicit secret token for semantic-release (can be PAT-backed, independent from github.token runtime scope).
       GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:

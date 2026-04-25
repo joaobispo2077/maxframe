@@ -19,7 +19,7 @@ describe('analyzeVideoHandler default gateway', () => {
   it('uses in-memory metadata gateway when MAXFRAME_FAKE_VIDEO_METADATA is enabled', async () => {
     process.env.MAXFRAME_FAKE_VIDEO_METADATA = '1';
     const { analyzeVideoHandler } = await import(
-      '../../../../src/interface/ipc/analyzeVideoHandler.js'
+      '@src/interface/ipc/analyzeVideoHandler'
     );
 
     const result = await analyzeVideoHandler(
@@ -46,17 +46,14 @@ describe('analyzeVideoHandler default gateway', () => {
       },
     ]);
 
-    vi.doMock(
-      '../../../../src/infrastructure/youtube/YtdlpVideoMetadataGateway.js',
-      () => ({
+    vi.doMock('@src/infrastructure/youtube/YtdlpVideoMetadataGateway', () => ({
       createYtdlpVideoMetadataGateway: () => ({
         analyzeVideo,
       }),
-      }),
-    );
+    }));
 
     const { analyzeVideoHandler } = await import(
-      '../../../../src/interface/ipc/analyzeVideoHandler.js'
+      '@src/interface/ipc/analyzeVideoHandler'
     );
     const result = await analyzeVideoHandler(
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ',

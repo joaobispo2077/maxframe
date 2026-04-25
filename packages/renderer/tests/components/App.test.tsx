@@ -7,10 +7,9 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import App from '@ui/App';
+import { maxframeSystem } from '@ui/theme/maxframeTheme';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import App from '../../src/App';
-import { maxframeSystem } from '../../src/theme/maxframeTheme';
 
 function render(ui: ReactElement) {
   return rtlRender(
@@ -43,7 +42,9 @@ describe('App', () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Settings' }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to home' }));
     expect(

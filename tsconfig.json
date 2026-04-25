@@ -1,0 +1,30 @@
+{
+  "$schema": "./.vscode/tsconfig.compilerOptions-open.schema.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"],
+      "@ui/*": ["packages/renderer/src/*"],
+      "@tests/*": ["tests/*"],
+      "@ui-tests/*": ["packages/renderer/tests/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "packages/renderer/src/**/*.ts",
+    "packages/renderer/src/**/*.tsx",
+    "packages/renderer/tests/**/*.ts",
+    "packages/renderer/tests/**/*.tsx",
+    "types/**/*.d.ts"
+  ]
+}

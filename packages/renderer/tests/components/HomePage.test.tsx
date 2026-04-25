@@ -7,10 +7,9 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import HomePage from '@ui/pages/HomePage';
+import { maxframeSystem } from '@ui/theme/maxframeTheme';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import HomePage from '../../src/pages/HomePage';
-import { maxframeSystem } from '../../src/theme/maxframeTheme';
 
 function render(ui: ReactElement) {
   return rtlRender(

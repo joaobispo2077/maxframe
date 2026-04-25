@@ -19,7 +19,6 @@ import {
 
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
-import { SettingsPage } from './pages/SettingsPage.js';
 import { useDownloadProgressLog } from './hooks/useDownloadProgressLog.js';
 import {
   describeQualityAgainstBest,
@@ -27,6 +26,7 @@ import {
   formatVideoBitrateKbps,
   streamKindLabel,
 } from './lib/qualityTransparency.js';
+import { SettingsPage } from './pages/SettingsPage.js';
 
 type AnalyzeResult = Awaited<
   ReturnType<(typeof window)['maxframeApi']['analyzeVideoUrl']>
