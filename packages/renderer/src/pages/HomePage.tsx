@@ -111,9 +111,9 @@ function HomePage() {
     <Box minH="100vh" py={{ base: 6, md: 10 }} px={4}>
       <Container maxW="720px">
         <Card.Root
-          bg="#0f141c"
+          bg="rgba(15, 20, 28, 0.95)"
           borderWidth="1px"
-          borderColor="rgba(0, 240, 255, 0.22)"
+          borderColor="rgba(0, 240, 255, 0.32)"
           boxShadow="0 0 40px rgba(0, 240, 255, 0.06)"
           borderRadius="xl"
         >
@@ -127,25 +127,28 @@ function HomePage() {
                   mx="auto"
                   objectFit="contain"
                 />
-                <Heading size="xl" letterSpacing="tight">
+                <Heading size="xl" letterSpacing="tight" color="fg">
                   Maxframe
                 </Heading>
-                <Text fontSize="lg" color="fg.muted">
+                <Text fontSize="lg" color="fg.muted" fontWeight="medium">
                   Paste your URL below and check the Quality available
                 </Text>
               </VStack>
 
               <Stack gap={4}>
                 <Field.Root>
-                  <Field.Label htmlFor="youtube-url">YouTube URL</Field.Label>
+                  <Field.Label htmlFor="youtube-url" color="fg">
+                    YouTube URL
+                  </Field.Label>
                   <Input
                     id="youtube-url"
                     type="url"
                     placeholder="https://www.youtube.com/watch?v=..."
                     value={url}
                     onChange={(event) => setUrl(event.target.value)}
-                    bg="blackAlpha.400"
-                    borderColor="panelBorder"
+                    color="fg"
+                    bg="blackAlpha.500"
+                    borderColor="whiteAlpha.300"
                     _focusVisible={{
                       borderColor: 'cyan.400',
                       boxShadow: '0 0 0 1px #00f0ff',
@@ -249,7 +252,7 @@ function HomePage() {
                   borderColor="whiteAlpha.200"
                   pt={6}
                 >
-                  <Heading size="md" textAlign="center" mb={4}>
+                  <Heading size="md" textAlign="center" mb={4} color="fg">
                     Available quality
                   </Heading>
 
@@ -260,8 +263,9 @@ function HomePage() {
                         size="sm"
                         w="100%"
                         justifyContent="flex-start"
-                        borderColor="whiteAlpha.300"
-                        _hover={{ borderColor: 'cyan.400' }}
+                        color="fg"
+                        borderColor="whiteAlpha.400"
+                        _hover={{ borderColor: 'cyan.400', bg: 'whiteAlpha.100' }}
                       >
                         What this list shows
                       </Button>
@@ -273,10 +277,12 @@ function HomePage() {
                         mt={3}
                         p={3}
                         borderRadius="md"
-                        bg="blackAlpha.400"
+                        bg="whiteAlpha.100"
+                        borderWidth="1px"
+                        borderColor="whiteAlpha.200"
                         fontSize="sm"
                         lineHeight="tall"
-                        color="fg.muted"
+                        color="fg"
                       >
                         <Text>
                           Qualities are whatever{' '}
@@ -373,13 +379,11 @@ function HomePage() {
                             p={3}
                             borderRadius="md"
                             borderWidth="1px"
-                            borderColor={
-                              isBest ? 'green.600' : 'whiteAlpha.200'
-                            }
+                            borderColor={isBest ? 'green.500' : 'whiteAlpha.300'}
                             bg={
                               isBest
-                                ? 'rgba(56, 161, 105, 0.12)'
-                                : 'blackAlpha.400'
+                                ? 'rgba(56, 161, 105, 0.16)'
+                                : 'whiteAlpha.50'
                             }
                             outline="none"
                             _focusVisible={{
@@ -417,7 +421,7 @@ function HomePage() {
                             }}
                           >
                             <HStack gap={2} flexWrap="wrap" align="baseline">
-                              <Text fontWeight="bold">
+                              <Text fontWeight="bold" color="fg">
                                 {quality.resolutionLabel} @ {quality.fps}fps (
                                 {quality.container}) — format {quality.formatId}
                               </Text>
