@@ -13,6 +13,7 @@ const config = {
     'packages/renderer/src/**/*.ts',
     'packages/renderer/src/**/*.tsx',
     '!packages/renderer/tests/**',
+    '!tests/**',
     '!packages/renderer/src/main.tsx',
     'src/**/*.ts',
   ],

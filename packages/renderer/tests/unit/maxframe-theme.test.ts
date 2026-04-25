@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest';
-
 import { maxframeSystem } from '@ui/theme/maxframeTheme';
+import { describe, expect, it } from 'vitest';
 
 describe('maxframeTheme', () => {
   it('defines dark global shell chrome', () => {
@@ -32,7 +31,10 @@ describe('maxframeTheme', () => {
       ._config as {
       theme: {
         semanticTokens: {
-          colors: Record<string, Record<string, { value: Record<string, string> }>>;
+          colors: Record<
+            string,
+            Record<string, { value: Record<string, string> }>
+          >;
         };
       };
     };

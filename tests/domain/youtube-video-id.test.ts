@@ -1,6 +1,5 @@
+import { parseYoutubeVideoId } from '@src/domain/video/youtubeVideoId';
 import { describe, expect, it } from 'vitest';
-
-import { parseYoutubeVideoId } from '@src/domain/video/youtubeVideoId.js';
 
 describe('parseYoutubeVideoId', () => {
   it('parses watch URLs', () => {

@@ -29,7 +29,12 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         >
           <Card.Body>
             <VStack gap={6} align="stretch">
-              <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
+              <HStack
+                justify="space-between"
+                align="center"
+                flexWrap="wrap"
+                gap={3}
+              >
                 <Heading size="lg" letterSpacing="tight">
                   Settings
                 </Heading>
@@ -44,8 +49,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 </Button>
               </HStack>
               <Text fontSize="sm" color="fg.muted" lineHeight="tall">
-                Placeholder for upcoming options (e.g. yt-dlp / ffmpeg hints, defaults, and
-                appearance). Use this screen to grow settings without crowding the analyze flow.
+                Placeholder for upcoming options (e.g. yt-dlp / ffmpeg hints,
+                defaults, and appearance). Use this screen to grow settings
+                without crowding the analyze flow.
               </Text>
             </VStack>
           </Card.Body>

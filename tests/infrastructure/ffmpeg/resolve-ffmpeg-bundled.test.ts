@@ -9,8 +9,9 @@ vi.mock('node:fs', () => ({
 
 describe('resolveFfmpegExecutable bundled candidates', () => {
   const originalPlatform = process.platform;
-  const originalResourcesPath = (process as NodeJS.Process & { resourcesPath?: string })
-    .resourcesPath;
+  const originalResourcesPath = (
+    process as NodeJS.Process & { resourcesPath?: string }
+  ).resourcesPath;
 
   beforeEach(() => {
     vi.resetModules();
@@ -43,16 +44,18 @@ describe('resolveFfmpegExecutable bundled candidates', () => {
       candidate.endsWith('\\ffmpeg\\ffmpeg.exe'),
     );
     const { resolveFfmpegExecutable } = await import(
-      '@src/infrastructure/ffmpeg/resolveFfmpegExecutable.js'
+      '@src/infrastructure/ffmpeg/resolveFfmpegExecutable'
     );
 
-    expect(resolveFfmpegExecutable()).toBe('C:\\app\\resources\\ffmpeg\\ffmpeg.exe');
+    expect(resolveFfmpegExecutable()).toBe(
+      'C:\\app\\resources\\ffmpeg\\ffmpeg.exe',
+    );
   });
 
   it('falls through candidates and uses ffmpeg on PATH when none exist', async () => {
     existsSyncMock.mockReturnValue(false);
     const { resolveFfmpegExecutable } = await import(
-      '@src/infrastructure/ffmpeg/resolveFfmpegExecutable.js'
+      '@src/infrastructure/ffmpeg/resolveFfmpegExecutable'
     );
 
     expect(resolveFfmpegExecutable()).toBe('ffmpeg');

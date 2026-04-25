@@ -1,7 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { useDownloadProgressLog } from '@ui/hooks/useDownloadProgressLog';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('useDownloadProgressLog', () => {
   beforeEach(() => {
@@ -24,7 +23,9 @@ describe('useDownloadProgressLog', () => {
     });
 
     const { result, unmount } = renderHook(() => useDownloadProgressLog());
-    expect(window.maxframeApi.subscribeDownloadProgress).toHaveBeenCalledTimes(1);
+    expect(window.maxframeApi.subscribeDownloadProgress).toHaveBeenCalledTimes(
+      1,
+    );
     expect(onProgress).toBeTypeOf('function');
 
     act(() => {

@@ -1,7 +1,6 @@
+import { buildYtdlpFormatSelector } from '@src/infrastructure/youtube/buildYtdlpFormatSelector';
+import { resolveYtdlpExecutable } from '@src/infrastructure/youtube/resolveYtdlpExecutable';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
-import { buildYtdlpFormatSelector } from '@src/infrastructure/youtube/buildYtdlpFormatSelector.js';
-import { resolveYtdlpExecutable } from '@src/infrastructure/youtube/resolveYtdlpExecutable.js';
 
 describe('buildYtdlpFormatSelector', () => {
   it('returns format id only when audio is present', () => {

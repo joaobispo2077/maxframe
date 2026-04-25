@@ -1,11 +1,10 @@
 import { execFile } from 'node:child_process';
 
-import { describe, expect, it, vi } from 'vitest';
-
 import {
   ffmpegMissingMessage,
   probeFfmpegAvailable,
-} from '@src/infrastructure/ffmpeg/probeFfmpegAvailable.js';
+} from '@src/infrastructure/ffmpeg/probeFfmpegAvailable';
+import { describe, expect, it, vi } from 'vitest';
 
 function findExecCallback(
   args: unknown[],

@@ -16,11 +16,11 @@ vi.mock('node:child_process', () => ({
   },
 }));
 
-vi.mock('@src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions.js', () => ({
+vi.mock('@src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions', () => ({
   mapYtdlpFormatsToQualityOptions: mapFormatsMock,
 }));
 
-vi.mock('@src/infrastructure/youtube/resolveYtdlpExecutable.js', () => ({
+vi.mock('@src/infrastructure/youtube/resolveYtdlpExecutable', () => ({
   resolveYtdlpExecutable: resolveExecutableMock,
 }));
 
@@ -59,7 +59,7 @@ describe('runYtdlpDownload', () => {
     spawnMock.mockReturnValue(child);
     const lines: string[] = [];
     const { runYtdlpDownload } = await import(
-      '@src/infrastructure/youtube/runYtdlpDownload.js'
+      '@src/infrastructure/youtube/runYtdlpDownload'
     );
 
     const donePromise = runYtdlpDownload({
@@ -98,7 +98,7 @@ describe('runYtdlpDownload', () => {
     const child = createFakeChild();
     spawnMock.mockReturnValue(child);
     const { runYtdlpDownload } = await import(
-      '@src/infrastructure/youtube/runYtdlpDownload.js'
+      '@src/infrastructure/youtube/runYtdlpDownload'
     );
 
     const donePromise = runYtdlpDownload({
@@ -118,7 +118,7 @@ describe('runYtdlpDownload', () => {
     const child = createFakeChild();
     spawnMock.mockReturnValue(child);
     const { runYtdlpDownload } = await import(
-      '@src/infrastructure/youtube/runYtdlpDownload.js'
+      '@src/infrastructure/youtube/runYtdlpDownload'
     );
 
     const controller = new AbortController();
@@ -142,7 +142,7 @@ describe('runYtdlpDownload', () => {
     const child = createFakeChild();
     spawnMock.mockReturnValue(child);
     const { runYtdlpDownload } = await import(
-      '@src/infrastructure/youtube/runYtdlpDownload.js'
+      '@src/infrastructure/youtube/runYtdlpDownload'
     );
 
     const donePromise = runYtdlpDownload({
@@ -182,7 +182,7 @@ describe('createYtdlpVideoMetadataGateway', () => {
       callback?.(null, { stdout: '{"formats":[]}', stderr: '' });
     });
     const { createYtdlpVideoMetadataGateway } = await import(
-      '@src/infrastructure/youtube/YtdlpVideoMetadataGateway.js'
+      '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
     );
 
     const gateway = createYtdlpVideoMetadataGateway({
@@ -199,16 +199,16 @@ describe('createYtdlpVideoMetadataGateway', () => {
       '--skip-download',
       'https://youtu.be/id123',
     ]);
-    expect((execFileMock.mock.calls[0]?.[2] as Record<string, unknown>).timeout).toBe(
-      1234,
-    );
+    expect(
+      (execFileMock.mock.calls[0]?.[2] as Record<string, unknown>).timeout,
+    ).toBe(1234);
     expect(mapFormatsMock).toHaveBeenCalledWith({ formats: [] });
     expect(result).toHaveLength(1);
   });
 
   it('maps ENOENT and stderr/JSON parse failures to user-facing errors', async () => {
     const { createYtdlpVideoMetadataGateway } = await import(
-      '@src/infrastructure/youtube/YtdlpVideoMetadataGateway.js'
+      '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
     );
     const gateway = createYtdlpVideoMetadataGateway();
 
@@ -238,7 +238,7 @@ describe('createYtdlpVideoMetadataGateway', () => {
 
   it('uses gateway defaults and falls back to Error/default messages', async () => {
     const { createYtdlpVideoMetadataGateway } = await import(
-      '@src/infrastructure/youtube/YtdlpVideoMetadataGateway.js'
+      '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
     );
     const gateway = createYtdlpVideoMetadataGateway();
 
