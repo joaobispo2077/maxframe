@@ -41,6 +41,10 @@ type MaxframeApi = {
   downloadVideo: (
     request: DownloadVideoRequest,
   ) => Promise<DownloadVideoResult>;
+  subscribeDownloadProgress: (
+    listener: (payload: { line: string }) => void,
+  ) => () => void;
+  cancelDownload: () => Promise<{ canceled: boolean }>;
 };
 
 declare global {
@@ -50,4 +54,3 @@ declare global {
 }
 
 export {};
-

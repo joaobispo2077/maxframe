@@ -27,4 +27,3 @@ export function createVideoUrl(value: string): URL {
 
   return parsedUrl;
 }
-

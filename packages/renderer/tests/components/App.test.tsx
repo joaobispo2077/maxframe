@@ -1,3 +1,5 @@
+import { type ReactElement } from 'react';
+
 import { ChakraProvider } from '@chakra-ui/react';
 import {
   fireEvent,
@@ -5,15 +7,13 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { createElement, type ReactElement } from 'react';
+import App from '@ui/App';
+import { maxframeSystem } from '@ui/theme/maxframeTheme';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import App from './App';
-import { maxframeSystem } from './maxframeTheme';
 
 function render(ui: ReactElement) {
   return rtlRender(
-    createElement(ChakraProvider, { value: maxframeSystem }, ui),
+    <ChakraProvider value={maxframeSystem}>{ui}</ChakraProvider>,
   );
 }
 
@@ -25,12 +25,28 @@ describe('App', () => {
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
       downloadVideo: vi.fn(),
+      subscribeDownloadProgress: vi.fn(() => () => {}),
+      cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
     };
   });
 
   it('renders the foundation message', () => {
     render(<App />);
 
+    expect(
+      screen.getByText('Paste your URL below and check the Quality available'),
+    ).toBeInTheDocument();
+  });
+
+  it('opens settings and returns to home', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(
+      screen.getByRole('heading', { name: 'Settings' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to home' }));
     expect(
       screen.getByText('Paste your URL below and check the Quality available'),
     ).toBeInTheDocument();
@@ -77,10 +93,10 @@ describe('App', () => {
       );
     });
 
+    expect(screen.getByText('Video ID: dQw4w9WgXcQ')).toBeInTheDocument();
     expect(
-      screen.getByText('Video ID: dQw4w9WgXcQ'),
+      screen.getByText('Best raw quality: 1080p60 @ 60fps (mp4)'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Best raw quality: 1080p60 @ 60fps (mp4)')).toBeInTheDocument();
   });
 
   it('shows a message when video id cannot be parsed', async () => {
@@ -178,7 +194,9 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('No downloadable video quality available for this URL.'),
+        screen.getByText(
+          'No downloadable video quality available for this URL.',
+        ),
       ).toBeInTheDocument();
     });
   });

@@ -6,14 +6,93 @@ on:
       - release
   workflow_dispatch:
 
+concurrency:
+  group: release-workflow
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
+env:
+  NODE_VERSION: '24.10'
+
 jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Cache Electron (Windows)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
+      - name: Install dependencies
+        run: npm ci --force
+
+      - name: Windows installer
+        env:
+          # No code-signing cert: do not search for one. Full PE / asar-integrity still runs (CI=true; see electron-builder.mjs).
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # electron-builder checks GH_TOKEN / GITHUB_TOKEN when preparing publish metadata.
+          # Use built-in github.token here because this job only needs repo-scoped runtime auth.
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run compile:win
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: maxframe-win-installer
+          path: dist/*-win-x64.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  smoke-windows:
+    name: Smoke (Windows)
+    needs: [build-windows]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download installer
+        uses: actions/download-artifact@v4
+        with:
+          name: maxframe-win-installer
+          path: win-smoke
+
+      - name: Run smoke
+        env:
+          SMOKE_INSTALLER_DIR: win-smoke
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\scripts\windows-smoke-test.ps1"
+
   release:
     name: Semantic release
+    needs: [smoke-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Keep explicit secret token for semantic-release (can be PAT-backed, independent from github.token runtime scope).
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,16 +100,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: maxframe-win-installer
+          path: release-assets
+
+      - name: Verify Windows installer
+        run: ls -1 release-assets/*-win-x64.exe
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '24.10'
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Install dependencies
         run: npm ci --force
 
       - name: Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: npm run release

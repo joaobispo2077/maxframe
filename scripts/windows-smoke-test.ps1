@@ -1,0 +1,55 @@
+# NSIS (electron-builder): silent = /S, install directory = /D=...  — /D= must be the last flag (NSIS). See: https://www.electron.build/nsis
+#requires -Version 5.0
+$ErrorActionPreference = 'Stop'
+
+$searchRoot = if ($env:SMOKE_INSTALLER_DIR) { $env:SMOKE_INSTALLER_DIR } else { (Get-Location).Path }
+$installer = Get-ChildItem -Path $searchRoot -Recurse -File -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -like '*-win-x64.exe' } |
+  Select-Object -First 1
+if (-not $installer) {
+  throw "No *-win-x64.exe under $searchRoot (set SMOKE_INSTALLER_DIR to the download-artifact dir)."
+}
+
+$dest = Join-Path -Path $env:RUNNER_TEMP 'maxframe-smoke-pfx'
+if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue }
+
+Write-Host "Running installer: $($installer.FullName)"
+Write-Host "Install prefix: $dest"
+
+$instArgs = @('/S', ('/D=' + $dest))
+$exit = (Start-Process -FilePath $installer.FullName -ArgumentList $instArgs -Wait -PassThru).ExitCode
+if ($exit -ne 0) { throw "NSIS installer exited with code $exit" }
+
+Write-Host "Installer search root: $searchRoot"
+Write-Host "Installer path: $($installer.FullName)"
+Write-Host "Install process exit code: $exit"
+
+$resolvedExeCandidates = Get-ChildItem -Path $dest -Recurse -File -Filter 'Maxframe.exe' -ErrorAction SilentlyContinue |
+  Sort-Object FullName
+$appExe = $null
+if ($resolvedExeCandidates) {
+  $appExe = $resolvedExeCandidates[0].FullName
+}
+if (-not $appExe) {
+  $installTree = Get-ChildItem -Path $dest -Recurse -File -ErrorAction SilentlyContinue |
+    Select-Object -First 50 -ExpandProperty FullName
+  $installTreeText = if ($installTree) { $installTree -join [Environment]::NewLine } else { '(no files found under install prefix)' }
+  throw "Could not find Maxframe.exe under install prefix '$dest'. Install tree sample:`n$installTreeText"
+}
+Write-Host "Resolved app executable: $appExe"
+
+$launched = Start-Process -FilePath $appExe -PassThru
+$startupDeadline = (Get-Date).AddSeconds(20)
+while ((Get-Date) -lt $startupDeadline) {
+  Start-Sleep -Seconds 2
+  if ($launched.HasExited) {
+    throw "Maxframe.exe exited during startup window; exit code: $($launched.ExitCode)"
+  }
+}
+
+# Prefer stopping the exact PID (Electron can spawn children with other names)
+Stop-Process -Id $launched.Id -Force -ErrorAction SilentlyContinue
+# Clean up if the name is what remains
+Get-Process -Name 'Maxframe' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Write-Host 'windows-smoke-test: OK'
+exit 0

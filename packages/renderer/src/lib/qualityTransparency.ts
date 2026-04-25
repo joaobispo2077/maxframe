@@ -1,4 +1,4 @@
-import type { QualityOption } from '../../../src/domain/quality/QualityOption.js';
+import type { QualityOption } from '../../../../src/domain/quality/QualityOption.js';
 
 export function formatVideoBitrateKbps(
   kbps: number | undefined,

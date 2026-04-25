@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
 import {
   Badge,
@@ -18,18 +17,23 @@ import {
   VStack,
 } from '@chakra-ui/react';
 
+import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
+
+import { useDownloadProgressLog } from './hooks/useDownloadProgressLog.js';
 import {
   describeQualityAgainstBest,
   formatAudioBitrateKbps,
   formatVideoBitrateKbps,
   streamKindLabel,
-} from './qualityTransparency.js';
+} from './lib/qualityTransparency.js';
+import { SettingsPage } from './pages/SettingsPage.js';
 
 type AnalyzeResult = Awaited<
   ReturnType<(typeof window)['maxframeApi']['analyzeVideoUrl']>
 >;
 
 function App() {
+  const [activeView, setActiveView] = useState<'home' | 'settings'>('home');
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [downloadFormatId, setDownloadFormatId] = useState<string>();
@@ -37,6 +41,8 @@ function App() {
   const [downloadNote, setDownloadNote] = useState<string>();
   const [result, setResult] = useState<AnalyzeResult>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
+  const { lines: downloadProgressLines, clear: clearDownloadProgressLog } =
+    useDownloadProgressLog();
 
   async function analyzeUrl(): Promise<void> {
     setLoading(true);
@@ -57,11 +63,23 @@ function App() {
     }
   }
 
-  async function downloadQuality(formatId: string, hasAudio: boolean): Promise<void> {
+  async function cancelActiveDownload(): Promise<void> {
+    try {
+      await window.maxframeApi.cancelDownload();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function downloadQuality(
+    formatId: string,
+    hasAudio: boolean,
+  ): Promise<void> {
     if (!result) {
       return;
     }
     setDownloadFormatId(formatId);
+    clearDownloadProgressLog();
     setError(undefined);
     setDownloadNote(undefined);
     try {
@@ -73,15 +91,25 @@ function App() {
       });
       setDownloadNote(`Saved to ${outputPath}`);
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : 'Unknown error',
-      );
+      const msg =
+        caughtError instanceof Error ? caughtError.message : 'Unknown error';
+      if (msg === 'Download canceled.') {
+        setError(undefined);
+        setDownloadNote(undefined);
+      } else {
+        setError(msg);
+      }
     } finally {
       setDownloadFormatId(undefined);
+      clearDownloadProgressLog();
     }
   }
 
   const downloadBusy = Boolean(downloadFormatId);
+
+  if (activeView === 'settings') {
+    return <SettingsPage onBack={() => setActiveView('home')} />;
+  }
 
   return (
     <Box minH="100vh" py={{ base: 6, md: 10 }} px={4}>
@@ -109,6 +137,17 @@ function App() {
                 <Text fontSize="lg" color="fg.muted">
                   Paste your URL below and check the Quality available
                 </Text>
+                <HStack justify="flex-end" w="100%">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    colorPalette="cyan"
+                    onClick={() => setActiveView('settings')}
+                  >
+                    Settings
+                  </Button>
+                </HStack>
               </VStack>
 
               <Stack gap={4}>
@@ -172,6 +211,50 @@ function App() {
                 </HStack>
               ) : null}
 
+              {downloadBusy ? (
+                <Box
+                  p={3}
+                  borderRadius="md"
+                  bg="blackAlpha.500"
+                  borderWidth="1px"
+                  borderColor="whiteAlpha.200"
+                >
+                  <HStack justify="space-between" gap={3} mb={2} align="center">
+                    <Text fontSize="sm" fontWeight="medium">
+                      Download in progress…
+                    </Text>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      colorPalette="red"
+                      data-testid="download-cancel-btn"
+                      onClick={() => void cancelActiveDownload()}
+                    >
+                      Cancel
+                    </Button>
+                  </HStack>
+                  {downloadProgressLines.length > 0 ? (
+                    <Box
+                      as="pre"
+                      fontSize="xs"
+                      lineHeight="short"
+                      maxH="140px"
+                      overflowY="auto"
+                      whiteSpace="pre-wrap"
+                      color="fg.muted"
+                      aria-live="polite"
+                    >
+                      {downloadProgressLines.join('\n')}
+                    </Box>
+                  ) : (
+                    <Text fontSize="xs" color="fg.muted">
+                      Waiting for yt-dlp output…
+                    </Text>
+                  )}
+                </Box>
+              ) : null}
+
               {result ? (
                 <Box
                   as="section"
@@ -211,21 +294,29 @@ function App() {
                         color="fg.muted"
                       >
                         <Text>
-                          Qualities are whatever <Text as="strong" color="fg">yt-dlp</Text>{' '}
-                          reports for this URL at analyze time—not every option YouTube may
-                          show in other apps or on the web. The highlighted{' '}
+                          Qualities are whatever{' '}
+                          <Text as="strong" color="fg">
+                            yt-dlp
+                          </Text>{' '}
+                          reports for this URL at analyze time—not every option
+                          YouTube may show in other apps or on the web. The
+                          highlighted{' '}
                           <Text as="strong" color="fg">
                             Ranked #1
                           </Text>{' '}
-                          row is the best option in this app using height, then frame rate,
-                          then listed video bitrate. This is not a legal guarantee of
-                          “maximum” quality everywhere; it is the top entry in this list
-                          only.
+                          row is the best option in this app using height, then
+                          frame rate, then listed video bitrate. This is not a
+                          legal guarantee of “maximum” quality everywhere; it is
+                          the top entry in this list only.
                         </Text>
                         <Text>
-                          If a row is <Text as="strong" color="fg">video only</Text>,
-                          downloading it asks yt-dlp to merge in the best separate audio when
-                          possible (same as many CLI workflows). That path needs{' '}
+                          If a row is{' '}
+                          <Text as="strong" color="fg">
+                            video only
+                          </Text>
+                          , downloading it asks yt-dlp to merge in the best
+                          separate audio when possible (same as many CLI
+                          workflows). That path needs{' '}
                           <Text as="strong" color="fg">
                             ffmpeg
                           </Text>{' '}
@@ -240,18 +331,30 @@ function App() {
                       Video ID: {result.videoId}
                     </Text>
                   ) : (
-                    <Text mt={4} textAlign="center" fontSize="sm" color="orange.300">
-                      Video ID could not be parsed from this URL; confirm the link uses a
-                      standard watch, shorts, embed, or youtu.be shape.
+                    <Text
+                      mt={4}
+                      textAlign="center"
+                      fontSize="sm"
+                      color="orange.300"
+                    >
+                      Video ID could not be parsed from this URL; confirm the
+                      link uses a standard watch, shorts, embed, or youtu.be
+                      shape.
                     </Text>
                   )}
                   {result.bestQuality ? (
                     <Text mt={2} textAlign="center" fontSize="sm">
                       Best raw quality: {result.bestQuality.resolutionLabel} @{' '}
-                      {result.bestQuality.fps}fps ({result.bestQuality.container})
+                      {result.bestQuality.fps}fps (
+                      {result.bestQuality.container})
                     </Text>
                   ) : (
-                    <Text mt={2} textAlign="center" fontSize="sm" color="fg.muted">
+                    <Text
+                      mt={2}
+                      textAlign="center"
+                      fontSize="sm"
+                      color="fg.muted"
+                    >
                       No downloadable video quality available for this URL.
                     </Text>
                   )}
@@ -266,9 +369,14 @@ function App() {
                     p={0}
                   >
                     {result.qualities.map((quality) => {
-                      const isBest = result.bestQuality?.formatId === quality.formatId;
-                      const videoBr = formatVideoBitrateKbps(quality.videoBitrateKbps);
-                      const audioBr = formatAudioBitrateKbps(quality.audioBitrateKbps);
+                      const isBest =
+                        result.bestQuality?.formatId === quality.formatId;
+                      const videoBr = formatVideoBitrateKbps(
+                        quality.videoBitrateKbps,
+                      );
+                      const audioBr = formatAudioBitrateKbps(
+                        quality.audioBitrateKbps,
+                      );
                       const showCompare =
                         hoveredFormatId === quality.formatId ||
                         downloadFormatId === quality.formatId;
@@ -280,8 +388,14 @@ function App() {
                             p={3}
                             borderRadius="md"
                             borderWidth="1px"
-                            borderColor={isBest ? 'green.600' : 'whiteAlpha.200'}
-                            bg={isBest ? 'rgba(56, 161, 105, 0.12)' : 'blackAlpha.400'}
+                            borderColor={
+                              isBest ? 'green.600' : 'whiteAlpha.200'
+                            }
+                            bg={
+                              isBest
+                                ? 'rgba(56, 161, 105, 0.12)'
+                                : 'blackAlpha.400'
+                            }
                             outline="none"
                             _focusVisible={{
                               boxShadow: '0 0 0 2px #00f0ff',
@@ -289,18 +403,31 @@ function App() {
                             _hover={{
                               borderColor: isBest ? 'green.400' : 'cyan.500',
                             }}
-                            onMouseEnter={() => setHoveredFormatId(quality.formatId)}
+                            onMouseEnter={() =>
+                              setHoveredFormatId(quality.formatId)
+                            }
                             onMouseLeave={() => setHoveredFormatId(null)}
                             onFocus={() => setHoveredFormatId(quality.formatId)}
                             onBlur={(event) => {
-                              if (!event.currentTarget.contains(event.relatedTarget)) {
+                              if (
+                                !event.currentTarget.contains(
+                                  event.relatedTarget,
+                                )
+                              ) {
                                 setHoveredFormatId(null);
                               }
                             }}
                             onKeyDown={(event) => {
-                              if (event.key === 'Enter' && !downloadBusy && !loading) {
+                              if (
+                                event.key === 'Enter' &&
+                                !downloadBusy &&
+                                !loading
+                              ) {
                                 event.preventDefault();
-                                void downloadQuality(quality.formatId, quality.hasAudio);
+                                void downloadQuality(
+                                  quality.formatId,
+                                  quality.hasAudio,
+                                );
                               }
                             }}
                           >
@@ -310,7 +437,11 @@ function App() {
                                 {quality.container}) — format {quality.formatId}
                               </Text>
                               {isBest ? (
-                                <Badge colorPalette="green" variant="solid" size="sm">
+                                <Badge
+                                  colorPalette="green"
+                                  variant="solid"
+                                  size="sm"
+                                >
                                   Ranked #1 (app)
                                 </Badge>
                               ) : null}
@@ -321,8 +452,17 @@ function App() {
                               {audioBr ? ` · ${audioBr}` : ''}
                             </Text>
                             {showCompare ? (
-                              <Text fontSize="xs" color="fg.muted" fontStyle="italic" mt={2} aria-live="polite">
-                                {describeQualityAgainstBest(quality, result.bestQuality)}
+                              <Text
+                                fontSize="xs"
+                                color="fg.muted"
+                                fontStyle="italic"
+                                mt={2}
+                                aria-live="polite"
+                              >
+                                {describeQualityAgainstBest(
+                                  quality,
+                                  result.bestQuality,
+                                )}
                               </Text>
                             ) : null}
                             <Box mt={3}>
@@ -331,7 +471,10 @@ function App() {
                                 colorPalette="cyan"
                                 variant="outline"
                                 onClick={() =>
-                                  void downloadQuality(quality.formatId, quality.hasAudio)
+                                  void downloadQuality(
+                                    quality.formatId,
+                                    quality.hasAudio,
+                                  )
                                 }
                                 disabled={downloadBusy || loading}
                                 loading={downloadFormatId === quality.formatId}

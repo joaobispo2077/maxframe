@@ -2,9 +2,8 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { findYtdlpOutputFile } from '@src/infrastructure/youtube/findYtdlpOutputFile';
 import { afterEach, describe, expect, it } from 'vitest';
-
-import { findYtdlpOutputFile } from '../../../src/infrastructure/youtube/findYtdlpOutputFile.js';
 
 describe('findYtdlpOutputFile', () => {
   const dirs: string[] = [];
@@ -21,7 +20,10 @@ describe('findYtdlpOutputFile', () => {
   });
 
   function tempDir(): string {
-    const dir = join(tmpdir(), `mf-ytdlp-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    const dir = join(
+      tmpdir(),
+      `mf-ytdlp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    );
     mkdirSync(dir, { recursive: true });
     dirs.push(dir);
     return dir;

@@ -1,6 +1,6 @@
 import { defineConfig } from 'eslint/config';
 import globals from "globals";
-import importPlugin from "eslint-plugin-import";
+import importPlugin from "eslint-plugin-import-x";
 import prettierPlugin from "eslint-plugin-prettier";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
@@ -15,6 +15,7 @@ export default defineConfig([
       "**/node_modules/**",
       "**/.sdd/**",
       "**/.cursor/**",
+      "**/.stryker-tmp/**",
       "coverage/**",
       "cypress/screenshots/**",
       "cypress/videos/**",
@@ -29,7 +30,7 @@ export default defineConfig([
       sourceType: "module",
     },
     plugins: {
-      import: importPlugin,
+      "import-x": importPlugin,
       prettier: prettierPlugin,
       sonarjs,
     },
@@ -37,7 +38,7 @@ export default defineConfig([
       complexity: ["error", { max: 12, variant: "modified" }],
       "sonarjs/cognitive-complexity": ["error", 15],
       "prettier/prettier": "warn",
-      "import/order": [
+      "import-x/order": [
         "warn",
         {
           "newlines-between": "always",

@@ -15,7 +15,7 @@ Electron + React + TypeScript desktop app for transparent, high-quality video do
 
 ## CI Workflows
 
-Two GitHub Actions workflows are configured:
+GitHub Actions workflows include:
 
 - `CI` (`.github/workflows/ci.yml`)
   - Runs on `push` for lower environments: `feature/**`, `dev`, `release`
@@ -24,11 +24,13 @@ Two GitHub Actions workflows are configured:
     - `typecheck`
     - `unit-tests` (coverage summary generated and posted as sticky PR comment)
     - `e2e-tests` (Cypress component mode via `cypress-io/github-action@v7`; only for `dev -> release` and `release -> main` PRs)
-    - `mutation-tests` (Stryker mutation testing for promotion PRs only)
+    - `mutation-tests` (Stryker on promotion PRs; **incremental** + Actions cache on `reports/stryker-incremental.json`. Full local/forced: `npm run test:mutation` or `stryker run --force`. [Incremental docs](https://stryker-mutator.io/docs/stryker-js/incremental/). Weekly full run: `stryker-full.yml`.)
+- `Stryker full` (`.github/workflows/stryker-full.yml`) — weekly and manual **non-incremental** mutation run on `ubuntu-latest` (mitigates incremental drift after dependency-only changes).
 - `Release` (`.github/workflows/release.yml`)
-  - Runs on every push to the `release` branch (and manual `workflow_dispatch`), matching the [semantic-release on `release` pattern](https://github.com/joaobispo2077/joaobispo2077.com/blob/main/.github/workflows/release.yml) used in [joaobispo2077.com](https://github.com/joaobispo2077/joaobispo2077.com).
-  - Uses [semantic-release](https://github.com/semantic-release/semantic-release) with `release.config.mjs` (same plugin stack as [`.releaserc.js` there](https://github.com/joaobispo2077/joaobispo2077.com/blob/main/.releaserc.js): changelog, GitHub release, no npm publish, git-committed version bump).
-  - Requires a repository secret **`GH_TOKEN`**: a fine-grained or classic PAT with permission to push to `release`, create releases, and bypass branch protection if your rules block bot pushes (semantic-release commits `CHANGELOG.md`, `package.json`, and `package-lock.json`).
+  - **Windows (phase 1):** the pipeline is **gated** — `build-windows` (NSIS on `windows-latest`) → `smoke-windows` (silent install + launch) → `release` (semantic-release on `ubuntu-latest`). A push to `release` (or `workflow_dispatch`) will **not** publish a GitHub release if the Windows build or smoke job fails. macOS and Linux packaged builds are not part of this workflow yet.
+  - The **Windows** `*-win-x64.exe` from the build is downloaded on the `release` job and attached to the same GitHub Release as the changelog; see [docs/releasing-windows.md](docs/releasing-windows.md) for artifacts, NSIS flags, and **unsigned** binary notes.
+  - Uses [semantic-release](https://github.com/semantic-release/semantic-release) on the **`release`** branch with `release.config.mjs` (changelog, GitHub release, no npm publish, git-committed version bump).
+  - Requires a repository secret **`GH_TOKEN`**: a fine-grained or classic PAT with permission to push to `release`, create releases, and bypass branch protection if your rules block bot pushes (semantic-release commits `CHANGELOG.md`, `package.json`, and `package-lock.json`). The `release` job sets both `GH_TOKEN` and `GITHUB_TOKEN` to this value for GitHub API access.
 
 ## GitFlow Branch Model
 
@@ -58,7 +60,8 @@ Use **Node.js 24.10+** locally (required by **semantic-release v25** and matched
 - `npm run typecheck`
 - `npm run test:unit`
 - `npm run test:e2e`
-- `npm run test:mutation`
+- `npm run test:mutation` (full baseline)
+- `npm run test:mutation:incremental` (reuse `reports/stryker-incremental.json` when present)
 - `npm run lint`
 - `npm run release:local` (local semantic-release with `--no-ci`; CI uses `npm run release`)
 

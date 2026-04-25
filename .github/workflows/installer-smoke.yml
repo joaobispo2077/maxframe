@@ -1,0 +1,78 @@
+# Maintainer-only workflow to build and smoke-test the Windows installer on demand.
+name: Installer smoke (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24.10'
+  # Opt in early to the Node 24 runtime for JavaScript-based actions.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build-windows:
+    name: Build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Cache Electron (Windows)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
+      - name: Install dependencies
+        run: npm ci --force
+
+      - name: Build Windows installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run compile:win
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: maxframe-win-installer
+          path: dist/*-win-x64.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  smoke-windows:
+    name: Smoke (Windows installer)
+    needs: [build-windows]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download installer
+        uses: actions/download-artifact@v4
+        with:
+          name: maxframe-win-installer
+          path: win-smoke
+
+      - name: Run smoke script
+        shell: powershell
+        env:
+          SMOKE_INSTALLER_DIR: win-smoke
+        run: |
+          & "$env:GITHUB_WORKSPACE\scripts\windows-smoke-test.ps1"

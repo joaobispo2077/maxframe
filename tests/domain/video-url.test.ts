@@ -1,6 +1,5 @@
+import { createVideoUrl } from '@src/domain/video/VideoUrl';
 import { describe, expect, it } from 'vitest';
-
-import { InvalidVideoUrlError, createVideoUrl } from '../../../src/domain/video/VideoUrl.js';
 
 describe('VideoUrl', () => {
   it('accepts a youtube url and returns parsed url', () => {
@@ -27,4 +26,3 @@ describe('VideoUrl', () => {
     );
   });
 });
-
