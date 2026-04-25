@@ -4,9 +4,10 @@
 const config = {
   testRunner: 'vitest',
   checkers: [],
+  concurrency: 2,
   vitest: {
     configFile: 'vitest.stryker.config.ts',
-    related: false,
+    related: true,
   },
   mutate: [
     'packages/renderer/src/**/*.ts',
@@ -17,7 +18,7 @@ const config = {
   ],
   reporters: ['html', 'clear-text', 'progress'],
   tempDirName: '.stryker-tmp',
-  coverageAnalysis: 'off',
+  coverageAnalysis: 'perTest',
   thresholds: {
     high: 80,
     low: 60,

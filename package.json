@@ -26,6 +26,7 @@
     "test:unit:watch": "npm run test:unit:watch --workspace @maxframe/renderer",
     "test:e2e": "cypress run --component",
     "test:mutation": "stryker run",
+    "test:mutation:incremental": "stryker run --incremental",
     "start": "node packages/dev-mode.js",
     "typecheck": "npm run typecheck -ws --if-present",
     "create-renderer": "cd packages && node ./integrate-renderer/create-renderer.js",
