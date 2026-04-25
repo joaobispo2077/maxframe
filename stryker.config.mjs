@@ -10,12 +10,10 @@ const config = {
     related: true,
   },
   mutate: [
-    'packages/renderer/src/**/*.ts',
-    'packages/renderer/src/**/*.tsx',
-    '!packages/renderer/tests/**',
-    '!tests/**',
-    '!packages/renderer/src/main.tsx',
+    // Keep mutation scope on root core source only (`@src` => `src/*`).
+    // UI/static-mutant-heavy renderer code is excluded from this single-profile run.
     'src/**/*.ts',
+    '!tests/**',
   ],
   reporters: ['html', 'json', 'clear-text', 'progress'],
   tempDirName: '.stryker-tmp',
