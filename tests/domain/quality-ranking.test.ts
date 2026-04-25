@@ -1,11 +1,10 @@
-import type { QualityOption } from '../../../../src/domain/quality/QualityOption.js';
-
-import { describe, expect, it } from 'vitest';
+import type { QualityOption } from '@src/domain/quality/QualityOption';
 
 import {
   rankQualityOptions,
   selectBestQuality,
-} from '../../../../src/domain/quality/QualityRankingPolicy.js';
+} from '@src/domain/quality/QualityRankingPolicy';
+import { describe, expect, it } from 'vitest';
 
 describe('QualityRankingPolicy', () => {
   it('prioritizes higher vertical resolution first', () => {

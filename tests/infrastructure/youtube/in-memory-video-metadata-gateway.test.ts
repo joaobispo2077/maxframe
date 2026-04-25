@@ -1,6 +1,5 @@
+import { createInMemoryVideoMetadataGateway } from '@src/infrastructure/youtube/InMemoryVideoMetadataGateway';
 import { describe, expect, it } from 'vitest';
-
-import { createInMemoryVideoMetadataGateway } from '../../../../src/infrastructure/youtube/InMemoryVideoMetadataGateway.js';
 
 describe('createInMemoryVideoMetadataGateway', () => {
   it('returns default qualities with expected shape', async () => {

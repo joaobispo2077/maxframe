@@ -12,6 +12,13 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["../../src/*"],
+      "@ui/*": ["src/*"],
+      "@tests/*": ["../../tests/*"],
+      "@ui-tests/*": ["tests/*"]
+    },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
