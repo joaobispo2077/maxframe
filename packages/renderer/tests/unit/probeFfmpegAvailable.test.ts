@@ -41,6 +41,36 @@ describe('probeFfmpegAvailable', () => {
       false,
     );
   });
+
+  it('passes expected ffmpeg arguments and timeout options', async () => {
+    const exec = vi.fn((...args: unknown[]) => {
+      const cmd = args[0];
+      const ffmpegArgs = args[1];
+      const options = args[2] as Record<string, unknown>;
+      expect(cmd).toBe('/mock/ffmpeg');
+      expect(ffmpegArgs).toEqual(['-hide_banner', '-version']);
+      expect(options.timeout).toBe(8000);
+      expect(options.maxBuffer).toBe(512 * 1024);
+      expect(options.windowsHide).toBe(true);
+      findExecCallback(args)?.(null, 'ffmpeg version 7');
+      return {} as ReturnType<typeof execFile>;
+    }) as unknown as typeof execFile;
+
+    await expect(probeFfmpegAvailable('/mock/ffmpeg', exec)).resolves.toBe(
+      true,
+    );
+  });
+
+  it('returns false when error code is ENOENT', async () => {
+    const exec = vi.fn((...args: unknown[]) => {
+      findExecCallback(args)?.(Object.assign(new Error('not found'), { code: 'ENOENT' }));
+      return {} as ReturnType<typeof execFile>;
+    }) as unknown as typeof execFile;
+
+    await expect(probeFfmpegAvailable('/mock/ffmpeg', exec)).resolves.toBe(
+      false,
+    );
+  });
 });
 
 describe('ffmpegMissingMessage', () => {

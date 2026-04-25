@@ -13,8 +13,15 @@ describe('maxframeTheme', () => {
     expect(config.globalCss.body.minHeight).toBe('100vh');
     expect(config.globalCss.body.bg).toBe('#070b12');
     expect(config.globalCss.body.color).toBe('#f0f6fc');
+    expect(config.globalCss.body.margin).toBe(0);
+    expect(config.globalCss.body.fontFamily).toBe(
+      'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    );
     expect(config.globalCss.body.backgroundImage).toContain(
       'linear-gradient(180deg',
+    );
+    expect(config.globalCss.body.backgroundImage).toContain(
+      'rgba(255, 45, 149, 0.08)',
     );
     expect(config.globalCss['#root'].minHeight).toBe('100vh');
     expect(config.globalCss['#root'].color).toBe('fg');
@@ -31,9 +38,24 @@ describe('maxframeTheme', () => {
     };
     const colors = config.theme.semanticTokens.colors;
 
-    expect(colors.fg.DEFAULT.value._dark).toBe('#f1f7fd');
-    expect(colors.fg.muted.value._dark).toBe('rgba(200, 220, 240, 0.92)');
-    expect(colors.border.DEFAULT.value._dark).toBe('rgba(255, 255, 255, 0.2)');
-    expect(colors.fg.DEFAULT.value._light).toBe('{colors.black}');
+    expect(colors.fg).toMatchObject({
+      DEFAULT: {
+        value: { _light: '{colors.black}', _dark: '#f1f7fd' },
+      },
+      muted: {
+        value: {
+          _light: '{colors.gray.600}',
+          _dark: 'rgba(200, 220, 240, 0.92)',
+        },
+      },
+    });
+    expect(colors.border).toMatchObject({
+      DEFAULT: {
+        value: {
+          _light: '{colors.gray.200}',
+          _dark: 'rgba(255, 255, 255, 0.2)',
+        },
+      },
+    });
   });
 });

@@ -16,7 +16,7 @@ const config = {
     '!packages/renderer/src/main.tsx',
     'src/**/*.ts',
   ],
-  reporters: ['html', 'clear-text', 'progress'],
+  reporters: ['html', 'json', 'clear-text', 'progress'],
   tempDirName: '.stryker-tmp',
   coverageAnalysis: 'perTest',
   thresholds: {
