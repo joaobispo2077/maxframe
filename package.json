@@ -1,7 +1,7 @@
 {
   "name": "maxframe",
   "description": "Maxframe desktop app (Electron + React + TypeScript)",
-  "version": "3.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "author": "vitor",
