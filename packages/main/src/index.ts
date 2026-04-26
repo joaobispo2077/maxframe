@@ -27,12 +27,13 @@ export async function initApp(initConfig: AppInitConfig) {
       createWindowManagerModule({
         initConfig,
         openDevTools: import.meta.env.DEV,
+        isPortable,
       }),
     )
     .init(disallowMultipleAppInstance())
     .init(terminateAppOnLastWindowClose())
     .init(hardwareAccelerationMode({ enable: false }))
-    .init(createIpcBridgeModule())
+    .init(createIpcBridgeModule({ isPortable }))
 
     // Install DevTools extension if needed
     // .init(chromeDevToolsExtension({extension: 'VUEJS3_DEVTOOLS'}))

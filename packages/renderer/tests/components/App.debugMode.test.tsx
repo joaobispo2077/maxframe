@@ -31,15 +31,16 @@ const DIAGNOSTICS_REPORT = {
 
 function setupMaxframeApi(overrides: Partial<typeof window.maxframeApi> = {}) {
   window.maxframeApi = {
-    getInitialAppState: vi.fn(),
+    getInitialAppState: vi.fn().mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: false }),
     ping: vi.fn(),
     analyzeVideoUrl: vi.fn(),
     downloadVideo: vi.fn(),
     subscribeDownloadProgress: vi.fn(() => () => {}),
     cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
-    setDebugMode: vi.fn().mockResolvedValue(undefined),
-    getDiagnostics: vi.fn().mockResolvedValue(DIAGNOSTICS_REPORT),
-    ...overrides,
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      getDiagnostics: vi.fn().mockResolvedValue(DIAGNOSTICS_REPORT),
+      getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
+      ...overrides,
   };
 }
 

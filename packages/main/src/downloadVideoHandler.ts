@@ -71,16 +71,18 @@ export async function downloadVideoHandler(
     params.outputMode,
   );
 
+  const ffmpegExecutable = resolveFfmpegExecutable();
+
   if (ytdlpDownloadNeedsFfmpeg(params.hasAudio) || params.outputMode === 'mp3') {
-    const ffmpeg = resolveFfmpegExecutable();
-    const ok = await probeFfmpegAvailable(ffmpeg);
+    const ok = await probeFfmpegAvailable(ffmpegExecutable);
     if (!ok) {
-      throw new Error(ffmpegMissingMessage(ffmpeg));
+      throw new Error(ffmpegMissingMessage(ffmpegExecutable));
     }
   }
 
   await runYtdlpDownload({
     executable: resolveYtdlpExecutable(),
+    ffmpegExecutable,
     url: params.url,
     formatSelector,
     outputTemplate,

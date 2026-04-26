@@ -1,6 +1,7 @@
 type InitialAppState = {
   appName: string;
   status: 'ready';
+  isPortable: boolean;
 };
 
 type QualityOption = {
@@ -64,6 +65,7 @@ type MaxframeApi = {
   cancelDownload: () => Promise<{ canceled: boolean }>;
   setDebugMode: (on: boolean) => Promise<void>;
   getDiagnostics: () => Promise<DiagnosticsReport>;
+  getLogPath: () => Promise<string>;
 };
 
 declare global {

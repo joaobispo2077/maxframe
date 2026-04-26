@@ -8,4 +8,6 @@ export type AppInitConfig = {
         path: string;
       }
     | URL;
+
+  icon?: string;
 };

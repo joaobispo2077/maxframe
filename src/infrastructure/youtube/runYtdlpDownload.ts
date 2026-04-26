@@ -10,6 +10,13 @@ export type YtdlpDownloadParams = {
   outputTemplate: string;
   mergeOutputFormat?: 'mp4' | 'mkv' | 'webm';
   extractAudio?: { format: 'mp3' };
+  /**
+   * Absolute path to the ffmpeg binary to pass via `--ffmpeg-location`.
+   * Ignored when the value is a bare name (`ffmpeg` / `ffmpeg.exe`), which
+   * indicates the binary was not found in bundled resources and yt-dlp should
+   * search PATH on its own.
+   */
+  ffmpegExecutable?: string;
   /** `0` = no timeout (Node semantics). */
   timeoutMs?: number;
   /** Called for each non-empty line of stderr/stdout (yt-dlp progress). */
@@ -17,6 +24,15 @@ export type YtdlpDownloadParams = {
   /** When aborted, the child process is terminated and the promise rejects. */
   signal?: AbortSignal;
 };
+
+/**
+ * Returns true when the value is a bare executable name (no directory component),
+ * meaning the binary was not found in bundled resources and PATH will be used.
+ * In that case we must NOT pass --ffmpeg-location so yt-dlp searches PATH itself.
+ */
+function isBareExecutableName(name: string): boolean {
+  return name === 'ffmpeg' || name === 'ffmpeg.exe';
+}
 
 function ytdlpNotFoundMessage(executable: string): string {
   return (
@@ -75,6 +91,9 @@ export async function runYtdlpDownload(
   }
   if (params.extractAudio) {
     args.unshift('--extract-audio', '--audio-format', params.extractAudio.format);
+  }
+  if (params.ffmpegExecutable && !isBareExecutableName(params.ffmpegExecutable)) {
+    args.unshift('--ffmpeg-location', params.ffmpegExecutable);
   }
   args.push(params.url);
 

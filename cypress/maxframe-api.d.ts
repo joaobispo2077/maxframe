@@ -1,6 +1,7 @@
 type InitialAppState = {
   appName: string;
   status: 'ready';
+  isPortable: boolean;
 };
 
 type QualityOption = {
@@ -47,6 +48,9 @@ declare global {
         listener: (payload: { line: string }) => void,
       ) => () => void;
       cancelDownload: () => Promise<{ canceled: boolean }>;
+      setDebugMode: (on: boolean) => Promise<void>;
+      getDiagnostics: () => Promise<unknown>;
+      getLogPath: () => Promise<string>;
     };
   }
 }

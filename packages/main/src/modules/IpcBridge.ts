@@ -2,6 +2,8 @@ import type { AppModule } from '../AppModule.js';
 import type { ModuleContext } from '../ModuleContext.js';
 
 import { ipcMain } from 'electron';
+import { join } from 'node:path';
+import { app } from 'electron';
 
 import { analyzeVideoHandler } from '../../../../src/interface/ipc/analyzeVideoHandler.js';
 import { clearError, recordError } from '../../../../src/interface/ipc/errorStore.js';
@@ -26,10 +28,17 @@ const CHANNEL_GET_DIAGNOSTICS = 'app:get-diagnostics';
 let activeDownloadAbort: AbortController | undefined;
 
 class IpcBridge implements AppModule {
+  readonly #isPortable: boolean;
+
+  constructor({ isPortable = false }: { isPortable?: boolean } = {}) {
+    this.#isPortable = isPortable;
+  }
+
   enable(_context: ModuleContext): void {
     ipcMain.handle(CHANNEL_GET_INITIAL_STATE, () => ({
       appName: 'Maxframe',
       status: 'ready',
+      isPortable: this.#isPortable,
     }));
 
     ipcMain.handle(CHANNEL_PING, (_event, payload: string) => payload);
@@ -93,9 +102,13 @@ class IpcBridge implements AppModule {
     );
 
     ipcMain.handle(CHANNEL_GET_DIAGNOSTICS, () => getDiagnosticsHandler());
+
+    ipcMain.handle('app:get-log-path', () =>
+      join(app.getPath('userData'), 'maxframe-debug.log'),
+    );
   }
 }
 
-export function createIpcBridgeModule() {
-  return new IpcBridge();
+export function createIpcBridgeModule(opts?: { isPortable?: boolean }) {
+  return new IpcBridge(opts);
 }

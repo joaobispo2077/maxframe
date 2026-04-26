@@ -6,7 +6,7 @@ describe('useDownloadProgress', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     window.maxframeApi = {
-      getInitialAppState: vi.fn(),
+      getInitialAppState: vi.fn().mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: false }),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
       downloadVideo: vi.fn(),
@@ -14,6 +14,7 @@ describe('useDownloadProgress', () => {
       cancelDownload: vi.fn(),
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
+      getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
     };
   });
 

@@ -29,7 +29,7 @@ describe('App', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     window.maxframeApi = {
-      getInitialAppState: vi.fn(),
+      getInitialAppState: vi.fn().mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: false }),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
       downloadVideo: vi.fn(),
@@ -37,6 +37,7 @@ describe('App', () => {
       cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
+      getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
     };
   });
 
@@ -46,6 +47,30 @@ describe('App', () => {
     expect(
       screen.getByText('Paste your URL below and check the Quality available'),
     ).toBeInTheDocument();
+  });
+
+  it('shows Portable badge when isPortable is true', async () => {
+    window.maxframeApi.getInitialAppState = vi
+      .fn()
+      .mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: true });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Portable')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show Portable badge when isPortable is false', async () => {
+    window.maxframeApi.getInitialAppState = vi
+      .fn()
+      .mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: false });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Portable')).not.toBeInTheDocument();
+    });
   });
 
   it('opens settings and returns to home', () => {
