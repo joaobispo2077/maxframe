@@ -19,8 +19,65 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Phase 0: Determine the next release version via a semantic-release dry-run.
+  #
+  # semantic-release is deterministic: given the same commits since the last
+  # tag it always computes the same next version.  Running --dry-run here lets
+  # us know the version before the Windows builds start, so electron-builder
+  # stamps the correct version into every artifact filename.
+  #
+  # If no releasable commits are found (e.g. only chore/docs), next-version is
+  # set to '' and all downstream jobs are skipped via their `if:` guards —
+  # no Windows runners are wasted.
+  # ─────────────────────────────────────────────────────────────────────────
+  determine-version:
+    name: Determine next release version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      next-version: ${{ steps.version.outputs.next-version }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --force
+
+      - name: Dry-run semantic-release to extract next version
+        id: version
+        run: |
+          NEXT=$(npx semantic-release --dry-run 2>&1 \
+            | grep -oP '(?<=The next release version is )\S+' \
+            || true)
+          echo "next-version=${NEXT}" >> "$GITHUB_OUTPUT"
+          if [ -z "$NEXT" ]; then
+            echo "No releasable commits found — downstream jobs will be skipped."
+          else
+            echo "Next release version: $NEXT"
+          fi
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Phase 1: Build artifacts (parallel).
+  # Each job bumps package.json locally (no commit/tag) so electron-builder
+  # reads the correct version and stamps it into the artifact filename.
+  # ─────────────────────────────────────────────────────────────────────────
   build-windows-installer:
     name: Build Windows (installer)
+    needs: [determine-version]
+    if: needs.determine-version.outputs.next-version != ''
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -45,6 +102,27 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --force
+
+      - name: Download yt-dlp and ffmpeg binaries
+        shell: powershell
+        run: |
+          # yt-dlp 2026.03.17 (pinned — update when upgrading yt-dlp)
+          Invoke-WebRequest `
+            -Uri 'https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.17/yt-dlp.exe' `
+            -OutFile 'buildResources\yt-dlp\yt-dlp.exe'
+
+          # ffmpeg static GPL build from yt-dlp/FFmpeg-Builds (build 2026-04-11, rolling latest tag)
+          $zip = Join-Path $env:TEMP 'ffmpeg.zip'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip' `
+            -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath (Join-Path $env:TEMP 'ffmpeg-extract') -Force
+          $exe = Get-ChildItem -Recurse (Join-Path $env:TEMP 'ffmpeg-extract') -Filter 'ffmpeg.exe' |
+                 Select-Object -First 1
+          Copy-Item $exe.FullName 'buildResources\ffmpeg\ffmpeg.exe'
+
+      - name: Bump version to match release (${{ needs.determine-version.outputs.next-version }})
+        run: npm version ${{ needs.determine-version.outputs.next-version }} --no-git-tag-version
 
       - name: Windows installer
         env:
@@ -66,6 +144,8 @@ jobs:
 
   build-windows-portable:
     name: Build Windows (portable)
+    needs: [determine-version]
+    if: needs.determine-version.outputs.next-version != ''
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -91,6 +171,27 @@ jobs:
       - name: Install dependencies
         run: npm ci --force
 
+      - name: Download yt-dlp and ffmpeg binaries
+        shell: powershell
+        run: |
+          # yt-dlp 2026.03.17 (pinned — update when upgrading yt-dlp)
+          Invoke-WebRequest `
+            -Uri 'https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.17/yt-dlp.exe' `
+            -OutFile 'buildResources\yt-dlp\yt-dlp.exe'
+
+          # ffmpeg static GPL build from yt-dlp/FFmpeg-Builds (build 2026-04-11, rolling latest tag)
+          $zip = Join-Path $env:TEMP 'ffmpeg.zip'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip' `
+            -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath (Join-Path $env:TEMP 'ffmpeg-extract') -Force
+          $exe = Get-ChildItem -Recurse (Join-Path $env:TEMP 'ffmpeg-extract') -Filter 'ffmpeg.exe' |
+                 Select-Object -First 1
+          Copy-Item $exe.FullName 'buildResources\ffmpeg\ffmpeg.exe'
+
+      - name: Bump version to match release (${{ needs.determine-version.outputs.next-version }})
+        run: npm version ${{ needs.determine-version.outputs.next-version }} --no-git-tag-version
+
       - name: Windows portable
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -106,9 +207,13 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Phase 2: Smoke tests (parallel, after respective builds).
+  # ─────────────────────────────────────────────────────────────────────────
   smoke-windows:
     name: Smoke (Windows installer)
-    needs: [build-windows-installer]
+    needs: [determine-version, build-windows-installer]
+    if: needs.determine-version.outputs.next-version != ''
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -140,7 +245,8 @@ jobs:
 
   smoke-windows-portable:
     name: Smoke (Windows portable)
-    needs: [build-windows-portable]
+    needs: [determine-version, build-windows-portable]
+    if: needs.determine-version.outputs.next-version != ''
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -170,9 +276,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Phase 3: Full semantic-release.
+  # Both smokes must pass.  semantic-release re-analyses commits (same result
+  # as dry-run), creates the git tag, updates CHANGELOG.md, and uploads the
+  # now-correctly-named artifacts to the GitHub Release.
+  # ─────────────────────────────────────────────────────────────────────────
   release:
     name: Semantic release
-    needs: [smoke-windows, smoke-windows-portable]
+    needs: [determine-version, smoke-windows, smoke-windows-portable]
+    if: needs.determine-version.outputs.next-version != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

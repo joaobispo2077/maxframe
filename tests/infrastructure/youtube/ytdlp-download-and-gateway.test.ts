@@ -162,6 +162,77 @@ describe('runYtdlpDownload', () => {
       'yt-dlp download failed (exit code unknown)',
     );
   });
+
+  it('does NOT add --ffmpeg-location when ffmpegExecutable is omitted', async () => {
+    const child = createFakeChild();
+    spawnMock.mockReturnValue(child);
+    const { runYtdlpDownload } = await import(
+      '@src/infrastructure/youtube/runYtdlpDownload'
+    );
+
+    const promise = runYtdlpDownload({
+      executable: 'yt-dlp',
+      url: 'https://youtu.be/x',
+      formatSelector: 'best',
+      outputTemplate: 'out.%(ext)s',
+    });
+    child.emit('close', 0);
+    await promise;
+
+    const spawnedArgs: string[] = spawnMock.mock.calls[0][1];
+    expect(spawnedArgs).not.toContain('--ffmpeg-location');
+  });
+
+  it('does NOT add --ffmpeg-location when ffmpegExecutable is a bare name', async () => {
+    const child = createFakeChild();
+    spawnMock.mockReturnValue(child);
+    const { runYtdlpDownload } = await import(
+      '@src/infrastructure/youtube/runYtdlpDownload'
+    );
+
+    for (const bareName of ['ffmpeg', 'ffmpeg.exe']) {
+      spawnMock.mockClear();
+      spawnMock.mockReturnValue(createFakeChild());
+      const p = runYtdlpDownload({
+        executable: 'yt-dlp',
+        url: 'https://youtu.be/x',
+        formatSelector: 'best',
+        outputTemplate: 'out.%(ext)s',
+        ffmpegExecutable: bareName,
+      });
+      spawnMock.mock.results[0]?.value?.emit('close', 0);
+      await p;
+      const args: string[] = spawnMock.mock.calls[0][1];
+      expect(args).not.toContain('--ffmpeg-location');
+    }
+  });
+
+  it('adds --ffmpeg-location before the URL when ffmpegExecutable is an absolute path', async () => {
+    const child = createFakeChild();
+    spawnMock.mockReturnValue(child);
+    const { runYtdlpDownload } = await import(
+      '@src/infrastructure/youtube/runYtdlpDownload'
+    );
+
+    const ffmpegPath = 'C:\\Program Files\\Maxframe\\resources\\ffmpeg\\ffmpeg.exe';
+    const url = 'https://youtu.be/x';
+    const promise = runYtdlpDownload({
+      executable: 'yt-dlp',
+      url,
+      formatSelector: 'best',
+      outputTemplate: 'out.%(ext)s',
+      ffmpegExecutable: ffmpegPath,
+    });
+    child.emit('close', 0);
+    await promise;
+
+    const spawnedArgs: string[] = spawnMock.mock.calls[0][1];
+    const locationIdx = spawnedArgs.indexOf('--ffmpeg-location');
+    expect(locationIdx).toBeGreaterThanOrEqual(0);
+    expect(spawnedArgs[locationIdx + 1]).toBe(ffmpegPath);
+    // --ffmpeg-location must appear before the URL argument
+    expect(locationIdx).toBeLessThan(spawnedArgs.indexOf(url));
+  });
 });
 
 describe('createYtdlpVideoMetadataGateway', () => {

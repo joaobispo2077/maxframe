@@ -1,7 +1,7 @@
 import type { AppInitConfig } from '../AppInitConfig.js';
 import type { AppModule } from '../AppModule.js';
 
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, Menu, nativeImage } from 'electron';
 
 import { ModuleContext } from '../ModuleContext.js';
 
@@ -9,20 +9,27 @@ class WindowManager implements AppModule {
   readonly #preload: { path: string };
   readonly #renderer: { path: string } | URL;
   readonly #openDevTools;
+  readonly #isPortable: boolean;
+  readonly #icon: string | undefined;
 
   constructor({
     initConfig,
     openDevTools = false,
+    isPortable = false,
   }: {
     initConfig: AppInitConfig;
     openDevTools?: boolean;
+    isPortable?: boolean;
   }) {
     this.#preload = initConfig.preload;
     this.#renderer = initConfig.renderer;
     this.#openDevTools = openDevTools;
+    this.#isPortable = isPortable;
+    this.#icon = initConfig.icon;
   }
 
   async enable({ app }: ModuleContext): Promise<void> {
+    Menu.setApplicationMenu(null);
     await app.whenReady();
     await this.restoreOrCreateWindow(true);
     app.on('second-instance', () => this.restoreOrCreateWindow(true));
@@ -30,8 +37,12 @@ class WindowManager implements AppModule {
   }
 
   async createWindow(): Promise<BrowserWindow> {
+    const icon = this.#icon ? nativeImage.createFromPath(this.#icon) : undefined;
+
     const browserWindow = new BrowserWindow({
       show: false, // Use the 'ready-to-show' event to show the instantiated BrowserWindow.
+      title: this.#isPortable ? 'Maxframe (Portable)' : 'Maxframe',
+      ...(icon && { icon }),
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,

@@ -6,6 +6,7 @@ describe('App analyze flow', () => {
       getInitialAppState: async () => ({
         appName: 'Maxframe',
         status: 'ready' as const,
+        isPortable: false,
       }),
       ping: async (payload: string) => payload,
       downloadVideo: async () => ({
@@ -13,6 +14,9 @@ describe('App analyze flow', () => {
       }),
       subscribeDownloadProgress: () => () => {},
       cancelDownload: async () => ({ canceled: false }),
+      setDebugMode: async () => {},
+      getDiagnostics: async () => ({}),
+      getLogPath: async () => 'C:\\AppData\\Maxframe\\maxframe-debug.log',
       analyzeVideoUrl: async () => ({
         url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         videoId: 'dQw4w9WgXcQ',
