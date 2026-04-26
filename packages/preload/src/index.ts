@@ -5,6 +5,7 @@ import { ipcRenderer } from 'electron';
 export type InitialAppState = {
   appName: string;
   status: 'ready';
+  isPortable: boolean;
 };
 
 export type QualityOption = {
