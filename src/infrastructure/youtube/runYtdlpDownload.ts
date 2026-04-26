@@ -8,6 +8,7 @@ export type YtdlpDownloadParams = {
   /** Output path template, e.g. `C:\\Videos\\name.%(ext)s`. */
   outputTemplate: string;
   mergeOutputFormat?: 'mp4' | 'mkv' | 'webm';
+  extractAudio?: { format: 'mp3' };
   /** `0` = no timeout (Node semantics). */
   timeoutMs?: number;
   /** Called for each non-empty line of stderr/stdout (yt-dlp progress). */
@@ -70,6 +71,9 @@ export async function runYtdlpDownload(
   ];
   if (params.mergeOutputFormat) {
     args.unshift('--merge-output-format', params.mergeOutputFormat);
+  }
+  if (params.extractAudio) {
+    args.unshift('--extract-audio', '--audio-format', params.extractAudio.format);
   }
   args.push(params.url);
 
