@@ -19,8 +19,9 @@ export type DownloadVideoRequest = {
   url: string;
   formatId: string;
   hasAudio: boolean;
-  /** Suggested file name without path (e.g. `dQw4w9WgXcQ-137.mp4`). */
+  /** Suggested file name without path (e.g. `Video Title - Channel.mp4`). */
   suggestedFileName: string;
+  outputMode: 'mp3' | 'mp4';
 };
 
 export type DownloadVideoResult = {
@@ -40,12 +41,19 @@ export async function downloadVideoHandler(
   createVideoUrl(params.url);
 
   const parentWindow = BrowserWindow.getFocusedWindow();
+  const dialogFilters =
+    params.outputMode === 'mp3'
+      ? [
+          { name: 'Audio', extensions: ['mp3'] },
+          { name: 'All files', extensions: ['*'] },
+        ]
+      : [
+          { name: 'Video', extensions: ['mp4', 'mkv', 'webm'] },
+          { name: 'All files', extensions: ['*'] },
+        ];
   const dialogOptions = {
     defaultPath: params.suggestedFileName,
-    filters: [
-      { name: 'Video', extensions: ['mp4', 'mkv', 'webm', 'm4a'] },
-      { name: 'All files', extensions: ['*'] },
-    ],
+    filters: dialogFilters,
   };
   const { canceled, filePath } = parentWindow
     ? await dialog.showSaveDialog(parentWindow, dialogOptions)
@@ -60,9 +68,10 @@ export async function downloadVideoHandler(
   const formatSelector = buildYtdlpFormatSelector(
     params.formatId,
     params.hasAudio,
+    params.outputMode,
   );
 
-  if (ytdlpDownloadNeedsFfmpeg(params.hasAudio)) {
+  if (ytdlpDownloadNeedsFfmpeg(params.hasAudio) || params.outputMode === 'mp3') {
     const ffmpeg = resolveFfmpegExecutable();
     const ok = await probeFfmpegAvailable(ffmpeg);
     if (!ok) {
@@ -75,7 +84,10 @@ export async function downloadVideoHandler(
     url: params.url,
     formatSelector,
     outputTemplate,
-    mergeOutputFormat: 'mp4',
+    ...(params.outputMode === 'mp4' ? { mergeOutputFormat: 'mp4' as const } : {}),
+    ...(params.outputMode === 'mp3'
+      ? { extractAudio: { format: 'mp3' as const } }
+      : {}),
     timeoutMs: 0,
     onProgressLine: sink?.onProgressLine,
     signal: sink?.signal,
