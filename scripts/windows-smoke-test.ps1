@@ -66,7 +66,12 @@ foreach ($attempt in $launchAttempts) {
   $argText = if ($attemptArgs.Count -gt 0) { $attemptArgs -join ' ' } else { '(none)' }
   Write-Host "Launching Maxframe ($attemptName), args: $argText"
 
-  $launched = Start-Process -FilePath $appExe -ArgumentList $attemptArgs -PassThru
+  if ($attemptArgs.Count -gt 0) {
+    $launched = Start-Process -FilePath $appExe -ArgumentList $attemptArgs -PassThru
+  }
+  else {
+    $launched = Start-Process -FilePath $appExe -PassThru
+  }
   $startupDeadline = (Get-Date).AddSeconds($startupGraceSeconds)
   $stayedUp = $true
   while ((Get-Date) -lt $startupDeadline) {
