@@ -22,12 +22,14 @@ export default /** @type import('electron-builder').Configuration */
   },
   generateUpdatesFilesForAllChannels: true,
   /**
-   * Windows (NSIS) — phase 1 only; portable zip is **not** built (see docs/releasing-windows.md).
-   * Expected `dist/` outputs for `npm run compile:win` (x64), with `artifactName` below:
-   * - `Maxframe-${version}-win-x64.exe` — NSIS installer (user-facing)
-   * - `Maxframe-${version}-win-x64.exe.blockmap` — block map (auto-update)
-   * - `latest.yml` — update metadata (generateUpdatesFilesForAllChannels)
-   * Silent install (NSIS): run the installer with `/S` and put `/D=...` last, e.g. `Maxframe-x.y.z-win-x64.exe /S /D=C:\path\to\prefix`
+   * Windows targets (x64):
+   *   NSIS installer  — `npm run compile:win`          → `Maxframe-${version}-win-x64.exe`
+   *   Portable exe    — `npm run compile:win:portable`  → `Maxframe-${version}-portable-win-x64.exe`
+   *
+   * `win.target` only lists `nsis`; the portable target is selected at build time via `--target portable`.
+   * Both share the same `extraResources` (yt-dlp, ffmpeg) so the portable build is fully self-contained.
+   *
+   * NSIS silent install: `Maxframe-x.y.z-win-x64.exe /S /D=C:\path\to\prefix`  (/D= must be last)
    */
   win: {
     target: [{ target: 'nsis', arch: ['x64'] }],
@@ -42,6 +44,13 @@ export default /** @type import('electron-builder').Configuration */
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
+    include: 'buildResources/nsis/uninstall-cleanup.nsh',
+  },
+  /**
+   * Portable target-specific naming to avoid collisions with NSIS installer assets.
+   */
+  portable: {
+    artifactName: '${productName}-${version}-portable-${os}-${arch}.${ext}',
   },
   linux: {
     target: ['deb'],

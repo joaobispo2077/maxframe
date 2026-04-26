@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit --ignoreDeprecations 6.0"
   },
   "exports": {
     ".": {

@@ -1,24 +1,15 @@
-import type { VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
+import type { VideoAnalysis, VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { mapYtdlpAudioFormatsToQualityOptions } from './mapYtdlpAudioFormatsToQualityOptions.js';
 import { mapYtdlpFormatsToQualityOptions } from './mapYtdlpFormatsToQualityOptions.js';
 import { resolveYtdlpExecutable } from './resolveYtdlpExecutable.js';
+import { asString, isRecord } from './ytdlpParseHelpers.js';
 
 const execFileAsync = promisify(execFile);
 const JSON_ARGS = ['-J', '--no-warnings', '--skip-download'] as const;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function asString(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    return value;
-  }
-  return undefined;
-}
 
 export type YtdlpGatewayOptions = {
   /** Executable name or path (default `yt-dlp`, resolved via `PATH`). */
@@ -41,7 +32,7 @@ export function createYtdlpVideoMetadataGateway(
   const timeoutMs = options.timeoutMs ?? 90_000;
 
   return {
-    async analyzeVideo(url: string) {
+    async analyzeVideo(url: string): Promise<VideoAnalysis> {
       let stdout: string;
       try {
         const result = await execFileAsync(executable, [...JSON_ARGS, url], {
@@ -72,7 +63,14 @@ export function createYtdlpVideoMetadataGateway(
         throw new Error('yt-dlp returned invalid JSON.');
       }
 
-      return mapYtdlpFormatsToQualityOptions(parsed);
+      const title = isRecord(parsed) ? (asString(parsed.title) ?? '') : '';
+      const uploader = isRecord(parsed)
+        ? (asString(parsed.uploader) ?? asString(parsed.channel) ?? 'Unknown Channel')
+        : 'Unknown Channel';
+      const videoQualities = mapYtdlpFormatsToQualityOptions(parsed);
+      const audioQualities = mapYtdlpAudioFormatsToQualityOptions(parsed);
+
+      return { videoQualities, audioQualities, title, uploader };
     },
   };
 }

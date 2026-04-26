@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Box,
   Button,
@@ -17,6 +19,17 @@ type SettingsPageProps = {
  * App preferences shell (paths, behavior). Filled in as settings are implemented.
  */
 export function SettingsPage({ onBack }: SettingsPageProps) {
+  const [debugMode, setDebugModeState] = useState(
+    () => localStorage.getItem('maxframe.debugMode') === 'true',
+  );
+
+  function toggleDebugMode() {
+    const next = !debugMode;
+    setDebugModeState(next);
+    localStorage.setItem('maxframe.debugMode', String(next));
+    void window.maxframeApi.setDebugMode(next);
+  }
+
   return (
     <Box minH="100vh" py={{ base: 6, md: 10 }} px={4}>
       <Container maxW="720px">
@@ -53,6 +66,32 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 defaults, and appearance). Use this screen to grow settings
                 without crowding the analyze flow.
               </Text>
+              <Box
+                borderTopWidth="1px"
+                borderColor="whiteAlpha.200"
+                pt={4}
+              >
+                <HStack justify="space-between" align="center">
+                  <VStack align="start" gap={0}>
+                    <Text fontWeight="medium">Debug mode</Text>
+                    <Text fontSize="xs" color="fg.muted">
+                      Shows detailed error info and writes logs to{' '}
+                      <Text as="strong" color="fg">
+                        maxframe-debug.log
+                      </Text>{' '}
+                      when something goes wrong.
+                    </Text>
+                  </VStack>
+                  <Button
+                    size="sm"
+                    variant={debugMode ? 'solid' : 'outline'}
+                    colorPalette={debugMode ? 'orange' : 'cyan'}
+                    onClick={toggleDebugMode}
+                  >
+                    {debugMode ? 'On' : 'Off'}
+                  </Button>
+                </HStack>
+              </Box>
             </VStack>
           </Card.Body>
         </Card.Root>

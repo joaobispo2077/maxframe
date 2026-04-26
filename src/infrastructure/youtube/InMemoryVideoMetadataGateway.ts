@@ -1,4 +1,4 @@
-import type { VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
+import type { VideoAnalysis, VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
 import type { QualityOption } from '../../domain/quality/QualityOption.js';
 
 const DEFAULT_QUALITY_OPTIONS: QualityOption[] = [
@@ -39,11 +39,16 @@ const DEFAULT_QUALITY_OPTIONS: QualityOption[] = [
 ];
 
 export function createInMemoryVideoMetadataGateway(
-  qualityOptions: QualityOption[] = DEFAULT_QUALITY_OPTIONS,
+  videoQualities: QualityOption[] = DEFAULT_QUALITY_OPTIONS,
 ): VideoMetadataGateway {
   return {
-    async analyzeVideo(_url: string): Promise<QualityOption[]> {
-      return qualityOptions;
+    async analyzeVideo(_url: string): Promise<VideoAnalysis> {
+      return {
+        videoQualities,
+        audioQualities: [],
+        title: '',
+        uploader: 'Unknown Channel',
+      };
     },
   };
 }

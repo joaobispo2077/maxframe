@@ -33,18 +33,23 @@ describe('analyzeVideoHandler default gateway', () => {
 
   it('uses yt-dlp gateway when fake metadata flag is disabled', async () => {
     process.env.MAXFRAME_FAKE_VIDEO_METADATA = '0';
-    const analyzeVideo = vi.fn().mockResolvedValue([
-      {
-        formatId: '137',
-        container: 'mp4',
-        resolutionLabel: '1080p',
-        width: 1920,
-        height: 1080,
-        fps: 30,
-        hasVideo: true,
-        hasAudio: false,
-      },
-    ]);
+    const analyzeVideo = vi.fn().mockResolvedValue({
+      videoQualities: [
+        {
+          formatId: '137',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+      audioQualities: [],
+      title: 'Test',
+      uploader: 'Tester',
+    });
 
     vi.doMock('@src/infrastructure/youtube/YtdlpVideoMetadataGateway', () => ({
       createYtdlpVideoMetadataGateway: () => ({

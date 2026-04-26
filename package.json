@@ -1,7 +1,7 @@
 {
   "name": "maxframe",
   "description": "Maxframe is a lightweight Electron application that lets you download YouTube videos in your preferred resolution and frame rate, with a focus on performance, quality, and simplicity.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "author": "vitor",
@@ -16,6 +16,7 @@
     "build": "npm run build -ws --if-present",
     "compile": "npm run build && electron-builder build --config electron-builder.mjs",
     "compile:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder build --win --x64 --config electron-builder.mjs",
+    "compile:win:portable": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder build --win portable --x64 --config electron-builder.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",

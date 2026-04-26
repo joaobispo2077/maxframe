@@ -17,6 +17,14 @@ function render(ui: ReactElement) {
   );
 }
 
+/** Minimal extra fields required by the updated AnalyzeVideoUrlResult */
+const EXTRA_FIELDS = {
+  title: 'Test Video',
+  uploader: 'Test Channel',
+  audioQualities: [],
+  bestAudioQuality: undefined,
+};
+
 describe('App', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -27,6 +35,8 @@ describe('App', () => {
       downloadVideo: vi.fn(),
       subscribeDownloadProgress: vi.fn(() => () => {}),
       cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      getDiagnostics: vi.fn().mockResolvedValue(undefined),
     };
   });
 
@@ -54,6 +64,7 @@ describe('App', () => {
 
   it('analyzes URL and shows best quality details', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       videoId: 'dQw4w9WgXcQ',
       bestQuality: {
@@ -101,6 +112,7 @@ describe('App', () => {
 
   it('shows a message when video id cannot be parsed', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
       url: 'https://www.youtube.com/watch?v=bad',
       videoId: undefined,
       bestQuality: undefined,
@@ -149,6 +161,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Analyzing...' })).toBeDisabled();
 
     resolveAnalysis({
+      ...EXTRA_FIELDS,
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       videoId: 'dQw4w9WgXcQ',
       bestQuality: undefined,
@@ -179,6 +192,7 @@ describe('App', () => {
 
   it('shows empty-quality message when best quality is missing', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       videoId: 'dQw4w9WgXcQ',
       bestQuality: undefined,
@@ -203,6 +217,7 @@ describe('App', () => {
 
   it('shows transparency explainer after analyze', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       videoId: 'dQw4w9WgXcQ',
       bestQuality: {
@@ -247,6 +262,7 @@ describe('App', () => {
 
   it('lists multiple quality rows', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       videoId: 'dQw4w9WgXcQ',
       bestQuality: {
@@ -298,6 +314,7 @@ describe('App', () => {
 
   it('downloads a quality row and shows saved path', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       videoId: 'dQw4w9WgXcQ',
       bestQuality: {
@@ -346,7 +363,8 @@ describe('App', () => {
         url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         formatId: '137',
         hasAudio: false,
-        suggestedFileName: 'dQw4w9WgXcQ-137.mp4',
+        suggestedFileName: 'Test Video - Test Channel.mp4',
+        outputMode: 'mp4',
       });
     });
 
@@ -357,6 +375,7 @@ describe('App', () => {
 
   it('keeps analyze results when download fails', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       videoId: 'dQw4w9WgXcQ',
       bestQuality: {
@@ -409,6 +428,7 @@ describe('App', () => {
 
   it('dismisses the save path message', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       videoId: 'dQw4w9WgXcQ',
       bestQuality: {

@@ -19,7 +19,11 @@ import {
 
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
-import { useDownloadProgressLog } from './hooks/useDownloadProgressLog.js';
+import { AnalyzingIndicator } from './components/AnalyzingIndicator.js';
+import { DiagnosticBlock } from './components/DiagnosticBlock.js';
+import { DownloadProgressCard } from './components/DownloadProgressCard.js';
+import { useDownloadProgress } from './hooks/useDownloadProgress.js';
+import { buildDiagnosticReport } from './lib/buildDiagnosticReport.js';
 import {
   describeQualityAgainstBest,
   formatAudioBitrateKbps,
@@ -27,10 +31,68 @@ import {
   streamKindLabel,
 } from './lib/qualityTransparency.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import type { DiagnosticsReport } from './maxframe-api.js';
 
 type AnalyzeResult = Awaited<
   ReturnType<(typeof window)['maxframeApi']['analyzeVideoUrl']>
 >;
+
+type Mp3FallbackCardProps = {
+  isDownloading: boolean;
+  isDisabled: boolean;
+  onDownload: () => void;
+};
+
+function Mp3FallbackCard({
+  isDownloading,
+  isDisabled,
+  onDownload,
+}: Mp3FallbackCardProps) {
+  return (
+    <Box as="li">
+      <Box
+        p={3}
+        borderRadius="md"
+        borderWidth="1px"
+        borderColor="orange.700"
+        bg="rgba(236, 153, 75, 0.08)"
+      >
+        <HStack gap={2} flexWrap="wrap" align="baseline">
+          <Text fontWeight="bold">
+            Best available (audio extracted from video)
+          </Text>
+          <Badge colorPalette="orange" variant="solid" size="sm">
+            No separate audio stream
+          </Badge>
+        </HStack>
+        <Text fontSize="sm" color="fg.muted" mt={2}>
+          This video has no separate audio-only streams. yt-dlp will use{' '}
+          <Text as="strong" color="fg">
+            bestaudio/best
+          </Text>{' '}
+          to extract audio from the best available muxed stream. Requires{' '}
+          <Text as="strong" color="fg">
+            ffmpeg
+          </Text>
+          .
+        </Text>
+        <Box mt={3}>
+          <Button
+            size="sm"
+            colorPalette="cyan"
+            variant="outline"
+            onClick={onDownload}
+            disabled={isDisabled}
+            loading={isDownloading}
+            loadingText="Downloading…"
+          >
+            Download as MP3
+          </Button>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
 
 function App() {
   const [activeView, setActiveView] = useState<'home' | 'settings'>('home');
@@ -41,14 +103,42 @@ function App() {
   const [downloadNote, setDownloadNote] = useState<string>();
   const [result, setResult] = useState<AnalyzeResult>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
-  const { lines: downloadProgressLines, clear: clearDownloadProgressLog } =
-    useDownloadProgressLog();
+  const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>('mp4');
+  const { progress, clear: clearDownloadProgress } = useDownloadProgress();
+
+  const [debugMode] = useState(
+    () => localStorage.getItem('maxframe.debugMode') === 'true',
+  );
+  const [diagnosticsReport, setDiagnosticsReport] = useState<
+    DiagnosticsReport | undefined
+  >();
+  const [reportCopied, setReportCopied] = useState(false);
+
+  async function fetchDiagnostics(): Promise<void> {
+    try {
+      const report = await window.maxframeApi.getDiagnostics();
+      setDiagnosticsReport(report);
+    } catch {
+      // diagnostic fetch failure should not surface to user
+    }
+  }
+
+  function handleCopyReport(): void {
+    if (!diagnosticsReport) return;
+    const text = buildDiagnosticReport(diagnosticsReport);
+    void navigator.clipboard.writeText(text).then(() => {
+      setReportCopied(true);
+      setTimeout(() => setReportCopied(false), 2000);
+    });
+  }
 
   async function analyzeUrl(): Promise<void> {
     setLoading(true);
     setError(undefined);
     setDownloadNote(undefined);
     setHoveredFormatId(null);
+    setDiagnosticsReport(undefined);
+    setReportCopied(false);
 
     try {
       const analysis = await window.maxframeApi.analyzeVideoUrl(url);
@@ -58,6 +148,9 @@ function App() {
       setError(
         caughtError instanceof Error ? caughtError.message : 'Unknown error',
       );
+      if (debugMode) {
+        void fetchDiagnostics();
+      }
     } finally {
       setLoading(false);
     }
@@ -79,15 +172,27 @@ function App() {
       return;
     }
     setDownloadFormatId(formatId);
-    clearDownloadProgressLog();
+    clearDownloadProgress();
     setError(undefined);
     setDownloadNote(undefined);
+    setDiagnosticsReport(undefined);
+    setReportCopied(false);
     try {
+      const clean = (s: string) =>
+        s
+          .replace(/[\\/:*?"<>|]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      const safeTitle = clean(result.title || result.videoId || 'video');
+      const safeUploader = clean(result.uploader) || 'Unknown Channel';
+      const stem = `${safeTitle} - ${safeUploader}`.slice(0, 200).trimEnd();
+      const suggestedFileName = `${stem}.${outputMode}`;
       const { outputPath } = await window.maxframeApi.downloadVideo({
         url: result.url,
         formatId,
         hasAudio,
-        suggestedFileName: `${result.videoId ?? 'video'}-${formatId}.mp4`,
+        suggestedFileName,
+        outputMode,
       });
       setDownloadNote(`Saved to ${outputPath}`);
     } catch (caughtError) {
@@ -98,14 +203,28 @@ function App() {
         setDownloadNote(undefined);
       } else {
         setError(msg);
+        if (debugMode) {
+          void fetchDiagnostics();
+        }
       }
     } finally {
       setDownloadFormatId(undefined);
-      clearDownloadProgressLog();
+      clearDownloadProgress();
     }
   }
 
   const downloadBusy = Boolean(downloadFormatId);
+
+  const displayQualities =
+    outputMode === 'mp3' ? (result?.audioQualities ?? []) : (result?.qualities ?? []);
+  const displayBest =
+    outputMode === 'mp3' ? result?.bestAudioQuality : result?.bestQuality;
+  const mp3FallbackNeeded =
+    outputMode === 'mp3' &&
+    result !== undefined &&
+    (result.audioQualities ?? []).length === 0 &&
+    result.qualities.length > 0;
+  const fallbackFormatId = result?.bestQuality?.formatId ?? 'bestaudio';
 
   if (activeView === 'settings') {
     return <SettingsPage onBack={() => setActiveView('home')} />;
@@ -152,6 +271,30 @@ function App() {
 
               <Stack gap={4}>
                 <Field.Root>
+                  <Field.Label htmlFor="output-format">
+                    Output format
+                  </Field.Label>
+                  <select
+                    id="output-format"
+                    value={outputMode}
+                    onChange={(e) =>
+                      setOutputMode(e.target.value as 'mp3' | 'mp4')
+                    }
+                    style={{
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: '6px',
+                      color: 'white',
+                      padding: '8px 12px',
+                      width: '100%',
+                      fontSize: '14px',
+                    }}
+                  >
+                    <option value="mp4">MP4 (best video)</option>
+                    <option value="mp3">MP3 (best audio)</option>
+                  </select>
+                </Field.Root>
+                <Field.Root>
                   <Field.Label htmlFor="youtube-url">YouTube URL</Field.Label>
                   <Input
                     id="youtube-url"
@@ -178,12 +321,21 @@ function App() {
                 >
                   Analyze quality
                 </Button>
+                <AnalyzingIndicator visible={loading} />
               </Stack>
 
               {error ? (
                 <Text role="alert" color="red.300">
                   {error}
                 </Text>
+              ) : null}
+
+              {error && debugMode && diagnosticsReport ? (
+                <DiagnosticBlock
+                  report={diagnosticsReport}
+                  onCopy={handleCopyReport}
+                  copied={reportCopied}
+                />
               ) : null}
 
               {downloadNote ? (
@@ -212,47 +364,10 @@ function App() {
               ) : null}
 
               {downloadBusy ? (
-                <Box
-                  p={3}
-                  borderRadius="md"
-                  bg="blackAlpha.500"
-                  borderWidth="1px"
-                  borderColor="whiteAlpha.200"
-                >
-                  <HStack justify="space-between" gap={3} mb={2} align="center">
-                    <Text fontSize="sm" fontWeight="medium">
-                      Download in progress…
-                    </Text>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      colorPalette="red"
-                      data-testid="download-cancel-btn"
-                      onClick={() => void cancelActiveDownload()}
-                    >
-                      Cancel
-                    </Button>
-                  </HStack>
-                  {downloadProgressLines.length > 0 ? (
-                    <Box
-                      as="pre"
-                      fontSize="xs"
-                      lineHeight="short"
-                      maxH="140px"
-                      overflowY="auto"
-                      whiteSpace="pre-wrap"
-                      color="fg.muted"
-                      aria-live="polite"
-                    >
-                      {downloadProgressLines.join('\n')}
-                    </Box>
-                  ) : (
-                    <Text fontSize="xs" color="fg.muted">
-                      Waiting for yt-dlp output…
-                    </Text>
-                  )}
-                </Box>
+                <DownloadProgressCard
+                  progress={progress}
+                  onCancel={() => void cancelActiveDownload()}
+                />
               ) : null}
 
               {result ? (
@@ -306,7 +421,7 @@ function App() {
                           </Text>{' '}
                           row is the best option in this app using height, then
                           frame rate, then listed video bitrate. This is not a
-                          legal guarantee of “maximum” quality everywhere; it is
+                          legal guarantee of "maximum" quality everywhere; it is
                           the top entry in this list only.
                         </Text>
                         <Text>
@@ -342,11 +457,39 @@ function App() {
                       shape.
                     </Text>
                   )}
-                  {result.bestQuality ? (
+
+                  {outputMode === 'mp4' ? (
+                    result.bestQuality ? (
+                      <Text mt={2} textAlign="center" fontSize="sm">
+                        Best raw quality: {result.bestQuality.resolutionLabel} @{' '}
+                        {result.bestQuality.fps}fps (
+                        {result.bestQuality.container})
+                      </Text>
+                    ) : (
+                      <Text
+                        mt={2}
+                        textAlign="center"
+                        fontSize="sm"
+                        color="fg.muted"
+                      >
+                        No downloadable video quality available for this URL.
+                      </Text>
+                    )
+                  ) : result.bestAudioQuality ? (
                     <Text mt={2} textAlign="center" fontSize="sm">
-                      Best raw quality: {result.bestQuality.resolutionLabel} @{' '}
-                      {result.bestQuality.fps}fps (
-                      {result.bestQuality.container})
+                      Best audio quality:{' '}
+                      {result.bestAudioQuality.audioBitrateKbps ?? '?'}kbps (
+                      {result.bestAudioQuality.container})
+                    </Text>
+                  ) : mp3FallbackNeeded ? (
+                    <Text
+                      mt={2}
+                      textAlign="center"
+                      fontSize="sm"
+                      color="orange.300"
+                    >
+                      No separate audio streams — audio will be extracted from
+                      the best available video stream.
                     </Text>
                   ) : (
                     <Text
@@ -355,7 +498,7 @@ function App() {
                       fontSize="sm"
                       color="fg.muted"
                     >
-                      No downloadable video quality available for this URL.
+                      No downloadable audio quality available for this URL.
                     </Text>
                   )}
 
@@ -368,18 +511,20 @@ function App() {
                     mt={4}
                     p={0}
                   >
-                    {result.qualities.map((quality) => {
-                      const isBest =
-                        result.bestQuality?.formatId === quality.formatId;
-                      const videoBr = formatVideoBitrateKbps(
-                        quality.videoBitrateKbps,
-                      );
+                    {displayQualities.map((quality) => {
+                      const isBest = displayBest?.formatId === quality.formatId;
+                      const videoBr = quality.hasVideo
+                        ? formatVideoBitrateKbps(quality.videoBitrateKbps)
+                        : undefined;
                       const audioBr = formatAudioBitrateKbps(
                         quality.audioBitrateKbps,
                       );
                       const showCompare =
                         hoveredFormatId === quality.formatId ||
                         downloadFormatId === quality.formatId;
+                      const qualityLabel = quality.hasVideo
+                        ? `${quality.resolutionLabel} @ ${quality.fps}fps (${quality.container}) — format ${quality.formatId}`
+                        : `${quality.audioBitrateKbps ?? '?'}kbps (${quality.container}) — format ${quality.formatId}`;
                       return (
                         <Box as="li" key={quality.formatId}>
                           <Box
@@ -432,10 +577,7 @@ function App() {
                             }}
                           >
                             <HStack gap={2} flexWrap="wrap" align="baseline">
-                              <Text fontWeight="bold">
-                                {quality.resolutionLabel} @ {quality.fps}fps (
-                                {quality.container}) — format {quality.formatId}
-                              </Text>
+                              <Text fontWeight="bold">{qualityLabel}</Text>
                               {isBest ? (
                                 <Badge
                                   colorPalette="green"
@@ -451,7 +593,7 @@ function App() {
                               {videoBr ? ` · ${videoBr}` : ''}
                               {audioBr ? ` · ${audioBr}` : ''}
                             </Text>
-                            {showCompare ? (
+                            {showCompare && quality.hasVideo ? (
                               <Text
                                 fontSize="xs"
                                 color="fg.muted"
@@ -487,6 +629,15 @@ function App() {
                         </Box>
                       );
                     })}
+                    {mp3FallbackNeeded ? (
+                      <Mp3FallbackCard
+                        isDownloading={downloadFormatId === fallbackFormatId}
+                        isDisabled={downloadBusy || loading}
+                        onDownload={() =>
+                          void downloadQuality(fallbackFormatId, true)
+                        }
+                      />
+                    ) : null}
                   </Stack>
                 </Box>
               ) : null}

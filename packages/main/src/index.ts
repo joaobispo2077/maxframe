@@ -1,5 +1,7 @@
 import type { AppInitConfig } from './AppInitConfig.js';
 
+import { app } from 'electron';
+import { join } from 'node:path';
 import { createModuleRunner } from './ModuleRunner.js';
 import { terminateAppOnLastWindowClose } from './modules/ApplicationTerminatorOnLastWindowClose.js';
 import { autoUpdater } from './modules/AutoUpdater.js';
@@ -12,6 +14,14 @@ import { createWindowManagerModule } from './modules/WindowManager.js';
 
 export async function initApp(initConfig: AppInitConfig) {
   const ciSmokeMode = process.env.MAXFRAME_CI_SMOKE === '1';
+
+  // Must be called before any module reads app.getPath('userData').
+  // electron-builder sets PORTABLE_EXECUTABLE_DIR before app code runs when launching the portable exe.
+  const isPortable = Boolean(process.env.PORTABLE_EXECUTABLE_DIR);
+  if (isPortable) {
+    app.setPath('userData', join(process.env.PORTABLE_EXECUTABLE_DIR!, 'MaxframeData'));
+  }
+
   let moduleRunner = createModuleRunner()
     .init(
       createWindowManagerModule({
@@ -45,8 +55,9 @@ export async function initApp(initConfig: AppInitConfig) {
       ),
     );
 
-  // CI smoke should validate installer/startup path and avoid updater-network noise.
-  if (!ciSmokeMode) {
+  // Skip auto-updater in CI smoke and in portable mode.
+  // Portable: update payloads would land next to the exe on the external drive, breaking the package.
+  if (!ciSmokeMode && !isPortable) {
     moduleRunner = moduleRunner.init(autoUpdater());
   }
 

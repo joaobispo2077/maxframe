@@ -1,3 +1,32 @@
+# [1.1.0](https://github.com/joaobispo2077/maxframe/compare/v1.0.1...v1.1.0) (2026-04-26)
+
+
+### Bug Fixes
+
+* **cypress:** add [@src](https://github.com/src) alias to Cypress Vite config so renderer components resolve domain imports ([0f66911](https://github.com/joaobispo2077/maxframe/commit/0f6691149c87a16e839cbac9ca63b9dbbbde5b19))
+* **ci:** align size-limit workflow with develop/release flow ([73d7e2d](https://github.com/joaobispo2077/maxframe/commit/73d7e2de83c5231da2b4e499d8c07acd1f0c24c0))
+* **portable:** correct electron-builder portable config key and compile script target syntax ([50b1594](https://github.com/joaobispo2077/maxframe/commit/50b159453822e86e9427b9cfd6c30f0b5485a03f))
+* **renderer:** include outputMode in HomePage downloads ([2c9f56e](https://github.com/joaobispo2077/maxframe/commit/2c9f56e27292e0784a93b8df522a1c4d3796a54d))
+* **typescript:** resolve tsconfig deprecation noise in editor ([187c6d0](https://github.com/joaobispo2077/maxframe/commit/187c6d0d33ed43c9bb44e3466c64980114dc5535))
+* **infra:** set yt-dlp cwd to output directory to avoid temp files in project root ([7aa6e63](https://github.com/joaobispo2077/maxframe/commit/7aa6e63fca3bb371f6ebc34f0aac521b0058e350))
+* **build:** use customUnInstall macro for NSIS uninstall hook ([79eebd4](https://github.com/joaobispo2077/maxframe/commit/79eebd4979c864acbdfd59574b6fe99b7bc85f26))
+
+
+### Features
+
+* **domain:** add audio quality ranking policy ([de68b33](https://github.com/joaobispo2077/maxframe/commit/de68b33faaf8513b149940b9a8df24a7719c32fb))
+* **diagnostics:** add debug mode with diagnostic panel and log file ([341af2e](https://github.com/joaobispo2077/maxframe/commit/341af2e86648693bdc0d287520088e9ba556f428))
+* **renderer:** add DownloadProgressCard and AnalyzingIndicator components ([7a2693e](https://github.com/joaobispo2077/maxframe/commit/7a2693efb0e3b7f5e7c4102bd1c77554f936e6ad))
+* **infra:** add MP3 output mode to format selector, yt-dlp runner and filename builder ([54200b1](https://github.com/joaobispo2077/maxframe/commit/54200b17920672927c313d8d093a5b6591238348))
+* **ui:** add output format selector with MP3 audio-only and MP4 best-video flows ([f92eeb5](https://github.com/joaobispo2077/maxframe/commit/f92eeb59eaca886018dddf49a8bdd9c598483179))
+* **ipc:** add outputMode to download request and branch MP3/MP4 handler ([f5eac9a](https://github.com/joaobispo2077/maxframe/commit/f5eac9a00a2f7074ff34d468fe4a9ea7af928820))
+* **renderer:** add useDownloadProgress hook with 800ms done-flash and cancel support ([a400dd4](https://github.com/joaobispo2077/maxframe/commit/a400dd494b495c440cf6b179874fd4aa3db65426))
+* **domain:** add yt-dlp progress line parser with stage detection ([fdd8b8a](https://github.com/joaobispo2077/maxframe/commit/fdd8b8ad51419d7add6c6079fd86a55ac00f70b9))
+* **infra:** enrich metadata gateway with title, uploader and audio streams ([c483b6b](https://github.com/joaobispo2077/maxframe/commit/c483b6befa67e2499d66861b9f2eab25c4fa24a1))
+* **app:** extend AnalyzeVideoUrlUseCase with title, uploader and audio qualities ([6cde15e](https://github.com/joaobispo2077/maxframe/commit/6cde15ef713f6e328fd2718f5e902db7824a08ed))
+* **portable:** redirect userData to exe dir and disable auto-updater in portable mode ([de8fd97](https://github.com/joaobispo2077/maxframe/commit/de8fd97750ce45e2bf390ba38d0bbbe9d26b1141))
+* **renderer:** replace raw progress log with structured DownloadProgressCard and AnalyzingIndicator ([7c10968](https://github.com/joaobispo2077/maxframe/commit/7c10968b6981a4e68b06b9c07717ef8a7f2a9fcf))
+
 ## [1.0.1](https://github.com/joaobispo2077/maxframe/compare/v1.0.0...v1.0.1) (2026-04-26)
 
 

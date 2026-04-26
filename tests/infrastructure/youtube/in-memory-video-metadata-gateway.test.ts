@@ -2,15 +2,15 @@ import { createInMemoryVideoMetadataGateway } from '@src/infrastructure/youtube/
 import { describe, expect, it } from 'vitest';
 
 describe('createInMemoryVideoMetadataGateway', () => {
-  it('returns default qualities with expected shape', async () => {
+  it('returns default videoQualities with expected shape', async () => {
     const gateway = createInMemoryVideoMetadataGateway();
-    const qualities = await gateway.analyzeVideo(
+    const analysis = await gateway.analyzeVideo(
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
 
-    expect(qualities).toHaveLength(3);
-    expect(qualities[0]?.formatId).toBe('137');
-    expect(qualities.every((q) => q.hasVideo)).toBe(true);
+    expect(analysis.videoQualities).toHaveLength(3);
+    expect(analysis.videoQualities[0]?.formatId).toBe('137');
+    expect(analysis.videoQualities.every((q) => q.hasVideo)).toBe(true);
   });
 
   it('returns injected options when provided', async () => {
@@ -26,11 +26,19 @@ describe('createInMemoryVideoMetadataGateway', () => {
         hasAudio: false,
       },
     ]);
-    const qualities = await gateway.analyzeVideo(
+    const analysis = await gateway.analyzeVideo(
       'https://youtu.be/dQw4w9WgXcQ',
     );
 
-    expect(qualities).toHaveLength(1);
-    expect(qualities[0]?.container).toBe('webm');
+    expect(analysis.videoQualities).toHaveLength(1);
+    expect(analysis.videoQualities[0]?.container).toBe('webm');
+  });
+
+  it('returns empty audioQualities by default', async () => {
+    const gateway = createInMemoryVideoMetadataGateway();
+    const analysis = await gateway.analyzeVideo(
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+    expect(analysis.audioQualities).toEqual([]);
   });
 });

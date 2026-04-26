@@ -19,8 +19,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
-  build-windows:
-    name: Build Windows
+  build-windows-installer:
+    name: Build Windows (installer)
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -64,9 +64,51 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  build-windows-portable:
+    name: Build Windows (portable)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Cache Electron (Windows)
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
+      - name: Install dependencies
+        run: npm ci --force
+
+      - name: Windows portable
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run compile:win:portable
+
+      - name: Upload Windows portable
+        uses: actions/upload-artifact@v7
+        with:
+          name: maxframe-win-portable
+          path: dist/*-portable-win-x64.exe
+          if-no-files-found: error
+          retention-days: 7
+
   smoke-windows:
-    name: Smoke (Windows)
-    needs: [build-windows]
+    name: Smoke (Windows installer)
+    needs: [build-windows-installer]
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -96,9 +138,41 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  smoke-windows-portable:
+    name: Smoke (Windows portable)
+    needs: [build-windows-portable]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download portable
+        uses: actions/download-artifact@v8
+        with:
+          name: maxframe-win-portable
+          path: win-smoke-portable
+
+      - name: Run smoke
+        env:
+          SMOKE_INSTALLER_DIR: win-smoke-portable
+          MAXFRAME_CI_SMOKE: '1'
+        shell: powershell
+        run: |
+          & "$env:GITHUB_WORKSPACE\scripts\windows-portable-smoke-test.ps1"
+
+      - name: Upload smoke diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-portable-smoke-diagnostics-${{ github.run_id }}
+          path: ${{ runner.temp }}/smoke-diagnostics/**
+          if-no-files-found: warn
+          retention-days: 7
+
   release:
     name: Semantic release
-    needs: [smoke-windows]
+    needs: [smoke-windows, smoke-windows-portable]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -118,8 +192,16 @@ jobs:
           name: maxframe-win-installer
           path: release-assets
 
-      - name: Verify Windows installer
-        run: ls -1 release-assets/*-win-x64.exe
+      - name: Download Windows portable
+        uses: actions/download-artifact@v8
+        with:
+          name: maxframe-win-portable
+          path: release-assets
+
+      - name: Verify release assets
+        run: |
+          ls -1 release-assets/*-win-x64.exe
+          ls -1 release-assets/*-portable-win-x64.exe
 
       - name: Setup Node
         uses: actions/setup-node@v6

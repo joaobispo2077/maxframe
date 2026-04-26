@@ -1,24 +1,12 @@
 import type { QualityOption } from '../../domain/quality/QualityOption.js';
 
-type UnknownRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === 'object' && value !== null;
-}
-
-function asNumber(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  return undefined;
-}
-
-function asString(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    return value;
-  }
-  return undefined;
-}
+import {
+  asNumber,
+  asString,
+  formatIdFromEntry,
+  isRecord,
+  type UnknownRecord,
+} from './ytdlpParseHelpers.js';
 
 /** Descending height thresholds → common resolution labels. */
 const RESOLUTION_HEIGHT_BUCKETS: { minHeight: number; label: string }[] = [
@@ -49,14 +37,6 @@ function resolutionLabelFromHeight(
     }
   }
   return `${height}p`;
-}
-
-function formatIdFromEntry(entry: UnknownRecord): string | undefined {
-  const formatIdRaw = entry.format_id;
-  if (typeof formatIdRaw === 'string' || typeof formatIdRaw === 'number') {
-    return String(formatIdRaw);
-  }
-  return undefined;
 }
 
 function qualityOptionFromVideoEntry(
