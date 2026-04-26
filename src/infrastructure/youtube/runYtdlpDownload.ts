@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { dirname } from 'node:path';
 
 export type YtdlpDownloadParams = {
   executable: string;
@@ -93,6 +94,7 @@ export async function runYtdlpDownload(
     const child = spawn(params.executable, args, {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: dirname(params.outputTemplate),
     });
 
     const onAbort = () => {
