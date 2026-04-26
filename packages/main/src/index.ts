@@ -11,7 +11,8 @@ import { disallowMultipleAppInstance } from './modules/SingleInstanceApp.js';
 import { createWindowManagerModule } from './modules/WindowManager.js';
 
 export async function initApp(initConfig: AppInitConfig) {
-  const moduleRunner = createModuleRunner()
+  const ciSmokeMode = process.env.MAXFRAME_CI_SMOKE === '1';
+  let moduleRunner = createModuleRunner()
     .init(
       createWindowManagerModule({
         initConfig,
@@ -21,7 +22,6 @@ export async function initApp(initConfig: AppInitConfig) {
     .init(disallowMultipleAppInstance())
     .init(terminateAppOnLastWindowClose())
     .init(hardwareAccelerationMode({ enable: false }))
-    .init(autoUpdater())
     .init(createIpcBridgeModule())
 
     // Install DevTools extension if needed
@@ -44,6 +44,11 @@ export async function initApp(initConfig: AppInitConfig) {
         ),
       ),
     );
+
+  // CI smoke should validate installer/startup path and avoid updater-network noise.
+  if (!ciSmokeMode) {
+    moduleRunner = moduleRunner.init(autoUpdater());
+  }
 
   await moduleRunner;
 }

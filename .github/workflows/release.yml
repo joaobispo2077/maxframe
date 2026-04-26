@@ -82,9 +82,19 @@ jobs:
       - name: Run smoke
         env:
           SMOKE_INSTALLER_DIR: win-smoke
+          MAXFRAME_CI_SMOKE: '1'
         shell: powershell
         run: |
           & "$env:GITHUB_WORKSPACE\scripts\windows-smoke-test.ps1"
+
+      - name: Upload smoke diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-smoke-diagnostics-${{ github.run_id }}
+          path: ${{ runner.temp }}/smoke-diagnostics/**
+          if-no-files-found: warn
+          retention-days: 7
 
   release:
     name: Semantic release
