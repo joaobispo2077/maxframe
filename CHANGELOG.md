@@ -1,3 +1,14 @@
+## [1.0.1](https://github.com/joaobispo2077/maxframe/compare/v1.0.0...v1.0.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* **smoke:** handle empty args in fallback launch ([9ee3228](https://github.com/joaobispo2077/maxframe/commit/9ee3228b48ea08f0707e1a4ac20ee307366b9bfc))
+* **smoke:** harden Windows installer gate with diagnostics ([582b156](https://github.com/joaobispo2077/maxframe/commit/582b156e10654616134227253390476f6c766a7e))
+* **smoke:** make Windows app launch check CI-safe ([b3499a7](https://github.com/joaobispo2077/maxframe/commit/b3499a77b4546ef36812b2cf4d45a7a0ac052e25))
+* **build:** shrink packaged payload and add PR size reporting ([b1483c9](https://github.com/joaobispo2077/maxframe/commit/b1483c9feb89dec8ec08605725180fec66fa61e4))
+* **release:** stabilize Windows smoke installer execution ([cacb4c2](https://github.com/joaobispo2077/maxframe/commit/cacb4c2c58fd61979a180dbd7afb40e4ebdf3921))
+
 # 1.0.0 (2026-04-25)
 
 

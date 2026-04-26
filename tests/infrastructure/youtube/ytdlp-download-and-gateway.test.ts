@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const spawnMock = vi.fn();
 const execFileMock = vi.fn();
 const mapFormatsMock = vi.fn();
+const mapAudioFormatsMock = vi.fn();
 const resolveExecutableMock = vi.fn();
 
 vi.mock('node:child_process', () => ({
@@ -18,6 +19,10 @@ vi.mock('node:child_process', () => ({
 
 vi.mock('@src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions', () => ({
   mapYtdlpFormatsToQualityOptions: mapFormatsMock,
+}));
+
+vi.mock('@src/infrastructure/youtube/mapYtdlpAudioFormatsToQualityOptions', () => ({
+  mapYtdlpAudioFormatsToQualityOptions: mapAudioFormatsMock,
 }));
 
 vi.mock('@src/infrastructure/youtube/resolveYtdlpExecutable', () => ({
@@ -175,6 +180,7 @@ describe('createYtdlpVideoMetadataGateway', () => {
         hasAudio: false,
       },
     ]);
+    mapAudioFormatsMock.mockReturnValue([]);
   });
 
   it('executes yt-dlp JSON mode and maps parsed output', async () => {
@@ -203,7 +209,7 @@ describe('createYtdlpVideoMetadataGateway', () => {
       (execFileMock.mock.calls[0]?.[2] as Record<string, unknown>).timeout,
     ).toBe(1234);
     expect(mapFormatsMock).toHaveBeenCalledWith({ formats: [] });
-    expect(result).toHaveLength(1);
+    expect(result.videoQualities).toHaveLength(1);
   });
 
   it('maps ENOENT and stderr/JSON parse failures to user-facing errors', async () => {
@@ -260,18 +266,21 @@ describe('createYtdlpVideoMetadataGateway', () => {
       expect((opts as Record<string, unknown>).timeout).toBe(90_000);
       callback?.(null, { stdout: '{"formats":[]}', stderr: '' });
     });
-    await expect(gateway.analyzeVideo('https://youtu.be/f')).resolves.toEqual([
-      {
-        formatId: '137',
-        container: 'mp4',
-        resolutionLabel: '1080p',
-        width: 1920,
-        height: 1080,
-        fps: 30,
-        hasVideo: true,
-        hasAudio: false,
-      },
-    ]);
+    await expect(gateway.analyzeVideo('https://youtu.be/f')).resolves.toMatchObject({
+      videoQualities: [
+        {
+          formatId: '137',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+      audioQualities: [],
+    });
     expect(resolveExecutableMock).toHaveBeenCalled();
   });
 });
