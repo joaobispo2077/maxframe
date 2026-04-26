@@ -24,6 +24,24 @@ function compareQualityDescending(
   return compareNumberDescending(currentBitrate, candidateBitrate);
 }
 
+function isAudioOnlyQuality(option: QualityOption): boolean {
+  return option.hasAudio && !option.hasVideo;
+}
+
+function compareAudioDescending(a: QualityOption, b: QualityOption): number {
+  return (b.audioBitrateKbps ?? 0) - (a.audioBitrateKbps ?? 0);
+}
+
+export function rankAudioOptions(options: QualityOption[]): QualityOption[] {
+  return options.filter(isAudioOnlyQuality).toSorted(compareAudioDescending);
+}
+
+export function selectBestAudioQuality(
+  options: QualityOption[],
+): QualityOption | undefined {
+  return rankAudioOptions(options)[0];
+}
+
 export function rankQualityOptions(options: QualityOption[]): QualityOption[] {
   return options
     .filter(isDownloadableQuality)
