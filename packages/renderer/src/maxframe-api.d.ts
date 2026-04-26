@@ -1,6 +1,7 @@
 type InitialAppState = {
   appName: string;
   status: 'ready';
+  isPortable: boolean;
 };
 
 type QualityOption = {

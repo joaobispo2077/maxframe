@@ -28,10 +28,17 @@ const CHANNEL_GET_DIAGNOSTICS = 'app:get-diagnostics';
 let activeDownloadAbort: AbortController | undefined;
 
 class IpcBridge implements AppModule {
+  readonly #isPortable: boolean;
+
+  constructor({ isPortable = false }: { isPortable?: boolean } = {}) {
+    this.#isPortable = isPortable;
+  }
+
   enable(_context: ModuleContext): void {
     ipcMain.handle(CHANNEL_GET_INITIAL_STATE, () => ({
       appName: 'Maxframe',
       status: 'ready',
+      isPortable: this.#isPortable,
     }));
 
     ipcMain.handle(CHANNEL_PING, (_event, payload: string) => payload);
@@ -102,6 +109,6 @@ class IpcBridge implements AppModule {
   }
 }
 
-export function createIpcBridgeModule() {
-  return new IpcBridge();
+export function createIpcBridgeModule(opts?: { isPortable?: boolean }) {
+  return new IpcBridge(opts);
 }

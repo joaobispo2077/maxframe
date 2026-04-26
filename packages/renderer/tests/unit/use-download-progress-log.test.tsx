@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 describe('useDownloadProgressLog', () => {
   beforeEach(() => {
     window.maxframeApi = {
-      getInitialAppState: vi.fn(),
+      getInitialAppState: vi.fn().mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: false }),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
       downloadVideo: vi.fn(),
