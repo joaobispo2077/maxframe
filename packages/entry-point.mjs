@@ -32,5 +32,7 @@ initApp(
     preload: {
       path: fileURLToPath(import.meta.resolve('@maxframe/preload/exposed.mjs')),
     },
+
+    icon: fileURLToPath(new URL('../.github/assets/maxframe-logo.png', import.meta.url)),
   },
 );
