@@ -37,9 +37,10 @@ function setupMaxframeApi(overrides: Partial<typeof window.maxframeApi> = {}) {
     downloadVideo: vi.fn(),
     subscribeDownloadProgress: vi.fn(() => () => {}),
     cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
-    setDebugMode: vi.fn().mockResolvedValue(undefined),
-    getDiagnostics: vi.fn().mockResolvedValue(DIAGNOSTICS_REPORT),
-    ...overrides,
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      getDiagnostics: vi.fn().mockResolvedValue(DIAGNOSTICS_REPORT),
+      getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
+      ...overrides,
   };
 }
 
