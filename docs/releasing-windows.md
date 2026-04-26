@@ -60,6 +60,8 @@ Releases are **unsigned** in phase 1. Users should expect to **allow** the app t
 - This workflow is **manual-only** (`workflow_dispatch`) and does not publish releases.
 - It follows the same artifact handoff pattern as release: build installer artifact first, then run smoke against the downloaded artifact.
 - The smoke script resolves `Maxframe.exe` recursively under the install prefix to avoid brittle assumptions about NSIS install layout.
+- Smoke runs with `MAXFRAME_CI_SMOKE=1` to avoid non-essential startup noise (for example updater network checks) while preserving installer/startup validation.
+- On smoke failure, workflows upload diagnostics from `${{ runner.temp }}/smoke-diagnostics` so failures can be triaged without rerun-only debugging.
 
 ## Version alignment
 

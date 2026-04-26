@@ -29,10 +29,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24.10'
           cache: npm
@@ -63,10 +63,10 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24.10'
           cache: npm
@@ -81,7 +81,7 @@ jobs:
         run: npm run test:unit:coverage
 
       - name: Upload unit coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unit-coverage-summary
           path: coverage/coverage-summary.json
@@ -138,10 +138,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24.10'
           cache: npm
@@ -154,7 +154,7 @@ jobs:
 
       - name: Upload Cypress screenshots on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cypress-screenshots
           path: cypress/screenshots
@@ -178,10 +178,10 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24.10'
           cache: npm
@@ -193,7 +193,7 @@ jobs:
         run: mkdir -p reports
 
       - name: Cache Stryker incremental report
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: reports/stryker-incremental.json
           key: stryker-incremental-${{ runner.os }}-${{ hashFiles('package-lock.json', 'stryker.config.mjs', 'vitest.stryker.config.ts') }}
@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload mutation reports artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-reports
           path: reports/mutation
