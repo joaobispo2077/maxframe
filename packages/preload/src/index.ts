@@ -83,3 +83,25 @@ export function subscribeDownloadProgress(
 export async function cancelDownload(): Promise<{ canceled: boolean }> {
   return ipcRenderer.invoke(CHANNEL_DOWNLOAD_CANCEL);
 }
+
+export type DiagnosticsReport = {
+  ytdlpPath: string;
+  ytdlpFound: boolean;
+  ffmpegPath: string;
+  ffmpegFound: boolean;
+  platform: string;
+  arch: string;
+  appVersion: string;
+  pathEnv: string;
+  lastError: string | undefined;
+};
+
+/** Sync the debug mode toggle state to the main process. */
+export async function setDebugMode(on: boolean): Promise<void> {
+  return ipcRenderer.invoke('app:set-debug-mode', { on });
+}
+
+/** Collect diagnostic information from the main process. */
+export async function getDiagnostics(): Promise<DiagnosticsReport> {
+  return ipcRenderer.invoke('app:get-diagnostics');
+}

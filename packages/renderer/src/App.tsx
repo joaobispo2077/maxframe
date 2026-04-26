@@ -19,7 +19,11 @@ import {
 
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
-import { useDownloadProgressLog } from './hooks/useDownloadProgressLog.js';
+import { AnalyzingIndicator } from './components/AnalyzingIndicator.js';
+import { DiagnosticBlock } from './components/DiagnosticBlock.js';
+import { DownloadProgressCard } from './components/DownloadProgressCard.js';
+import { useDownloadProgress } from './hooks/useDownloadProgress.js';
+import { buildDiagnosticReport } from './lib/buildDiagnosticReport.js';
 import {
   describeQualityAgainstBest,
   formatAudioBitrateKbps,
@@ -27,6 +31,7 @@ import {
   streamKindLabel,
 } from './lib/qualityTransparency.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import type { DiagnosticsReport } from './maxframe-api.js';
 
 type AnalyzeResult = Awaited<
   ReturnType<(typeof window)['maxframeApi']['analyzeVideoUrl']>
@@ -99,14 +104,41 @@ function App() {
   const [result, setResult] = useState<AnalyzeResult>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
   const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>('mp4');
-  const { lines: downloadProgressLines, clear: clearDownloadProgressLog } =
-    useDownloadProgressLog();
+  const { progress, clear: clearDownloadProgress } = useDownloadProgress();
+
+  const [debugMode] = useState(
+    () => localStorage.getItem('maxframe.debugMode') === 'true',
+  );
+  const [diagnosticsReport, setDiagnosticsReport] = useState<
+    DiagnosticsReport | undefined
+  >();
+  const [reportCopied, setReportCopied] = useState(false);
+
+  async function fetchDiagnostics(): Promise<void> {
+    try {
+      const report = await window.maxframeApi.getDiagnostics();
+      setDiagnosticsReport(report);
+    } catch {
+      // diagnostic fetch failure should not surface to user
+    }
+  }
+
+  function handleCopyReport(): void {
+    if (!diagnosticsReport) return;
+    const text = buildDiagnosticReport(diagnosticsReport);
+    void navigator.clipboard.writeText(text).then(() => {
+      setReportCopied(true);
+      setTimeout(() => setReportCopied(false), 2000);
+    });
+  }
 
   async function analyzeUrl(): Promise<void> {
     setLoading(true);
     setError(undefined);
     setDownloadNote(undefined);
     setHoveredFormatId(null);
+    setDiagnosticsReport(undefined);
+    setReportCopied(false);
 
     try {
       const analysis = await window.maxframeApi.analyzeVideoUrl(url);
@@ -116,6 +148,9 @@ function App() {
       setError(
         caughtError instanceof Error ? caughtError.message : 'Unknown error',
       );
+      if (debugMode) {
+        void fetchDiagnostics();
+      }
     } finally {
       setLoading(false);
     }
@@ -137,9 +172,11 @@ function App() {
       return;
     }
     setDownloadFormatId(formatId);
-    clearDownloadProgressLog();
+    clearDownloadProgress();
     setError(undefined);
     setDownloadNote(undefined);
+    setDiagnosticsReport(undefined);
+    setReportCopied(false);
     try {
       const clean = (s: string) =>
         s
@@ -166,10 +203,13 @@ function App() {
         setDownloadNote(undefined);
       } else {
         setError(msg);
+        if (debugMode) {
+          void fetchDiagnostics();
+        }
       }
     } finally {
       setDownloadFormatId(undefined);
-      clearDownloadProgressLog();
+      clearDownloadProgress();
     }
   }
 
@@ -281,12 +321,21 @@ function App() {
                 >
                   Analyze quality
                 </Button>
+                <AnalyzingIndicator visible={loading} />
               </Stack>
 
               {error ? (
                 <Text role="alert" color="red.300">
                   {error}
                 </Text>
+              ) : null}
+
+              {error && debugMode && diagnosticsReport ? (
+                <DiagnosticBlock
+                  report={diagnosticsReport}
+                  onCopy={handleCopyReport}
+                  copied={reportCopied}
+                />
               ) : null}
 
               {downloadNote ? (
@@ -315,47 +364,10 @@ function App() {
               ) : null}
 
               {downloadBusy ? (
-                <Box
-                  p={3}
-                  borderRadius="md"
-                  bg="blackAlpha.500"
-                  borderWidth="1px"
-                  borderColor="whiteAlpha.200"
-                >
-                  <HStack justify="space-between" gap={3} mb={2} align="center">
-                    <Text fontSize="sm" fontWeight="medium">
-                      Download in progress…
-                    </Text>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      colorPalette="red"
-                      data-testid="download-cancel-btn"
-                      onClick={() => void cancelActiveDownload()}
-                    >
-                      Cancel
-                    </Button>
-                  </HStack>
-                  {downloadProgressLines.length > 0 ? (
-                    <Box
-                      as="pre"
-                      fontSize="xs"
-                      lineHeight="short"
-                      maxH="140px"
-                      overflowY="auto"
-                      whiteSpace="pre-wrap"
-                      color="fg.muted"
-                      aria-live="polite"
-                    >
-                      {downloadProgressLines.join('\n')}
-                    </Box>
-                  ) : (
-                    <Text fontSize="xs" color="fg.muted">
-                      Waiting for yt-dlp output…
-                    </Text>
-                  )}
-                </Box>
+                <DownloadProgressCard
+                  progress={progress}
+                  onCancel={() => void cancelActiveDownload()}
+                />
               ) : null}
 
               {result ? (

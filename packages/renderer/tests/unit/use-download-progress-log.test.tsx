@@ -11,6 +11,8 @@ describe('useDownloadProgressLog', () => {
       downloadVideo: vi.fn(),
       subscribeDownloadProgress: vi.fn(() => () => {}),
       cancelDownload: vi.fn(),
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      getDiagnostics: vi.fn().mockResolvedValue(undefined),
     };
   });
 

@@ -4,6 +4,10 @@ import type { ModuleContext } from '../ModuleContext.js';
 import { ipcMain } from 'electron';
 
 import { analyzeVideoHandler } from '../../../../src/interface/ipc/analyzeVideoHandler.js';
+import { clearError, recordError } from '../../../../src/interface/ipc/errorStore.js';
+import { setDebugMode } from '../../../../src/interface/ipc/debugModeStore.js';
+import { getDiagnosticsHandler } from '../../../../src/interface/ipc/getDiagnosticsHandler.js';
+import { writeLogEntry } from '../../../../src/infrastructure/diagnostics/debugLogger.js';
 import {
   type DownloadVideoRequest,
   downloadVideoHandler,
@@ -16,6 +20,8 @@ const CHANNEL_ANALYZE_VIDEO_URL = 'app:analyze-video-url';
 const CHANNEL_DOWNLOAD_VIDEO = 'app:download-video';
 const CHANNEL_DOWNLOAD_VIDEO_PROGRESS = 'app:download-video-progress';
 const CHANNEL_DOWNLOAD_VIDEO_CANCEL = 'app:download-video-cancel';
+const CHANNEL_SET_DEBUG_MODE = 'app:set-debug-mode';
+const CHANNEL_GET_DIAGNOSTICS = 'app:get-diagnostics';
 
 let activeDownloadAbort: AbortController | undefined;
 
@@ -27,9 +33,18 @@ class IpcBridge implements AppModule {
     }));
 
     ipcMain.handle(CHANNEL_PING, (_event, payload: string) => payload);
-    ipcMain.handle(CHANNEL_ANALYZE_VIDEO_URL, (_event, url: string) =>
-      analyzeVideoHandler(url),
-    );
+
+    ipcMain.handle(CHANNEL_ANALYZE_VIDEO_URL, async (_event, url: string) => {
+      clearError();
+      try {
+        return await analyzeVideoHandler(url);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        recordError(msg);
+        writeLogEntry({ event: 'analyze-error', error: msg });
+        throw error;
+      }
+    });
 
     ipcMain.handle(
       CHANNEL_DOWNLOAD_VIDEO,
@@ -49,6 +64,13 @@ class IpcBridge implements AppModule {
         };
         try {
           return await downloadVideoHandler(payload, sink);
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          if (msg !== 'Download canceled.') {
+            recordError(msg);
+            writeLogEntry({ event: 'download-error', error: msg });
+          }
+          throw error;
         } finally {
           activeDownloadAbort = undefined;
         }
@@ -62,6 +84,15 @@ class IpcBridge implements AppModule {
       activeDownloadAbort.abort();
       return { canceled: true };
     });
+
+    ipcMain.handle(
+      CHANNEL_SET_DEBUG_MODE,
+      (_event, payload: { on: boolean }) => {
+        setDebugMode(payload.on);
+      },
+    );
+
+    ipcMain.handle(CHANNEL_GET_DIAGNOSTICS, () => getDiagnosticsHandler());
   }
 }
 
