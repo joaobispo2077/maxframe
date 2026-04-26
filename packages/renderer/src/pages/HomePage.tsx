@@ -18,7 +18,9 @@ import {
 } from '@chakra-ui/react';
 
 import maxframeLogo from '../../../../.github/assets/maxframe-logo.png';
-import { useDownloadProgressLog } from '../hooks/useDownloadProgressLog.js';
+import { AnalyzingIndicator } from '../components/AnalyzingIndicator.js';
+import { DownloadProgressCard } from '../components/DownloadProgressCard.js';
+import { useDownloadProgress } from '../hooks/useDownloadProgress.js';
 import {
   describeQualityAgainstBest,
   formatAudioBitrateKbps,
@@ -41,8 +43,7 @@ function HomePage() {
   const [downloadNote, setDownloadNote] = useState<string>();
   const [result, setResult] = useState<AnalyzeResult>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
-  const { lines: downloadProgressLines, clear: clearDownloadProgressLog } =
-    useDownloadProgressLog();
+  const { progress, clear: clearDownloadProgress } = useDownloadProgress();
 
   async function analyzeUrl(): Promise<void> {
     setLoading(true);
@@ -79,7 +80,7 @@ function HomePage() {
       return;
     }
     setDownloadFormatId(formatId);
-    clearDownloadProgressLog();
+    clearDownloadProgress();
     setError(undefined);
     setDownloadNote(undefined);
     try {
@@ -102,7 +103,7 @@ function HomePage() {
       }
     } finally {
       setDownloadFormatId(undefined);
-      clearDownloadProgressLog();
+      clearDownloadProgress();
     }
   }
 
@@ -167,6 +168,7 @@ function HomePage() {
                 >
                   Analyze quality
                 </Button>
+                <AnalyzingIndicator visible={loading} />
               </Stack>
 
               {error ? (
@@ -201,47 +203,10 @@ function HomePage() {
               ) : null}
 
               {downloadBusy ? (
-                <Box
-                  p={3}
-                  borderRadius="md"
-                  bg="blackAlpha.500"
-                  borderWidth="1px"
-                  borderColor="whiteAlpha.200"
-                >
-                  <HStack justify="space-between" gap={3} mb={2} align="center">
-                    <Text fontSize="sm" fontWeight="medium">
-                      Download in progress…
-                    </Text>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      colorPalette="red"
-                      data-testid="download-cancel-btn"
-                      onClick={() => void cancelActiveDownload()}
-                    >
-                      Cancel
-                    </Button>
-                  </HStack>
-                  {downloadProgressLines.length > 0 ? (
-                    <Box
-                      as="pre"
-                      fontSize="xs"
-                      lineHeight="short"
-                      maxH="140px"
-                      overflowY="auto"
-                      whiteSpace="pre-wrap"
-                      color="fg.muted"
-                      aria-live="polite"
-                    >
-                      {downloadProgressLines.join('\n')}
-                    </Box>
-                  ) : (
-                    <Text fontSize="xs" color="fg.muted">
-                      Waiting for yt-dlp output…
-                    </Text>
-                  )}
-                </Box>
+                <DownloadProgressCard
+                  progress={progress}
+                  onCancel={() => void cancelActiveDownload()}
+                />
               ) : null}
 
               {result ? (

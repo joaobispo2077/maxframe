@@ -47,12 +47,9 @@ export default /** @type import('electron-builder').Configuration */
     include: 'buildResources/nsis/uninstall-cleanup.nsh',
   },
   /**
-   * Portable build artifact name — the `-portable-` infix distinguishes it from the NSIS installer
-   * so both files can coexist in `release-assets/` without collision.
-   * Runtime: electron-builder sets `PORTABLE_EXECUTABLE_DIR` before app code runs; the main process
-   * uses this to redirect `userData` to `<exe-dir>\MaxframeData\`.
+   * Portable target-specific naming to avoid collisions with NSIS installer assets.
    */
-  portableOptions: {
+  portable: {
     artifactName: '${productName}-${version}-portable-${os}-${arch}.${ext}',
   },
   linux: {

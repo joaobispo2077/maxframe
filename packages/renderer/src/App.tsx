@@ -19,8 +19,10 @@ import {
 
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
+import { AnalyzingIndicator } from './components/AnalyzingIndicator.js';
 import { DiagnosticBlock } from './components/DiagnosticBlock.js';
-import { useDownloadProgressLog } from './hooks/useDownloadProgressLog.js';
+import { DownloadProgressCard } from './components/DownloadProgressCard.js';
+import { useDownloadProgress } from './hooks/useDownloadProgress.js';
 import { buildDiagnosticReport } from './lib/buildDiagnosticReport.js';
 import {
   describeQualityAgainstBest,
@@ -102,8 +104,7 @@ function App() {
   const [result, setResult] = useState<AnalyzeResult>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
   const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>('mp4');
-  const { lines: downloadProgressLines, clear: clearDownloadProgressLog } =
-    useDownloadProgressLog();
+  const { progress, clear: clearDownloadProgress } = useDownloadProgress();
 
   const [debugMode] = useState(
     () => localStorage.getItem('maxframe.debugMode') === 'true',
@@ -171,7 +172,7 @@ function App() {
       return;
     }
     setDownloadFormatId(formatId);
-    clearDownloadProgressLog();
+    clearDownloadProgress();
     setError(undefined);
     setDownloadNote(undefined);
     setDiagnosticsReport(undefined);
@@ -208,7 +209,7 @@ function App() {
       }
     } finally {
       setDownloadFormatId(undefined);
-      clearDownloadProgressLog();
+      clearDownloadProgress();
     }
   }
 
@@ -320,6 +321,7 @@ function App() {
                 >
                   Analyze quality
                 </Button>
+                <AnalyzingIndicator visible={loading} />
               </Stack>
 
               {error ? (
@@ -362,47 +364,10 @@ function App() {
               ) : null}
 
               {downloadBusy ? (
-                <Box
-                  p={3}
-                  borderRadius="md"
-                  bg="blackAlpha.500"
-                  borderWidth="1px"
-                  borderColor="whiteAlpha.200"
-                >
-                  <HStack justify="space-between" gap={3} mb={2} align="center">
-                    <Text fontSize="sm" fontWeight="medium">
-                      Download in progress…
-                    </Text>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      colorPalette="red"
-                      data-testid="download-cancel-btn"
-                      onClick={() => void cancelActiveDownload()}
-                    >
-                      Cancel
-                    </Button>
-                  </HStack>
-                  {downloadProgressLines.length > 0 ? (
-                    <Box
-                      as="pre"
-                      fontSize="xs"
-                      lineHeight="short"
-                      maxH="140px"
-                      overflowY="auto"
-                      whiteSpace="pre-wrap"
-                      color="fg.muted"
-                      aria-live="polite"
-                    >
-                      {downloadProgressLines.join('\n')}
-                    </Box>
-                  ) : (
-                    <Text fontSize="xs" color="fg.muted">
-                      Waiting for yt-dlp output…
-                    </Text>
-                  )}
-                </Box>
+                <DownloadProgressCard
+                  progress={progress}
+                  onCancel={() => void cancelActiveDownload()}
+                />
               ) : null}
 
               {result ? (
