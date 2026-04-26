@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   Badge,
@@ -105,6 +105,15 @@ function App() {
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
   const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>('mp4');
   const { progress, clear: clearDownloadProgress } = useDownloadProgress();
+
+  const [isPortable, setIsPortable] = useState(false);
+
+  useEffect(() => {
+    window.maxframeApi
+      ?.getInitialAppState?.()
+      .then((s) => setIsPortable(s.isPortable ?? false))
+      .catch(() => {});
+  }, []);
 
   const [debugMode] = useState(
     () => localStorage.getItem('maxframe.debugMode') === 'true',
@@ -253,6 +262,11 @@ function App() {
                 <Heading size="xl" letterSpacing="tight">
                   Maxframe
                 </Heading>
+                {isPortable && (
+                  <Badge colorPalette="cyan" variant="subtle" size="sm">
+                    Portable
+                  </Badge>
+                )}
                 <Text fontSize="lg" color="fg.muted">
                   Paste your URL below and check the Quality available
                 </Text>
@@ -364,16 +378,33 @@ function App() {
               ) : null}
 
               {downloadBusy ? (
-                <DownloadProgressCard
-                  progress={progress}
-                  onCancel={() => void cancelActiveDownload()}
-                />
+                <Box
+                  css={{
+                    '@keyframes fadeSlideIn': {
+                      from: { opacity: 0, transform: 'translateY(-6px)' },
+                      to: { opacity: 1, transform: 'translateY(0)' },
+                    },
+                    animation: 'fadeSlideIn 0.25s ease',
+                  }}
+                >
+                  <DownloadProgressCard
+                    progress={progress}
+                    onCancel={() => void cancelActiveDownload()}
+                  />
+                </Box>
               ) : null}
 
               {result ? (
                 <Box
                   as="section"
                   aria-label="quality-results"
+                  css={{
+                    '@keyframes slideUp': {
+                      from: { opacity: 0, transform: 'translateY(16px)' },
+                      to: { opacity: 1, transform: 'translateY(0)' },
+                    },
+                    animation: 'slideUp 0.3s ease',
+                  }}
                   aria-busy={downloadBusy}
                   borderTopWidth="1px"
                   borderColor="whiteAlpha.200"
