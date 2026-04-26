@@ -19,7 +19,9 @@ import {
 
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
+import { DiagnosticBlock } from './components/DiagnosticBlock.js';
 import { useDownloadProgressLog } from './hooks/useDownloadProgressLog.js';
+import { buildDiagnosticReport } from './lib/buildDiagnosticReport.js';
 import {
   describeQualityAgainstBest,
   formatAudioBitrateKbps,
@@ -27,6 +29,7 @@ import {
   streamKindLabel,
 } from './lib/qualityTransparency.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import type { DiagnosticsReport } from './maxframe-api.js';
 
 type AnalyzeResult = Awaited<
   ReturnType<(typeof window)['maxframeApi']['analyzeVideoUrl']>
@@ -102,11 +105,39 @@ function App() {
   const { lines: downloadProgressLines, clear: clearDownloadProgressLog } =
     useDownloadProgressLog();
 
+  const [debugMode] = useState(
+    () => localStorage.getItem('maxframe.debugMode') === 'true',
+  );
+  const [diagnosticsReport, setDiagnosticsReport] = useState<
+    DiagnosticsReport | undefined
+  >();
+  const [reportCopied, setReportCopied] = useState(false);
+
+  async function fetchDiagnostics(): Promise<void> {
+    try {
+      const report = await window.maxframeApi.getDiagnostics();
+      setDiagnosticsReport(report);
+    } catch {
+      // diagnostic fetch failure should not surface to user
+    }
+  }
+
+  function handleCopyReport(): void {
+    if (!diagnosticsReport) return;
+    const text = buildDiagnosticReport(diagnosticsReport);
+    void navigator.clipboard.writeText(text).then(() => {
+      setReportCopied(true);
+      setTimeout(() => setReportCopied(false), 2000);
+    });
+  }
+
   async function analyzeUrl(): Promise<void> {
     setLoading(true);
     setError(undefined);
     setDownloadNote(undefined);
     setHoveredFormatId(null);
+    setDiagnosticsReport(undefined);
+    setReportCopied(false);
 
     try {
       const analysis = await window.maxframeApi.analyzeVideoUrl(url);
@@ -116,6 +147,9 @@ function App() {
       setError(
         caughtError instanceof Error ? caughtError.message : 'Unknown error',
       );
+      if (debugMode) {
+        void fetchDiagnostics();
+      }
     } finally {
       setLoading(false);
     }
@@ -140,6 +174,8 @@ function App() {
     clearDownloadProgressLog();
     setError(undefined);
     setDownloadNote(undefined);
+    setDiagnosticsReport(undefined);
+    setReportCopied(false);
     try {
       const clean = (s: string) =>
         s
@@ -166,6 +202,9 @@ function App() {
         setDownloadNote(undefined);
       } else {
         setError(msg);
+        if (debugMode) {
+          void fetchDiagnostics();
+        }
       }
     } finally {
       setDownloadFormatId(undefined);
@@ -287,6 +326,14 @@ function App() {
                 <Text role="alert" color="red.300">
                   {error}
                 </Text>
+              ) : null}
+
+              {error && debugMode && diagnosticsReport ? (
+                <DiagnosticBlock
+                  report={diagnosticsReport}
+                  onCopy={handleCopyReport}
+                  copied={reportCopied}
+                />
               ) : null}
 
               {downloadNote ? (

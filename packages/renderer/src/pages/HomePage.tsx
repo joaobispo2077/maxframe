@@ -88,6 +88,7 @@ function HomePage() {
         formatId,
         hasAudio,
         suggestedFileName: `${result.videoId ?? 'video'}-${formatId}.mp4`,
+        outputMode: 'mp4',
       });
       setDownloadNote(`Saved to ${outputPath}`);
     } catch (caughtError) {

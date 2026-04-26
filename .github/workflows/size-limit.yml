@@ -3,7 +3,7 @@ name: Size Limit (PR signal)
 on:
   pull_request:
     branches:
-      - dev
+      - develop
       - release
 
 permissions:
@@ -14,14 +14,14 @@ jobs:
   size-limit:
     name: Size Limit (informational)
     # Release flow only:
-    # - feature/* -> dev
-    # - dev -> release
+    # - feature/* -> develop
+    # - develop -> release
     if: >-
       ${{
         github.event_name == 'pull_request' &&
         (
-          (github.base_ref == 'dev' && startsWith(github.head_ref, 'feature/')) ||
-          (github.base_ref == 'release' && github.head_ref == 'dev')
+          (github.base_ref == 'develop' && startsWith(github.head_ref, 'feature/')) ||
+          (github.base_ref == 'release' && github.head_ref == 'develop')
         )
       }}
     runs-on: ubuntu-latest

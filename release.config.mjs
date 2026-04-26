@@ -2,6 +2,7 @@ import {existsSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
 
 const releaseAssetsDir = join(process.cwd(), 'release-assets');
+// Matches both the NSIS installer (*-win-x64.exe) and the portable (*-portable-win-x64.exe).
 const hasWindowsInstallerInWorkspace =
   existsSync(releaseAssetsDir) &&
   readdirSync(releaseAssetsDir).some(f => /-win-x64\.exe$/i.test(f));
@@ -28,8 +29,19 @@ export default {
       ? [
           '@semantic-release/github',
           {
-            /** GHA release job downloads the Windows .exe to `release-assets/` before `npm run release`. */
-            assets: [{ path: 'release-assets/*-win-x64.exe' }],
+            /**
+             * GHA release job downloads both Windows artifacts to `release-assets/` before `npm run release`.
+             * Two labeled entries so the GitHub Release page shows distinct named downloads.
+             * The installer glob excludes the portable artifact via the more specific portable glob below.
+             */
+            assets: [
+              {
+                // Negation excludes the portable artifact so only the NSIS installer is labelled here.
+                path: ['release-assets/*-win-x64.exe', '!release-assets/*-portable-win-x64.exe'],
+                label: 'Windows Installer (x64)',
+              },
+              { path: 'release-assets/*-portable-win-x64.exe', label: 'Windows Portable (x64)' },
+            ],
           },
         ]
       : '@semantic-release/github',
