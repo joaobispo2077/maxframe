@@ -2,6 +2,8 @@ import type { AppModule } from '../AppModule.js';
 import type { ModuleContext } from '../ModuleContext.js';
 
 import { ipcMain } from 'electron';
+import { join } from 'node:path';
+import { app } from 'electron';
 
 import { analyzeVideoHandler } from '../../../../src/interface/ipc/analyzeVideoHandler.js';
 import { clearError, recordError } from '../../../../src/interface/ipc/errorStore.js';
@@ -93,6 +95,10 @@ class IpcBridge implements AppModule {
     );
 
     ipcMain.handle(CHANNEL_GET_DIAGNOSTICS, () => getDiagnosticsHandler());
+
+    ipcMain.handle('app:get-log-path', () =>
+      join(app.getPath('userData'), 'maxframe-debug.log'),
+    );
   }
 }
 

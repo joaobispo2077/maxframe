@@ -105,3 +105,8 @@ export async function setDebugMode(on: boolean): Promise<void> {
 export async function getDiagnostics(): Promise<DiagnosticsReport> {
   return ipcRenderer.invoke('app:get-diagnostics');
 }
+
+/** Returns the absolute path to the debug log file on the local machine. */
+export async function getLogPath(): Promise<string> {
+  return ipcRenderer.invoke('app:get-log-path');
+}
