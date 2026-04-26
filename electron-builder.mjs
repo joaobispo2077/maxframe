@@ -37,6 +37,8 @@ export default /** @type import('electron-builder').Configuration */
      */
     signAndEditExecutable: useFullWinExecutableEdit,
   },
+  // Product decision: ship English locale only to reduce packaged footprint.
+  electronLanguages: ['en-US'],
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
@@ -69,6 +71,11 @@ export default /** @type import('electron-builder').Configuration */
   files: [
     pkg.main,
     '!node_modules/@maxframe/**',
+    // Conservative size hygiene: exclude non-runtime metadata/artifacts from production package.
+    '!**/*.map',
+    '!**/node_modules/**/*.d.ts',
+    '!**/node_modules/**/{README.md,README,readme.md,readme,CHANGELOG.md,CHANGELOG}',
+    '!**/node_modules/**/{test,tests,__tests__,example,examples}/**',
     ...await getListOfFilesFromEachWorkspace(),
   ],
 });
