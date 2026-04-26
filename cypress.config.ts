@@ -15,6 +15,9 @@ export default defineConfig({
           alias: {
             react: path.resolve(__dirname, 'node_modules/react'),
             'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
+            // Mirror the @src alias from vitest.config.ts and packages/renderer/vite.config.ts
+            // so renderer components that import domain utilities resolve correctly in Cypress.
+            '@src': path.resolve(__dirname, 'src'),
           },
           dedupe: ['react', 'react-dom'],
         },
