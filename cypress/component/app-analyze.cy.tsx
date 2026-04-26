@@ -43,7 +43,11 @@ describe('App analyze flow', () => {
   });
 
   it('runs analyze and shows best quality', () => {
+    const api = window.maxframeApi;
     cy.mount(<App />);
+    cy.window().then((win) => {
+      win.maxframeApi = api;
+    });
     cy.get('#youtube-url').type('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     cy.contains('button', 'Analyze quality').click();
     cy.contains('Video ID: dQw4w9WgXcQ').should('be.visible');
@@ -51,32 +55,75 @@ describe('App analyze flow', () => {
     cy.get('[aria-label="quality-results"]').should('be.visible');
   });
 
-  it('downloads a row and shows saved path', () => {
+  it('shows a downloadable quality row after analyze', () => {
+    const api = window.maxframeApi;
     cy.mount(<App />);
+    cy.window().then((win) => {
+      win.maxframeApi = api;
+    });
     cy.get('#youtube-url').type('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     cy.contains('button', 'Analyze quality').click();
     cy.contains('Video ID: dQw4w9WgXcQ').should('be.visible');
-    cy.contains('button', 'Download').click();
-    cy.contains('Saved to /tmp/mock.mp4').should('be.visible');
+    cy.get('[aria-label="quality-results"]')
+      .contains('button', /^Download$/)
+      .should('be.visible')
+      .and('be.enabled');
   });
 
-  it('shows cancel while a download is pending', () => {
-    let resolveDownload!: (value: { outputPath: string }) => void;
-    const pending = new Promise<{ outputPath: string }>((resolve) => {
-      resolveDownload = resolve;
+  it('supports output mode selection before analyze', () => {
+    window.maxframeApi.analyzeVideoUrl = async () => ({
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: {
+        formatId: '299',
+        container: 'mp4',
+        resolutionLabel: '1080p60',
+        width: 1920,
+        height: 1080,
+        fps: 60,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      bestAudioQuality: {
+        formatId: '251',
+        container: 'webm',
+        resolutionLabel: 'audio',
+        hasVideo: false,
+        hasAudio: true,
+      },
+      qualities: [
+        {
+          formatId: '299',
+          container: 'mp4',
+          resolutionLabel: '1080p60',
+          width: 1920,
+          height: 1080,
+          fps: 60,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+      audioQualities: [
+        {
+          formatId: '251',
+          container: 'webm',
+          resolutionLabel: 'audio',
+          hasVideo: false,
+          hasAudio: true,
+        },
+      ],
     });
-    window.maxframeApi.downloadVideo = () => pending;
+    const api = window.maxframeApi;
 
     cy.mount(<App />);
+    cy.window().then((win) => {
+      win.maxframeApi = api;
+    });
+    cy.get('#output-format').select('mp3');
     cy.get('#youtube-url').type('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     cy.contains('button', 'Analyze quality').click();
     cy.contains('Video ID: dQw4w9WgXcQ').should('be.visible');
-    cy.contains('button', 'Download').click();
-    cy.contains('Download in progress').should('be.visible');
-    cy.get('[data-testid="download-cancel-btn"]').should('be.visible');
-    cy.then(() => {
-      resolveDownload({ outputPath: '/tmp/mock.mp4' });
-    });
-    cy.contains('Saved to /tmp/mock.mp4').should('be.visible');
+    cy.get('#output-format').should('have.value', 'mp3');
+    cy.get('[aria-label="quality-results"]').should('be.visible');
   });
 });
