@@ -1,3 +1,21 @@
+# [1.2.0](https://github.com/joaobispo2077/maxframe/compare/v1.1.0...v1.2.0) (2026-04-26)
+
+
+### Bug Fixes
+
+* **bundle-binaries:** add getLogPath to MaxframeApi type and all test/Cypress mocks ([d276842](https://github.com/joaobispo2077/maxframe/commit/d276842ae38e3fb26c6bceb4b5f70bbc6e6a6382))
+* **ui-identity:** show 0% during waiting stage instead of hiding percentage ([7e85b8b](https://github.com/joaobispo2077/maxframe/commit/7e85b8b6c3beed0e4e8de8137415f8265296ca82))
+
+
+### Features
+
+* **ui-identity:** extend InitialAppState with isPortable flag ([57a995f](https://github.com/joaobispo2077/maxframe/commit/57a995ff789473e5a0855adcd574792fc6616a82))
+* **bundle-binaries:** pass --ffmpeg-location to yt-dlp so bundled ffmpeg is always used for merge and audio extraction ([bed3d76](https://github.com/joaobispo2077/maxframe/commit/bed3d76e1763d5bc006f423e1a0d05ded6c1da14))
+* **ui-identity:** replace Vite favicon with Maxframe logo and fix HTML title ([ed428f2](https://github.com/joaobispo2077/maxframe/commit/ed428f2399ee83ee6364427534e970f3163b7bf7))
+* **ui-identity:** set Maxframe window title, remove native menu, load app icon ([12dff68](https://github.com/joaobispo2077/maxframe/commit/12dff681177011169b6bea71fb05cc33de644c1e))
+* **bundle-binaries:** show debug log file path with copy button in Settings when debug mode is on ([cdc9bac](https://github.com/joaobispo2077/maxframe/commit/cdc9bac387d615a689f9211394c6a9b23bc41e4d))
+* **ui-identity:** show Portable badge and add entry animations for quality list and progress card ([18c111d](https://github.com/joaobispo2077/maxframe/commit/18c111d1c833ab4333e189a07b3cc8a006aa7a76))
+
 # [1.1.0](https://github.com/joaobispo2077/maxframe/compare/v1.0.1...v1.1.0) (2026-04-26)
 
 
