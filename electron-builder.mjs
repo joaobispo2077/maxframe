@@ -42,6 +42,7 @@ export default /** @type import('electron-builder').Configuration */
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
+    include: 'buildResources/nsis/uninstall-cleanup.nsh',
   },
   linux: {
     target: ['deb'],
