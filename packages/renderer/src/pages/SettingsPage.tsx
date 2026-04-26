@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   Box,
@@ -22,12 +22,23 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [debugMode, setDebugModeState] = useState(
     () => localStorage.getItem('maxframe.debugMode') === 'true',
   );
+  const [logPath, setLogPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    void window.maxframeApi.getLogPath().then(setLogPath);
+  }, []);
 
   function toggleDebugMode() {
     const next = !debugMode;
     setDebugModeState(next);
     localStorage.setItem('maxframe.debugMode', String(next));
     void window.maxframeApi.setDebugMode(next);
+  }
+
+  function copyLogPath() {
+    if (logPath) {
+      void navigator.clipboard.writeText(logPath);
+    }
   }
 
   return (
@@ -66,31 +77,60 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 defaults, and appearance). Use this screen to grow settings
                 without crowding the analyze flow.
               </Text>
-              <Box
+                <Box
                 borderTopWidth="1px"
                 borderColor="whiteAlpha.200"
                 pt={4}
               >
-                <HStack justify="space-between" align="center">
-                  <VStack align="start" gap={0}>
-                    <Text fontWeight="medium">Debug mode</Text>
-                    <Text fontSize="xs" color="fg.muted">
-                      Shows detailed error info and writes logs to{' '}
-                      <Text as="strong" color="fg">
-                        maxframe-debug.log
-                      </Text>{' '}
-                      when something goes wrong.
-                    </Text>
-                  </VStack>
-                  <Button
-                    size="sm"
-                    variant={debugMode ? 'solid' : 'outline'}
-                    colorPalette={debugMode ? 'orange' : 'cyan'}
-                    onClick={toggleDebugMode}
-                  >
-                    {debugMode ? 'On' : 'Off'}
-                  </Button>
-                </HStack>
+                <VStack align="stretch" gap={3}>
+                  <HStack justify="space-between" align="center">
+                    <VStack align="start" gap={0}>
+                      <Text fontWeight="medium">Debug mode</Text>
+                      <Text fontSize="xs" color="fg.muted">
+                        Shows detailed error info and writes logs to{' '}
+                        <Text as="strong" color="fg">
+                          maxframe-debug.log
+                        </Text>{' '}
+                        when something goes wrong.
+                      </Text>
+                    </VStack>
+                    <Button
+                      size="sm"
+                      variant={debugMode ? 'solid' : 'outline'}
+                      colorPalette={debugMode ? 'orange' : 'cyan'}
+                      onClick={toggleDebugMode}
+                    >
+                      {debugMode ? 'On' : 'Off'}
+                    </Button>
+                  </HStack>
+
+                  {debugMode && logPath && (
+                    <HStack
+                      bg="whiteAlpha.50"
+                      borderRadius="md"
+                      px={3}
+                      py={2}
+                      gap={2}
+                      flexWrap="wrap"
+                    >
+                      <Text fontSize="xs" color="fg.muted" flex="1" wordBreak="break-all">
+                        Log file:{' '}
+                        <Text as="span" color="fg.subtle" fontFamily="mono">
+                          {logPath}
+                        </Text>
+                      </Text>
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        colorPalette="cyan"
+                        onClick={copyLogPath}
+                        flexShrink={0}
+                      >
+                        Copy path
+                      </Button>
+                    </HStack>
+                  )}
+                </VStack>
               </Box>
             </VStack>
           </Card.Body>

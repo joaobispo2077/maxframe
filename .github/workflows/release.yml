@@ -103,6 +103,24 @@ jobs:
       - name: Install dependencies
         run: npm ci --force
 
+      - name: Download yt-dlp and ffmpeg binaries
+        shell: powershell
+        run: |
+          # yt-dlp 2026.03.17 (pinned — update when upgrading yt-dlp)
+          Invoke-WebRequest `
+            -Uri 'https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.17/yt-dlp.exe' `
+            -OutFile 'buildResources\yt-dlp\yt-dlp.exe'
+
+          # ffmpeg static GPL build from yt-dlp/FFmpeg-Builds (build 2026-04-11, rolling latest tag)
+          $zip = Join-Path $env:TEMP 'ffmpeg.zip'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip' `
+            -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath (Join-Path $env:TEMP 'ffmpeg-extract') -Force
+          $exe = Get-ChildItem -Recurse (Join-Path $env:TEMP 'ffmpeg-extract') -Filter 'ffmpeg.exe' |
+                 Select-Object -First 1
+          Copy-Item $exe.FullName 'buildResources\ffmpeg\ffmpeg.exe'
+
       - name: Bump version to match release (${{ needs.determine-version.outputs.next-version }})
         run: npm version ${{ needs.determine-version.outputs.next-version }} --no-git-tag-version
 
@@ -152,6 +170,24 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --force
+
+      - name: Download yt-dlp and ffmpeg binaries
+        shell: powershell
+        run: |
+          # yt-dlp 2026.03.17 (pinned — update when upgrading yt-dlp)
+          Invoke-WebRequest `
+            -Uri 'https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.17/yt-dlp.exe' `
+            -OutFile 'buildResources\yt-dlp\yt-dlp.exe'
+
+          # ffmpeg static GPL build from yt-dlp/FFmpeg-Builds (build 2026-04-11, rolling latest tag)
+          $zip = Join-Path $env:TEMP 'ffmpeg.zip'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip' `
+            -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath (Join-Path $env:TEMP 'ffmpeg-extract') -Force
+          $exe = Get-ChildItem -Recurse (Join-Path $env:TEMP 'ffmpeg-extract') -Filter 'ffmpeg.exe' |
+                 Select-Object -First 1
+          Copy-Item $exe.FullName 'buildResources\ffmpeg\ffmpeg.exe'
 
       - name: Bump version to match release (${{ needs.determine-version.outputs.next-version }})
         run: npm version ${{ needs.determine-version.outputs.next-version }} --no-git-tag-version

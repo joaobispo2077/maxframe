@@ -29,6 +29,7 @@ describe('HomePage', () => {
       cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
+      getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
     };
   });
 
