@@ -74,7 +74,7 @@ describe('App — output format selector', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     window.maxframeApi = {
-      getInitialAppState: vi.fn(),
+      getInitialAppState: vi.fn().mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: false }),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
       downloadVideo: vi.fn(),

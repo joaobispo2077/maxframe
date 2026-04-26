@@ -6,6 +6,7 @@ describe('App analyze flow', () => {
       getInitialAppState: async () => ({
         appName: 'Maxframe',
         status: 'ready' as const,
+        isPortable: false,
       }),
       ping: async (payload: string) => payload,
       downloadVideo: async () => ({
