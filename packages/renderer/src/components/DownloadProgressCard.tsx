@@ -83,11 +83,9 @@ export function DownloadProgressCard({ progress, onCancel }: DownloadProgressCar
           <Text fontSize="xs" color="fg.muted" aria-live="polite">
             {statsLine || 'Waiting for yt-dlp…'}
           </Text>
-          {stage !== 'waiting' && (
-            <Text fontSize="xs" fontWeight="medium" color="fg">
-              {percent.toFixed(0)}%
-            </Text>
-          )}
+          <Text fontSize="xs" fontWeight="medium" color="fg">
+            {stage === 'waiting' ? '0%' : `${percent.toFixed(0)}%`}
+          </Text>
         </HStack>
       </VStack>
     </Box>
