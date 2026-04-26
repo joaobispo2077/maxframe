@@ -23,8 +23,12 @@ export type QualityOption = {
 export type AnalyzeVideoUrlResult = {
   url: string;
   videoId: string | undefined;
+  title: string;
+  uploader: string;
   qualities: QualityOption[];
   bestQuality?: QualityOption;
+  audioQualities: QualityOption[];
+  bestAudioQuality?: QualityOption;
 };
 
 export type DownloadVideoRequest = {
@@ -32,6 +36,7 @@ export type DownloadVideoRequest = {
   formatId: string;
   hasAudio: boolean;
   suggestedFileName: string;
+  outputMode: 'mp3' | 'mp4';
 };
 
 export type DownloadVideoResult = {
