@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 describe('buildYtdlpFormatSelector — outputMode support', () => {
   it('returns bestaudio/best for mp3 mode regardless of hasAudio=false', () => {
-    expect(buildYtdlpFormatSelector('137', false, 'mp3')).toBe('bestaudio/best');
+    expect(buildYtdlpFormatSelector('137', false, 'mp3')).toBe(
+      'bestaudio/best',
+    );
   });
 
   it('returns bestaudio/best for mp3 mode regardless of hasAudio=true', () => {

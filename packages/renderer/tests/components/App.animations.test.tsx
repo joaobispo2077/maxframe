@@ -52,7 +52,11 @@ describe('App — animated UI transitions', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     window.maxframeApi = {
-      getInitialAppState: vi.fn().mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: false }),
+      getInitialAppState: vi.fn().mockResolvedValue({
+        appName: 'Maxframe',
+        status: 'ready',
+        isPortable: false,
+      }),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
       downloadVideo: vi.fn(),
@@ -60,12 +64,17 @@ describe('App — animated UI transitions', () => {
       cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
-      getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
+      getLogPath: vi
+        .fn()
+        .mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
+      showItemInFolder: vi.fn().mockResolvedValue(undefined),
     };
   });
 
   it('quality results section is accessible in the DOM after analysis', async () => {
-    window.maxframeApi.analyzeVideoUrl = vi.fn().mockResolvedValue(MOCK_ANALYZE_RESULT);
+    window.maxframeApi.analyzeVideoUrl = vi
+      .fn()
+      .mockResolvedValue(MOCK_ANALYZE_RESULT);
 
     render(<App />);
     fireEvent.change(screen.getByLabelText('YouTube URL'), {
@@ -74,15 +83,21 @@ describe('App — animated UI transitions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('region', { name: 'quality-results' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('region', { name: 'quality-results' }),
+      ).toBeInTheDocument();
     });
   });
 
   it('progress card is in DOM and cancel button is accessible during download', async () => {
-    window.maxframeApi.analyzeVideoUrl = vi.fn().mockResolvedValue(MOCK_ANALYZE_RESULT);
+    window.maxframeApi.analyzeVideoUrl = vi
+      .fn()
+      .mockResolvedValue(MOCK_ANALYZE_RESULT);
     let resolveDownload!: (v: { outputPath: string }) => void;
     window.maxframeApi.downloadVideo = vi.fn().mockReturnValue(
-      new Promise<{ outputPath: string }>((res) => { resolveDownload = res; }),
+      new Promise<{ outputPath: string }>((res) => {
+        resolveDownload = res;
+      }),
     );
 
     render(<App />);
@@ -92,7 +107,7 @@ describe('App — animated UI transitions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/format 137/)).toBeInTheDocument();
+      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));

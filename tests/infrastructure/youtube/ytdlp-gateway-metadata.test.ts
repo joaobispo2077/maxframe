@@ -14,9 +14,12 @@ vi.mock('@src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions', () => ({
   mapYtdlpFormatsToQualityOptions: mapVideoFormatsMock,
 }));
 
-vi.mock('@src/infrastructure/youtube/mapYtdlpAudioFormatsToQualityOptions', () => ({
-  mapYtdlpAudioFormatsToQualityOptions: mapAudioFormatsMock,
-}));
+vi.mock(
+  '@src/infrastructure/youtube/mapYtdlpAudioFormatsToQualityOptions',
+  () => ({
+    mapYtdlpAudioFormatsToQualityOptions: mapAudioFormatsMock,
+  }),
+);
 
 vi.mock('@src/infrastructure/youtube/resolveYtdlpExecutable', () => ({
   resolveYtdlpExecutable: resolveExecutableMock,
@@ -61,12 +64,18 @@ describe('createYtdlpVideoMetadataGateway — VideoAnalysis shape', () => {
 
   it('returns title and uploader from yt-dlp JSON', async () => {
     succeed(
-      JSON.stringify({ formats: [], title: 'My Video', uploader: 'My Channel' }),
+      JSON.stringify({
+        formats: [],
+        title: 'My Video',
+        uploader: 'My Channel',
+      }),
     );
     const { createYtdlpVideoMetadataGateway } = await import(
       '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
     );
-    const gateway = createYtdlpVideoMetadataGateway({ ytdlpExecutable: 'yt-dlp' });
+    const gateway = createYtdlpVideoMetadataGateway({
+      ytdlpExecutable: 'yt-dlp',
+    });
     const result = await gateway.analyzeVideo('https://youtu.be/abc');
 
     expect(result.title).toBe('My Video');
@@ -78,18 +87,24 @@ describe('createYtdlpVideoMetadataGateway — VideoAnalysis shape', () => {
     const { createYtdlpVideoMetadataGateway } = await import(
       '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
     );
-    const gateway = createYtdlpVideoMetadataGateway({ ytdlpExecutable: 'yt-dlp' });
+    const gateway = createYtdlpVideoMetadataGateway({
+      ytdlpExecutable: 'yt-dlp',
+    });
     const result = await gateway.analyzeVideo('https://youtu.be/abc');
 
     expect(result.title).toBe('');
   });
 
   it('falls back to channel field when uploader is missing', async () => {
-    succeed(JSON.stringify({ formats: [], title: 'T', channel: 'Fallback Channel' }));
+    succeed(
+      JSON.stringify({ formats: [], title: 'T', channel: 'Fallback Channel' }),
+    );
     const { createYtdlpVideoMetadataGateway } = await import(
       '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
     );
-    const gateway = createYtdlpVideoMetadataGateway({ ytdlpExecutable: 'yt-dlp' });
+    const gateway = createYtdlpVideoMetadataGateway({
+      ytdlpExecutable: 'yt-dlp',
+    });
     const result = await gateway.analyzeVideo('https://youtu.be/abc');
 
     expect(result.uploader).toBe('Fallback Channel');
@@ -100,7 +115,9 @@ describe('createYtdlpVideoMetadataGateway — VideoAnalysis shape', () => {
     const { createYtdlpVideoMetadataGateway } = await import(
       '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
     );
-    const gateway = createYtdlpVideoMetadataGateway({ ytdlpExecutable: 'yt-dlp' });
+    const gateway = createYtdlpVideoMetadataGateway({
+      ytdlpExecutable: 'yt-dlp',
+    });
     const result = await gateway.analyzeVideo('https://youtu.be/abc');
 
     expect(result.uploader).toBe('Unknown Channel');
@@ -111,7 +128,9 @@ describe('createYtdlpVideoMetadataGateway — VideoAnalysis shape', () => {
     const { createYtdlpVideoMetadataGateway } = await import(
       '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
     );
-    const gateway = createYtdlpVideoMetadataGateway({ ytdlpExecutable: 'yt-dlp' });
+    const gateway = createYtdlpVideoMetadataGateway({
+      ytdlpExecutable: 'yt-dlp',
+    });
     const result = await gateway.analyzeVideo('https://youtu.be/abc');
 
     expect(result.videoQualities).toEqual([FAKE_VIDEO_QUALITY]);
@@ -122,7 +141,9 @@ describe('createYtdlpVideoMetadataGateway — VideoAnalysis shape', () => {
     const { createYtdlpVideoMetadataGateway } = await import(
       '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
     );
-    const gateway = createYtdlpVideoMetadataGateway({ ytdlpExecutable: 'yt-dlp' });
+    const gateway = createYtdlpVideoMetadataGateway({
+      ytdlpExecutable: 'yt-dlp',
+    });
     const result = await gateway.analyzeVideo('https://youtu.be/abc');
 
     expect(result.audioQualities).toEqual([FAKE_AUDIO_QUALITY]);

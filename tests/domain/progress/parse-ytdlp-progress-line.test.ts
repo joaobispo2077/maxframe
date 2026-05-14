@@ -1,7 +1,5 @@
+import { parseYtdlpProgressLine } from '@src/domain/progress/parseYtdlpProgressLine';
 import { describe, expect, it } from 'vitest';
-import {
-  parseYtdlpProgressLine,
-} from '@src/domain/progress/parseYtdlpProgressLine';
 
 describe('parseYtdlpProgressLine', () => {
   describe('main progress lines', () => {
@@ -122,8 +120,12 @@ describe('parseYtdlpProgressLine', () => {
     });
 
     it('returns null for unrelated yt-dlp output', () => {
-      expect(parseYtdlpProgressLine('[youtube] Extracting URL: ...')).toBeNull();
-      expect(parseYtdlpProgressLine('[info] Writing video thumbnail ...')).toBeNull();
+      expect(
+        parseYtdlpProgressLine('[youtube] Extracting URL: ...'),
+      ).toBeNull();
+      expect(
+        parseYtdlpProgressLine('[info] Writing video thumbnail ...'),
+      ).toBeNull();
     });
 
     it('returns null for lines without recognized prefix', () => {

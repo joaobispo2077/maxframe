@@ -9,19 +9,13 @@ vi.mock('node:fs', () => {
   return { default: fns, ...fns };
 });
 
-vi.mock(
-  '@src/infrastructure/youtube/resolveYtdlpExecutable.js',
-  () => ({
-    resolveYtdlpExecutable: vi.fn(),
-  }),
-);
+vi.mock('@src/infrastructure/youtube/resolveYtdlpExecutable.js', () => ({
+  resolveYtdlpExecutable: vi.fn(),
+}));
 
-vi.mock(
-  '@src/infrastructure/ffmpeg/resolveFfmpegExecutable.js',
-  () => ({
-    resolveFfmpegExecutable: vi.fn(),
-  }),
-);
+vi.mock('@src/infrastructure/ffmpeg/resolveFfmpegExecutable.js', () => ({
+  resolveFfmpegExecutable: vi.fn(),
+}));
 
 vi.mock('@src/interface/ipc/errorStore.js', () => ({
   getLastError: vi.fn(),

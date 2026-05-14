@@ -66,6 +66,7 @@ type MaxframeApi = {
   setDebugMode: (on: boolean) => Promise<void>;
   getDiagnostics: () => Promise<DiagnosticsReport>;
   getLogPath: () => Promise<string>;
+  showItemInFolder: (filePath: string) => Promise<void>;
 };
 
 declare global {

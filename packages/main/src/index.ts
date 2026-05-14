@@ -1,7 +1,9 @@
 import type { AppInitConfig } from './AppInitConfig.js';
 
-import { app } from 'electron';
 import { join } from 'node:path';
+
+import { app } from 'electron';
+
 import { createModuleRunner } from './ModuleRunner.js';
 import { terminateAppOnLastWindowClose } from './modules/ApplicationTerminatorOnLastWindowClose.js';
 import { autoUpdater } from './modules/AutoUpdater.js';
@@ -19,7 +21,10 @@ export async function initApp(initConfig: AppInitConfig) {
   // electron-builder sets PORTABLE_EXECUTABLE_DIR before app code runs when launching the portable exe.
   const isPortable = Boolean(process.env.PORTABLE_EXECUTABLE_DIR);
   if (isPortable) {
-    app.setPath('userData', join(process.env.PORTABLE_EXECUTABLE_DIR!, 'MaxframeData'));
+    app.setPath(
+      'userData',
+      join(process.env.PORTABLE_EXECUTABLE_DIR!, 'MaxframeData'),
+    );
   }
 
   let moduleRunner = createModuleRunner()

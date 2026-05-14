@@ -5,7 +5,33 @@ import {
   asString,
   formatIdFromEntry,
   isRecord,
+  type UnknownRecord,
 } from './ytdlpParseHelpers.js';
+
+function tryAudioRowFromFormatEntry(
+  item: UnknownRecord,
+  formatId: string,
+): QualityOption | undefined {
+  const vcodec = asString(item.vcodec) ?? 'none';
+  if (vcodec !== 'none') {
+    return undefined;
+  }
+  const acodec = asString(item.acodec) ?? 'none';
+  if (acodec === 'none') {
+    return undefined;
+  }
+  return {
+    formatId,
+    container: asString(item.ext) ?? 'unknown',
+    resolutionLabel: 'Audio-only',
+    width: 0,
+    height: 0,
+    fps: 0,
+    hasVideo: false,
+    hasAudio: true,
+    audioBitrateKbps: asNumber(item.abr) ?? undefined,
+  };
+}
 
 /**
  * Maps yt-dlp `-J` / `--dump-single-json` payload into {@link QualityOption} rows
@@ -33,27 +59,12 @@ export function mapYtdlpAudioFormatsToQualityOptions(
     if (!formatId || seen.has(formatId)) {
       continue;
     }
-    const vcodec = asString(item.vcodec) ?? 'none';
-    if (vcodec !== 'none') {
+    const row = tryAudioRowFromFormatEntry(item, formatId);
+    if (!row) {
       continue;
     }
-    const acodec = asString(item.acodec) ?? 'none';
-    if (acodec === 'none') {
-      continue;
-    }
-    const audioBitrateKbps = asNumber(item.abr) ?? undefined;
     seen.add(formatId);
-    out.push({
-      formatId,
-      container: asString(item.ext) ?? 'unknown',
-      resolutionLabel: 'Audio-only',
-      width: 0,
-      height: 0,
-      fps: 0,
-      hasVideo: false,
-      hasAudio: true,
-      audioBitrateKbps,
-    });
+    out.push(row);
   }
 
   return out;

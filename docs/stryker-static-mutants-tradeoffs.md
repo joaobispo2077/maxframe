@@ -63,13 +63,13 @@ Source: [StrykerJS configuration: jsonReporter](https://stryker-mutator.io/docs/
 
 ## Core vs UI Tradeoff Matrix
 
-| Dimension | Core (`src/**`) | UI (`packages/renderer/src/**`) |
-|---|---|---|
-| Static bootstrap correctness value | High | Medium |
-| CI runtime sensitivity | Medium | High |
-| Static-mutant signal quality | Higher | Often noisier (theme/constants/bootstrap-heavy) |
-| Recommended default | Run static mutants | Consider `ignoreStatic: true` in fast profile |
-| Release gate profile | Strict | Balanced/fast |
+| Dimension                          | Core (`src/**`)    | UI (`packages/renderer/src/**`)                 |
+| ---------------------------------- | ------------------ | ----------------------------------------------- |
+| Static bootstrap correctness value | High               | Medium                                          |
+| CI runtime sensitivity             | Medium             | High                                            |
+| Static-mutant signal quality       | Higher             | Often noisier (theme/constants/bootstrap-heavy) |
+| Recommended default                | Run static mutants | Consider `ignoreStatic: true` in fast profile   |
+| Release gate profile               | Strict             | Balanced/fast                                   |
 
 ---
 

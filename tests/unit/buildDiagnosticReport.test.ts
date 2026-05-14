@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import type { DiagnosticsReport } from '@src/interface/ipc/getDiagnosticsHandler.js';
 
 import { buildDiagnosticReport } from '@src/infrastructure/diagnostics/buildDiagnosticReport.js';
-import type { DiagnosticsReport } from '@src/interface/ipc/getDiagnosticsHandler.js';
+import { describe, expect, it } from 'vitest';
 
 const BASE_REPORT: DiagnosticsReport = {
   ytdlpPath: '/usr/local/bin/yt-dlp',

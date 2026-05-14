@@ -1,12 +1,12 @@
+import type { DiagnosticsReport } from '@ui/maxframe-api';
+
 import { type ReactElement } from 'react';
 
 import { ChakraProvider } from '@chakra-ui/react';
 import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
-import { maxframeSystem } from '@ui/theme/maxframeTheme';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { DiagnosticBlock } from '@ui/components/DiagnosticBlock';
-import type { DiagnosticsReport } from '@ui/maxframe-api';
+import { maxframeSystem } from '@ui/theme/maxframeTheme';
+import { describe, expect, it, vi } from 'vitest';
 
 function render(ui: ReactElement) {
   return rtlRender(
@@ -28,23 +28,17 @@ const REPORT: DiagnosticsReport = {
 
 describe('DiagnosticBlock', () => {
   it('renders the yt-dlp path value', () => {
-    render(
-      <DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />,
-    );
+    render(<DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />);
     expect(screen.getByText('yt-dlp')).toBeInTheDocument();
   });
 
   it('renders the ffmpeg path value', () => {
-    render(
-      <DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />,
-    );
+    render(<DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />);
     expect(screen.getByText('ffmpeg')).toBeInTheDocument();
   });
 
   it('shows NOT FOUND text when ytdlpFound is false', () => {
-    render(
-      <DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />,
-    );
+    render(<DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />);
     const notFoundBadges = screen.getAllByText('NOT FOUND');
     expect(notFoundBadges.length).toBeGreaterThan(0);
   });
@@ -69,21 +63,20 @@ describe('DiagnosticBlock', () => {
   });
 
   it('shows "Copied!" text when copied is true', () => {
-    render(
-      <DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={true} />,
-    );
+    render(<DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={true} />);
     expect(screen.getByText('Copied!')).toBeInTheDocument();
   });
 
   it('shows the last error message', () => {
-    render(
-      <DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />,
-    );
+    render(<DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />);
     expect(screen.getByText('yt-dlp failed')).toBeInTheDocument();
   });
 
   it('does not render last error section when lastError is undefined', () => {
-    const noErrorReport: DiagnosticsReport = { ...REPORT, lastError: undefined };
+    const noErrorReport: DiagnosticsReport = {
+      ...REPORT,
+      lastError: undefined,
+    };
     render(
       <DiagnosticBlock
         report={noErrorReport}

@@ -1,85 +1,89 @@
 import { defineConfig } from 'eslint/config';
-import globals from "globals";
-import importPlugin from "eslint-plugin-import-x";
-import prettierPlugin from "eslint-plugin-prettier";
-import reactHooks from "eslint-plugin-react-hooks";
-import reactRefresh from "eslint-plugin-react-refresh";
-import sonarjs from "eslint-plugin-sonarjs";
-import tseslint from "typescript-eslint";
-import eslintConfigPrettier from "eslint-config-prettier";
+import globals from 'globals';
+import importPlugin from 'eslint-plugin-import-x';
+import prettierPlugin from 'eslint-plugin-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
+import sonarjs from 'eslint-plugin-sonarjs';
+import tseslint from 'typescript-eslint';
+import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default defineConfig([
   {
     ignores: [
-      "**/dist/**",
-      "**/node_modules/**",
-      "**/.sdd/**",
-      "**/.cursor/**",
-      "**/.stryker-tmp/**",
-      "coverage/**",
-      "cypress/screenshots/**",
-      "cypress/videos/**",
-      "**/*.{js,mjs,cjs}",
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.sdd/**',
+      '**/.cursor/**',
+      '**/.stryker-tmp/**',
+      'coverage/**',
+      'cypress/screenshots/**',
+      'cypress/videos/**',
+      '**/*.{js,mjs,cjs}',
     ],
   },
   ...tseslint.configs.recommended,
   {
-    files: ["**/*.{ts,tsx}"],
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
+      ecmaVersion: 'latest',
+      sourceType: 'module',
     },
     plugins: {
-      "import-x": importPlugin,
+      'import-x': importPlugin,
       prettier: prettierPlugin,
       sonarjs,
     },
     rules: {
-      complexity: ["error", { max: 12, variant: "modified" }],
-      "sonarjs/cognitive-complexity": ["error", 15],
-      "prettier/prettier": "warn",
-      "import-x/order": [
-        "warn",
+      complexity: ['error', { max: 12, variant: 'modified' }],
+      'sonarjs/cognitive-complexity': ['error', 15],
+      'prettier/prettier': 'warn',
+      'import-x/order': [
+        'warn',
         {
-          "newlines-between": "always",
+          'newlines-between': 'always',
           groups: [
-            "type",
-            "object",
-            "builtin",
-            "external",
-            "internal",
-            "parent",
-            "sibling",
-            "index",
+            'type',
+            'object',
+            'builtin',
+            'external',
+            'internal',
+            'parent',
+            'sibling',
+            'index',
           ],
           pathGroups: [
             {
-              pattern: "react",
-              group: "builtin",
-              position: "before",
+              pattern: 'react',
+              group: 'builtin',
+              position: 'before',
             },
           ],
-          pathGroupsExcludedImportTypes: ["react"],
+          pathGroupsExcludedImportTypes: ['react'],
           alphabetize: {
-            order: "asc",
+            order: 'asc',
             caseInsensitive: true,
           },
         },
       ],
-      "@typescript-eslint/no-namespace": "off",
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
-      "no-undef": "off",
+      '@typescript-eslint/no-namespace': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_' },
+      ],
+      'no-undef': 'off',
+      'no-dupe-keys': 'error',
     },
   },
   {
-    files: ["packages/renderer/**/*.{ts,tsx}"],
+    files: ['packages/renderer/**/*.{ts,tsx}'],
     languageOptions: {
       globals: globals.browser,
     },
     plugins: {
-      "react-hooks": reactHooks,
-      "react-refresh": reactRefresh,
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -88,9 +92,9 @@ export default defineConfig([
   },
   {
     files: [
-      "packages/main/**/*.ts",
-      "packages/preload/**/*.ts",
-      "cypress/**/*.{ts,tsx}",
+      'packages/main/**/*.ts',
+      'packages/preload/**/*.ts',
+      'cypress/**/*.{ts,tsx}',
     ],
     languageOptions: {
       globals: {
