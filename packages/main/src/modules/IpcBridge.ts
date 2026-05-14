@@ -1,7 +1,7 @@
 import type { AppModule } from '../AppModule.js';
 import type { ModuleContext } from '../ModuleContext.js';
 
-import { ipcMain } from 'electron';
+import { ipcMain, shell } from 'electron';
 import { join } from 'node:path';
 import { app } from 'electron';
 
@@ -106,6 +106,10 @@ class IpcBridge implements AppModule {
     ipcMain.handle('app:get-log-path', () =>
       join(app.getPath('userData'), 'maxframe-debug.log'),
     );
+
+    ipcMain.handle('app:show-item-in-folder', (_event, filePath: string) => {
+      shell.showItemInFolder(filePath);
+    });
   }
 }
 
