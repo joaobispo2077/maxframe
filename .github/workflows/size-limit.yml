@@ -45,6 +45,9 @@ jobs:
       - name: Run Size Limit (non-blocking)
         id: run-size-limit
         shell: bash
+        env:
+          # picocolors enables colors when CI=true; raw ANSI breaks PR markdown.
+          NO_COLOR: '1'
         run: |
           set +e
           npm run size > size-limit-raw.txt 2>&1
@@ -70,7 +73,7 @@ jobs:
             echo "<details><summary>CLI output</summary>"
             echo
             echo "\`\`\`text"
-            cat size-limit-raw.txt
+            perl -pe 's/\e\[[0-9;]*[a-zA-Z]//g' size-limit-raw.txt
             echo "\`\`\`"
             echo
             echo "</details>"
