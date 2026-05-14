@@ -40,6 +40,7 @@ function setupMaxframeApi(overrides: Partial<typeof window.maxframeApi> = {}) {
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(DIAGNOSTICS_REPORT),
       getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
+      showItemInFolder: vi.fn().mockResolvedValue(undefined),
       ...overrides,
   };
 }

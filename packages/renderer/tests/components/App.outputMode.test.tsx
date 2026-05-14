@@ -83,6 +83,7 @@ describe('App — output format selector', () => {
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
       getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
+      showItemInFolder: vi.fn().mockResolvedValue(undefined),
     };
   });
 
@@ -114,7 +115,7 @@ describe('App — output format selector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/format 137/)).toBeInTheDocument();
+      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
     });
   });
 
@@ -131,7 +132,7 @@ describe('App — output format selector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/format 251/)).toBeInTheDocument();
+      expect(screen.getByText('160kbps')).toBeInTheDocument();
     });
   });
 
@@ -147,7 +148,7 @@ describe('App — output format selector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/format 137/)).toBeInTheDocument();
+      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));
@@ -177,7 +178,7 @@ describe('App — output format selector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/format 251/)).toBeInTheDocument();
+      expect(screen.getByText('160kbps')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));

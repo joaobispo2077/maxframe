@@ -38,6 +38,7 @@ describe('App', () => {
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
       getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
+      showItemInFolder: vi.fn().mockResolvedValue(undefined),
     };
   });
 
@@ -332,9 +333,9 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/format a/)).toBeInTheDocument();
+      expect(screen.getByText('720p @ 30fps')).toBeInTheDocument();
     });
-    expect(screen.getByText(/format b/)).toBeInTheDocument();
+    expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
   });
 
   it('downloads a quality row and shows saved path', async () => {
@@ -378,7 +379,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/format 137/)).toBeInTheDocument();
+      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));
@@ -439,7 +440,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/format 137/)).toBeInTheDocument();
+      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));
@@ -492,7 +493,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/format 137/)).toBeInTheDocument();
+      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));
@@ -509,6 +510,195 @@ describe('App', () => {
 
     expect(
       screen.queryByText('Saved to C:\\Videos\\out.mp4'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows only one row per resolution when multiple formats share the same height and fps', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: {
+        formatId: '308',
+        container: 'webm',
+        resolutionLabel: '1440p',
+        width: 2560,
+        height: 1440,
+        fps: 60,
+        hasVideo: true,
+        hasAudio: false,
+        videoBitrateKbps: 3866,
+      },
+      qualities: [
+        {
+          formatId: '308',
+          container: 'webm',
+          resolutionLabel: '1440p',
+          width: 2560,
+          height: 1440,
+          fps: 60,
+          hasVideo: true,
+          hasAudio: false,
+          videoBitrateKbps: 3866,
+        },
+        {
+          formatId: '400',
+          container: 'mp4',
+          resolutionLabel: '1440p',
+          width: 2560,
+          height: 1440,
+          fps: 60,
+          hasVideo: true,
+          hasAudio: false,
+          videoBitrateKbps: 4542,
+        },
+        {
+          formatId: '299',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 60,
+          hasVideo: true,
+          hasAudio: false,
+          videoBitrateKbps: 4072,
+        },
+      ],
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1440p @ 60fps')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('1080p @ 60fps')).toBeInTheDocument();
+    // Both 1440p formats (formatId 308 and 400) share the same height+fps —
+    // only one row should be rendered for them.
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  it('shows Open folder button after download and calls showItemInFolder on click', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: {
+        formatId: '137',
+        container: 'mp4',
+        resolutionLabel: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      qualities: [
+        {
+          formatId: '137',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+    });
+    const downloadVideo = vi.fn().mockResolvedValue({
+      outputPath: 'C:\\Videos\\out.mp4',
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+    window.maxframeApi.downloadVideo = downloadVideo;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Open containing folder' }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Open containing folder' }),
+    );
+
+    expect(window.maxframeApi.showItemInFolder).toHaveBeenCalledWith(
+      'C:\\Videos\\out.mp4',
+    );
+  });
+
+  it('clears Open folder button when Dismiss is clicked', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+      bestQuality: {
+        formatId: '137',
+        container: 'mp4',
+        resolutionLabel: '1080p',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      qualities: [
+        {
+          formatId: '137',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+    });
+    const downloadVideo = vi.fn().mockResolvedValue({
+      outputPath: 'C:\\Videos\\out.mp4',
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+    window.maxframeApi.downloadVideo = downloadVideo;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    await waitFor(() => {
+      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Open containing folder' }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Dismiss save message' }),
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Open containing folder' }),
     ).not.toBeInTheDocument();
   });
 });
