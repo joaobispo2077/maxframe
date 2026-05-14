@@ -1,7 +1,7 @@
 {
   "name": "maxframe",
   "description": "Maxframe is a lightweight Electron application that lets you download YouTube videos in your preferred resolution and frame rate, with a focus on performance, quality, and simplicity.",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "author": "vitor",

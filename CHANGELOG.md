@@ -1,3 +1,17 @@
+# [1.3.0](https://github.com/joaobispo2077/maxframe/compare/v1.2.0...v1.3.0) (2026-05-14)
+
+
+### Bug Fixes
+
+* **renderer:** migrate tsconfig paths off baseUrl ([fc41058](https://github.com/joaobispo2077/maxframe/commit/fc4105804a481543f739616bcebb3d42c58ded8b))
+* **preload:** remove duplicate showItemInFolder export ([297190d](https://github.com/joaobispo2077/maxframe/commit/297190d345ed4baf8acede1c44e7450bee4adbaa))
+
+
+### Features
+
+* **ipc:** add app:show-item-in-folder channel ([5461357](https://github.com/joaobispo2077/maxframe/commit/54613572051bc1af3fd43e142038fb84f42e87ce))
+* **ui:** resolution-first quality list and open-folder button on download banner ([ced754e](https://github.com/joaobispo2077/maxframe/commit/ced754eaacf1129d311115cff0360eb587d2b464))
+
 # [1.2.0](https://github.com/joaobispo2077/maxframe/compare/v1.1.0...v1.2.0) (2026-04-26)
 
 
