@@ -22,7 +22,7 @@ import {
   getChromeVersion,
   getNodeVersion,
   getChromeMajorVersion,
-  getNodeMajorVersion
+  getNodeMajorVersion,
 } from '@maxframe/electron-versions';
 
 // Example usage

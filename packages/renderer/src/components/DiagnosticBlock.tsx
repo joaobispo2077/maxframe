@@ -1,6 +1,6 @@
-import { Badge, Box, Button, HStack, Text, VStack } from '@chakra-ui/react';
-
 import type { DiagnosticsReport } from '../maxframe-api.js';
+
+import { Badge, Box, Button, HStack, Text, VStack } from '@chakra-ui/react';
 
 type DiagnosticBlockProps = {
   report: DiagnosticsReport;
@@ -22,7 +22,12 @@ function ToolRow({
       <Text fontWeight="bold" minW="60px">
         {label}:
       </Text>
-      <Text fontFamily="mono" fontSize="xs" color="fg.muted" wordBreak="break-all">
+      <Text
+        fontFamily="mono"
+        fontSize="xs"
+        color="fg.muted"
+        wordBreak="break-all"
+      >
         {path}
       </Text>
       <Badge
@@ -36,7 +41,11 @@ function ToolRow({
   );
 }
 
-export function DiagnosticBlock({ report, onCopy, copied }: DiagnosticBlockProps) {
+export function DiagnosticBlock({
+  report,
+  onCopy,
+  copied,
+}: DiagnosticBlockProps) {
   return (
     <Box
       mt={3}
@@ -51,8 +60,16 @@ export function DiagnosticBlock({ report, onCopy, copied }: DiagnosticBlockProps
         Diagnostic info
       </Text>
       <VStack align="stretch" gap={2}>
-        <ToolRow label="yt-dlp" path={report.ytdlpPath} found={report.ytdlpFound} />
-        <ToolRow label="ffmpeg" path={report.ffmpegPath} found={report.ffmpegFound} />
+        <ToolRow
+          label="yt-dlp"
+          path={report.ytdlpPath}
+          found={report.ytdlpFound}
+        />
+        <ToolRow
+          label="ffmpeg"
+          path={report.ffmpegPath}
+          found={report.ffmpegFound}
+        />
         <Text color="fg.muted">
           Platform: {report.platform} ({report.arch}) · App: {report.appVersion}
         </Text>

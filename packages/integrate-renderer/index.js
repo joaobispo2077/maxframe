@@ -1,6 +1,5 @@
-import pkgJson from '../renderer/package.json' with {type: 'json'};
+import pkgJson from '../renderer/package.json' with { type: 'json' };
 import * as fs from 'node:fs';
-
 
 const step = createStepLogger();
 
@@ -19,9 +18,6 @@ await step(
   addTheMainProperty,
 );
 
-
-
-
 function changeRendererPackageName() {
   if (pkgJson?.name === '@maxframe/renderer') {
     return;
@@ -37,7 +33,9 @@ function addTheBaseFlagToBuildCommand() {
   }
 
   if (!pkgJson.scripts.build.includes('vite build')) {
-    console.warn('The build script is founded but it was not recognized as "vite build" command. Skip.');
+    console.warn(
+      'The build script is founded but it was not recognized as "vite build" command. Skip.',
+    );
     return false;
   }
 
@@ -46,7 +44,10 @@ function addTheBaseFlagToBuildCommand() {
     return false;
   }
 
-  pkgJson.scripts.build = pkgJson.scripts.build.replaceAll('vite build', 'vite build --base ./');
+  pkgJson.scripts.build = pkgJson.scripts.build.replaceAll(
+    'vite build',
+    'vite build --base ./',
+  );
   savePkg();
 }
 
@@ -57,23 +58,26 @@ function addTheMainProperty() {
   }
 
   pkgJson.main = './dist/index.html';
-  pkgJson.exports = {...(pkgJson?.exports ?? {}), '.': {'default': pkgJson.main}};
+  pkgJson.exports = {
+    ...(pkgJson?.exports ?? {}),
+    '.': { default: pkgJson.main },
+  };
   savePkg();
 }
 
-
 function createStepLogger() {
-
-console.log('\n\n\n\n----------');
-console.log('Default vite project has been successfully created.');
-console.log('However, additional modifications to the default vite project are now being implemented');
-console.log('to ensure compatibility with the template.');
-console.log('All changes are detailed below.');
-console.log('\n');
+  console.log('\n\n\n\n----------');
+  console.log('Default vite project has been successfully created.');
+  console.log(
+    'However, additional modifications to the default vite project are now being implemented',
+  );
+  console.log('to ensure compatibility with the template.');
+  console.log('All changes are detailed below.');
+  console.log('\n');
 
   let stepNumber = 1;
 
-  return async function(message, callback) {
+  return async function (message, callback) {
     const stepMessage = `${stepNumber++}. ${message}`;
 
     console.group(stepMessage);
@@ -88,7 +92,10 @@ console.log('\n');
   };
 }
 
-
 function savePkg() {
-  fs.writeFileSync('../renderer/package.json', JSON.stringify(pkgJson, null, 2), {encoding: 'utf8'});
+  fs.writeFileSync(
+    '../renderer/package.json',
+    JSON.stringify(pkgJson, null, 2),
+    { encoding: 'utf8' },
+  );
 }

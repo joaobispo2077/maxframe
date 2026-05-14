@@ -26,7 +26,9 @@ function lastSegment(raw: string): string {
   return parts.at(-1) ?? raw;
 }
 
-function stageEvent(stage: Exclude<DownloadStage, 'waiting' | 'downloading'>): YtdlpProgressEvent {
+function stageEvent(
+  stage: Exclude<DownloadStage, 'waiting' | 'downloading'>,
+): YtdlpProgressEvent {
   return { percent: 100, speedLabel: '', etaLabel: '', sizeLabel: '', stage };
 }
 
@@ -37,7 +39,9 @@ function stageEvent(stage: Exclude<DownloadStage, 'waiting' | 'downloading'>): Y
  *
  * Handles `\r`-delimited batches by extracting the last segment.
  */
-export function parseYtdlpProgressLine(rawLine: string): YtdlpProgressEvent | null {
+export function parseYtdlpProgressLine(
+  rawLine: string,
+): YtdlpProgressEvent | null {
   const line = lastSegment(rawLine).trim();
 
   const progressMatch = PROGRESS_RE.exec(line);

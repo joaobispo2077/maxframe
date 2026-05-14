@@ -81,7 +81,10 @@ describe('downloadVideoHandler — outputMode branching', () => {
     });
 
     expect(runYtdlpDownloadMock).toHaveBeenCalledTimes(1);
-    const call = runYtdlpDownloadMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    const call = runYtdlpDownloadMock.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
     expect(call.mergeOutputFormat).toBe('mp4');
     expect(call.extractAudio).toBeUndefined();
   });
@@ -100,7 +103,10 @@ describe('downloadVideoHandler — outputMode branching', () => {
     });
 
     expect(runYtdlpDownloadMock).toHaveBeenCalledTimes(1);
-    const call = runYtdlpDownloadMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    const call = runYtdlpDownloadMock.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
     expect(call.extractAudio).toEqual({ format: 'mp3' });
     expect(call.mergeOutputFormat).toBeUndefined();
   });
@@ -118,7 +124,11 @@ describe('downloadVideoHandler — outputMode branching', () => {
       outputMode: 'mp3',
     });
 
-    expect(buildYtdlpFormatSelectorMock).toHaveBeenCalledWith('140', true, 'mp3');
+    expect(buildYtdlpFormatSelectorMock).toHaveBeenCalledWith(
+      '140',
+      true,
+      'mp3',
+    );
   });
 
   it('MP4 mode: dialog shows mp4/mkv/webm extensions', async () => {
@@ -134,7 +144,10 @@ describe('downloadVideoHandler — outputMode branching', () => {
       outputMode: 'mp4',
     });
 
-    const dialogCall = showSaveDialogMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    const dialogCall = showSaveDialogMock.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
     const filters = dialogCall.filters as Array<{ extensions: string[] }>;
     expect(filters[0]?.extensions).toContain('mp4');
     expect(filters[0]?.extensions).toContain('mkv');
@@ -154,8 +167,14 @@ describe('downloadVideoHandler — outputMode branching', () => {
       outputMode: 'mp3',
     });
 
-    const dialogCall = showSaveDialogMock.mock.calls[0]?.[0] as Record<string, unknown>;
-    const filters = dialogCall.filters as Array<{ name: string; extensions: string[] }>;
+    const dialogCall = showSaveDialogMock.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    const filters = dialogCall.filters as Array<{
+      name: string;
+      extensions: string[];
+    }>;
     expect(filters[0]?.extensions).toEqual(['mp3']);
   });
 

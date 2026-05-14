@@ -1,4 +1,7 @@
-import type { VideoAnalysis, VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
+import type {
+  VideoAnalysis,
+  VideoMetadataGateway,
+} from '../../application/ports/VideoMetadataGateway.js';
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -25,6 +28,61 @@ function ytdlpNotFoundMessage(executable: string): string {
   );
 }
 
+function throwFromYtdlpExecError(error: unknown, executable: string): never {
+  const code = isRecord(error) ? error.code : undefined;
+  if (code === 'ENOENT') {
+    throw new Error(ytdlpNotFoundMessage(executable));
+  }
+  const stderr = isRecord(error) ? asString(error.stderr) : undefined;
+  if (typeof stderr === 'string' && stderr.trim()) {
+    throw new Error(stderr.trim().slice(0, 500));
+  }
+  if (error instanceof Error) {
+    throw new Error(error.message);
+  }
+  throw new Error('yt-dlp failed');
+}
+
+async function runYtdlpJsonDump(
+  executable: string,
+  url: string,
+  timeoutMs: number,
+): Promise<string> {
+  try {
+    const result = await execFileAsync(executable, [...JSON_ARGS, url], {
+      maxBuffer: 50 * 1024 * 1024,
+      timeout: timeoutMs,
+      windowsHide: true,
+    });
+    return result.stdout;
+  } catch (error: unknown) {
+    throwFromYtdlpExecError(error, executable);
+  }
+}
+
+function parseStdoutToVideoAnalysis(stdout: string): VideoAnalysis {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout) as unknown;
+  } catch {
+    throw new Error('yt-dlp returned invalid JSON.');
+  }
+
+  const title = isRecord(parsed) ? (asString(parsed.title) ?? '') : '';
+  const uploader = isRecord(parsed)
+    ? (asString(parsed.uploader) ??
+      asString(parsed.channel) ??
+      'Unknown Channel')
+    : 'Unknown Channel';
+
+  return {
+    videoQualities: mapYtdlpFormatsToQualityOptions(parsed),
+    audioQualities: mapYtdlpAudioFormatsToQualityOptions(parsed),
+    title,
+    uploader,
+  };
+}
+
 export function createYtdlpVideoMetadataGateway(
   options: YtdlpGatewayOptions = {},
 ): VideoMetadataGateway {
@@ -33,44 +91,8 @@ export function createYtdlpVideoMetadataGateway(
 
   return {
     async analyzeVideo(url: string): Promise<VideoAnalysis> {
-      let stdout: string;
-      try {
-        const result = await execFileAsync(executable, [...JSON_ARGS, url], {
-          maxBuffer: 50 * 1024 * 1024,
-          timeout: timeoutMs,
-          windowsHide: true,
-        });
-        stdout = result.stdout;
-      } catch (error: unknown) {
-        const code = isRecord(error) ? error.code : undefined;
-        if (code === 'ENOENT') {
-          throw new Error(ytdlpNotFoundMessage(executable));
-        }
-        const stderr = isRecord(error) ? asString(error.stderr) : undefined;
-        let message = 'yt-dlp failed';
-        if (typeof stderr === 'string' && stderr.trim()) {
-          message = stderr.trim().slice(0, 500);
-        } else if (error instanceof Error) {
-          message = error.message;
-        }
-        throw new Error(message);
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(stdout) as unknown;
-      } catch {
-        throw new Error('yt-dlp returned invalid JSON.');
-      }
-
-      const title = isRecord(parsed) ? (asString(parsed.title) ?? '') : '';
-      const uploader = isRecord(parsed)
-        ? (asString(parsed.uploader) ?? asString(parsed.channel) ?? 'Unknown Channel')
-        : 'Unknown Channel';
-      const videoQualities = mapYtdlpFormatsToQualityOptions(parsed);
-      const audioQualities = mapYtdlpAudioFormatsToQualityOptions(parsed);
-
-      return { videoQualities, audioQualities, title, uploader };
+      const stdout = await runYtdlpJsonDump(executable, url, timeoutMs);
+      return parseStdoutToVideoAnalysis(stdout);
     },
   };
 }

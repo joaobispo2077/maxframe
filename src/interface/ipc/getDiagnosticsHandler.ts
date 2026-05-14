@@ -4,6 +4,7 @@ import { app } from 'electron';
 
 import { resolveFfmpegExecutable } from '../../infrastructure/ffmpeg/resolveFfmpegExecutable.js';
 import { resolveYtdlpExecutable } from '../../infrastructure/youtube/resolveYtdlpExecutable.js';
+
 import { getLastError } from './errorStore.js';
 
 export type DiagnosticsReport = {

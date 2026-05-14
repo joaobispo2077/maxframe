@@ -21,9 +21,12 @@ vi.mock('@src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions', () => ({
   mapYtdlpFormatsToQualityOptions: mapFormatsMock,
 }));
 
-vi.mock('@src/infrastructure/youtube/mapYtdlpAudioFormatsToQualityOptions', () => ({
-  mapYtdlpAudioFormatsToQualityOptions: mapAudioFormatsMock,
-}));
+vi.mock(
+  '@src/infrastructure/youtube/mapYtdlpAudioFormatsToQualityOptions',
+  () => ({
+    mapYtdlpAudioFormatsToQualityOptions: mapAudioFormatsMock,
+  }),
+);
 
 vi.mock('@src/infrastructure/youtube/resolveYtdlpExecutable', () => ({
   resolveYtdlpExecutable: resolveExecutableMock,
@@ -214,7 +217,8 @@ describe('runYtdlpDownload', () => {
       '@src/infrastructure/youtube/runYtdlpDownload'
     );
 
-    const ffmpegPath = 'C:\\Program Files\\Maxframe\\resources\\ffmpeg\\ffmpeg.exe';
+    const ffmpegPath =
+      'C:\\Program Files\\Maxframe\\resources\\ffmpeg\\ffmpeg.exe';
     const url = 'https://youtu.be/x';
     const promise = runYtdlpDownload({
       executable: 'yt-dlp',
@@ -337,7 +341,9 @@ describe('createYtdlpVideoMetadataGateway', () => {
       expect((opts as Record<string, unknown>).timeout).toBe(90_000);
       callback?.(null, { stdout: '{"formats":[]}', stderr: '' });
     });
-    await expect(gateway.analyzeVideo('https://youtu.be/f')).resolves.toMatchObject({
+    await expect(
+      gateway.analyzeVideo('https://youtu.be/f'),
+    ).resolves.toMatchObject({
       videoQualities: [
         {
           formatId: '137',
