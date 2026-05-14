@@ -26,9 +26,7 @@ describe('createInMemoryVideoMetadataGateway', () => {
         hasAudio: false,
       },
     ]);
-    const analysis = await gateway.analyzeVideo(
-      'https://youtu.be/dQw4w9WgXcQ',
-    );
+    const analysis = await gateway.analyzeVideo('https://youtu.be/dQw4w9WgXcQ');
 
     expect(analysis.videoQualities).toHaveLength(1);
     expect(analysis.videoQualities[0]?.container).toBe('webm');

@@ -83,8 +83,20 @@ describe('mapYtdlpAudioFormatsToQualityOptions', () => {
   it('deduplicates entries by formatId', () => {
     const payload = {
       formats: [
-        { format_id: '251', vcodec: 'none', acodec: 'opus', ext: 'webm', abr: 128 },
-        { format_id: '251', vcodec: 'none', acodec: 'opus', ext: 'webm', abr: 256 },
+        {
+          format_id: '251',
+          vcodec: 'none',
+          acodec: 'opus',
+          ext: 'webm',
+          abr: 128,
+        },
+        {
+          format_id: '251',
+          vcodec: 'none',
+          acodec: 'opus',
+          ext: 'webm',
+          abr: 256,
+        },
       ],
     };
     const result = mapYtdlpAudioFormatsToQualityOptions(payload);
@@ -95,8 +107,20 @@ describe('mapYtdlpAudioFormatsToQualityOptions', () => {
   it('handles multiple valid audio entries', () => {
     const payload = {
       formats: [
-        { format_id: '251', vcodec: 'none', acodec: 'opus', ext: 'webm', abr: 160 },
-        { format_id: '140', vcodec: 'none', acodec: 'mp4a.40.2', ext: 'm4a', abr: 128 },
+        {
+          format_id: '251',
+          vcodec: 'none',
+          acodec: 'opus',
+          ext: 'webm',
+          abr: 160,
+        },
+        {
+          format_id: '140',
+          vcodec: 'none',
+          acodec: 'mp4a.40.2',
+          ext: 'm4a',
+          abr: 128,
+        },
       ],
     };
     const result = mapYtdlpAudioFormatsToQualityOptions(payload);

@@ -1,16 +1,20 @@
-import {readFile} from 'node:fs/promises';
-import {readFileSync} from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import mapWorkspaces from '@npmcli/map-workspaces';
-import {dirname, join} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const pkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'package.json'), 'utf8'),
+  readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), 'package.json'),
+    'utf8',
+  ),
 );
 
 const isGitHubOrCi = process.env.CI === 'true';
 /** On CI (e.g. GHA) we do full PE edits. Locally default off — enables builds without Windows symlink / Developer Mode. Opt-in: `MAXFRAME_WIN_FULL_PE=1`. */
-const useFullWinExecutableEdit = isGitHubOrCi || process.env.MAXFRAME_WIN_FULL_PE === '1';
+const useFullWinExecutableEdit =
+  isGitHubOrCi || process.env.MAXFRAME_WIN_FULL_PE === '1';
 
 export default /** @type import('electron-builder').Configuration */
 ({
@@ -85,7 +89,7 @@ export default /** @type import('electron-builder').Configuration */
     '!**/node_modules/**/*.d.ts',
     '!**/node_modules/**/{README.md,README,readme.md,readme,CHANGELOG.md,CHANGELOG}',
     '!**/node_modules/**/{test,tests,__tests__,example,examples}/**',
-    ...await getListOfFilesFromEachWorkspace(),
+    ...(await getListOfFilesFromEachWorkspace()),
   ],
 });
 
@@ -148,7 +152,6 @@ export default /** @type import('electron-builder').Configuration */
  * ```
  */
 async function getListOfFilesFromEachWorkspace() {
-
   /**
    * @type {Map<string, string>}
    */
@@ -165,7 +168,7 @@ async function getListOfFilesFromEachWorkspace() {
 
     let patterns = workspacePkg.files || ['dist/**', 'package.json'];
 
-    patterns = patterns.map(p => join('node_modules', name, p));
+    patterns = patterns.map((p) => join('node_modules', name, p));
     allFilesToInclude.push(...patterns);
   }
 

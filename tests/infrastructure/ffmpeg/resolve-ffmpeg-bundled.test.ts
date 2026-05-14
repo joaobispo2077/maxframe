@@ -19,7 +19,8 @@ describe('resolveFfmpegExecutable bundled candidates', () => {
       configurable: true,
     });
     tempRoot = mkdtempSync(join(tmpdir(), 'maxframe-ffmpeg-test-'));
-    (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath = tempRoot;
+    (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath =
+      tempRoot;
   });
 
   afterEach(() => {

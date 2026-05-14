@@ -1,3 +1,6 @@
+import type { AnalyzeVideoResult } from './lib/analyzeVideoResultType.js';
+import type { DiagnosticsReport } from './maxframe-api.js';
+
 import { useEffect, useState } from 'react';
 
 import {
@@ -5,7 +8,6 @@ import {
   Box,
   Button,
   Card,
-  Collapsible,
   Container,
   Field,
   Heading,
@@ -19,92 +21,14 @@ import {
 
 import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
+import { ActiveDownloadPanel } from './components/ActiveDownloadPanel.js';
+import { AnalyzeErrorBanner } from './components/AnalyzeErrorBanner.js';
 import { AnalyzingIndicator } from './components/AnalyzingIndicator.js';
-import { DiagnosticBlock } from './components/DiagnosticBlock.js';
-import { DownloadProgressCard } from './components/DownloadProgressCard.js';
+import { QualityResultsPanel } from './components/QualityResultsPanel.js';
+import { SaveMessageBanner } from './components/SaveMessageBanner.js';
 import { useDownloadProgress } from './hooks/useDownloadProgress.js';
 import { buildDiagnosticReport } from './lib/buildDiagnosticReport.js';
-import {
-  describeQualityAgainstBest,
-  formatAudioBitrateKbps,
-  formatVideoBitrateKbps,
-  streamKindLabel,
-} from './lib/qualityTransparency.js';
 import { SettingsPage } from './pages/SettingsPage.js';
-import type { DiagnosticsReport } from './maxframe-api.js';
-
-type AnalyzeResult = Awaited<
-  ReturnType<(typeof window)['maxframeApi']['analyzeVideoUrl']>
->;
-
-type Mp3FallbackCardProps = {
-  isDownloading: boolean;
-  isDisabled: boolean;
-  onDownload: () => void;
-};
-
-function deduplicateByResolution(
-  qualities: AnalyzeResult['qualities'],
-): AnalyzeResult['qualities'] {
-  const seen = new Set<string>();
-  return qualities.filter((q) => {
-    const key = `${q.height}x${q.fps}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function Mp3FallbackCard({
-  isDownloading,
-  isDisabled,
-  onDownload,
-}: Mp3FallbackCardProps) {
-  return (
-    <Box as="li">
-      <Box
-        p={3}
-        borderRadius="md"
-        borderWidth="1px"
-        borderColor="orange.700"
-        bg="rgba(236, 153, 75, 0.08)"
-      >
-        <HStack gap={2} flexWrap="wrap" align="baseline">
-          <Text fontWeight="bold">
-            Best available (audio extracted from video)
-          </Text>
-          <Badge colorPalette="orange" variant="solid" size="sm">
-            No separate audio stream
-          </Badge>
-        </HStack>
-        <Text fontSize="sm" color="fg.muted" mt={2}>
-          This video has no separate audio-only streams. yt-dlp will use{' '}
-          <Text as="strong" color="fg">
-            bestaudio/best
-          </Text>{' '}
-          to extract audio from the best available muxed stream. Requires{' '}
-          <Text as="strong" color="fg">
-            ffmpeg
-          </Text>
-          .
-        </Text>
-        <Box mt={3}>
-          <Button
-            size="sm"
-            colorPalette="cyan"
-            variant="outline"
-            onClick={onDownload}
-            disabled={isDisabled}
-            loading={isDownloading}
-            loadingText="Downloading…"
-          >
-            Download as MP3
-          </Button>
-        </Box>
-      </Box>
-    </Box>
-  );
-}
 
 function App() {
   const [activeView, setActiveView] = useState<'home' | 'settings'>('home');
@@ -114,7 +38,7 @@ function App() {
   const [error, setError] = useState<string>();
   const [downloadNote, setDownloadNote] = useState<string>();
   const [savedPath, setSavedPath] = useState<string>();
-  const [result, setResult] = useState<AnalyzeResult>();
+  const [result, setResult] = useState<AnalyzeVideoResult>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
   const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>('mp4');
   const { progress, clear: clearDownloadProgress } = useDownloadProgress();
@@ -240,19 +164,6 @@ function App() {
 
   const downloadBusy = Boolean(downloadFormatId);
 
-  const displayQualities =
-    outputMode === 'mp3'
-      ? (result?.audioQualities ?? [])
-      : deduplicateByResolution(result?.qualities ?? []);
-  const displayBest =
-    outputMode === 'mp3' ? result?.bestAudioQuality : result?.bestQuality;
-  const mp3FallbackNeeded =
-    outputMode === 'mp3' &&
-    result !== undefined &&
-    (result.audioQualities ?? []).length === 0 &&
-    result.qualities.length > 0;
-  const fallbackFormatId = result?.bestQuality?.formatId ?? 'bestaudio';
-
   if (activeView === 'settings') {
     return <SettingsPage onBack={() => setActiveView('home')} />;
   }
@@ -356,357 +267,40 @@ function App() {
                 <AnalyzingIndicator visible={loading} />
               </Stack>
 
-              {error ? (
-                <Text role="alert" color="red.300">
-                  {error}
-                </Text>
-              ) : null}
+              <AnalyzeErrorBanner
+                error={error}
+                debugMode={debugMode}
+                diagnosticsReport={diagnosticsReport}
+                onCopyReport={handleCopyReport}
+                reportCopied={reportCopied}
+              />
 
-              {error && debugMode && diagnosticsReport ? (
-                <DiagnosticBlock
-                  report={diagnosticsReport}
-                  onCopy={handleCopyReport}
-                  copied={reportCopied}
-                />
-              ) : null}
+              <SaveMessageBanner
+                downloadNote={downloadNote}
+                savedPath={savedPath}
+                onDismiss={() => {
+                  setDownloadNote(undefined);
+                  setSavedPath(undefined);
+                }}
+              />
 
-              {downloadNote ? (
-                <HStack
-                  role="status"
-                  justify="space-between"
-                  gap={3}
-                  p={3}
-                  borderRadius="md"
-                  bg="blackAlpha.500"
-                  borderWidth="1px"
-                  borderColor="green.700"
-                >
-                  <Text fontSize="sm" flex="1">
-                    {downloadNote}
-                  </Text>
-                  <HStack gap={1}>
-                    {savedPath ? (
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        colorPalette="cyan"
-                        onClick={() =>
-                          void window.maxframeApi.showItemInFolder(savedPath)
-                        }
-                        aria-label="Open containing folder"
-                      >
-                        Open folder
-                      </Button>
-                    ) : null}
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => {
-                        setDownloadNote(undefined);
-                        setSavedPath(undefined);
-                      }}
-                      aria-label="Dismiss save message"
-                    >
-                      Dismiss
-                    </Button>
-                  </HStack>
-                </HStack>
-              ) : null}
-
-              {downloadBusy ? (
-                <Box
-                  css={{
-                    '@keyframes fadeSlideIn': {
-                      from: { opacity: 0, transform: 'translateY(-6px)' },
-                      to: { opacity: 1, transform: 'translateY(0)' },
-                    },
-                    animation: 'fadeSlideIn 0.25s ease',
-                  }}
-                >
-                  <DownloadProgressCard
-                    progress={progress}
-                    onCancel={() => void cancelActiveDownload()}
-                  />
-                </Box>
-              ) : null}
+              <ActiveDownloadPanel
+                visible={downloadBusy}
+                progress={progress}
+                onCancel={() => void cancelActiveDownload()}
+              />
 
               {result ? (
-                <Box
-                  as="section"
-                  aria-label="quality-results"
-                  css={{
-                    '@keyframes slideUp': {
-                      from: { opacity: 0, transform: 'translateY(16px)' },
-                      to: { opacity: 1, transform: 'translateY(0)' },
-                    },
-                    animation: 'slideUp 0.3s ease',
-                  }}
-                  aria-busy={downloadBusy}
-                  borderTopWidth="1px"
-                  borderColor="whiteAlpha.200"
-                  pt={6}
-                >
-                  <Heading size="md" textAlign="center" mb={4}>
-                    Available quality
-                  </Heading>
-
-                  <Collapsible.Root defaultOpen>
-                    <Collapsible.Trigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        w="100%"
-                        justifyContent="flex-start"
-                        borderColor="whiteAlpha.300"
-                        _hover={{ borderColor: 'cyan.400' }}
-                      >
-                        What this list shows
-                      </Button>
-                    </Collapsible.Trigger>
-                    <Collapsible.Content>
-                      <VStack
-                        gap={3}
-                        align="stretch"
-                        mt={3}
-                        p={3}
-                        borderRadius="md"
-                        bg="blackAlpha.400"
-                        fontSize="sm"
-                        lineHeight="tall"
-                        color="fg.muted"
-                      >
-                        <Text>
-                          Qualities are whatever{' '}
-                          <Text as="strong" color="fg">
-                            yt-dlp
-                          </Text>{' '}
-                          reports for this URL at analyze time—not every option
-                          YouTube may show in other apps or on the web. The
-                          highlighted{' '}
-                          <Text as="strong" color="fg">
-                            Ranked #1
-                          </Text>{' '}
-                          row is the best option in this app using height, then
-                          frame rate, then listed video bitrate. This is not a
-                          legal guarantee of "maximum" quality everywhere; it is
-                          the top entry in this list only.
-                        </Text>
-                        <Text>
-                          If a row is{' '}
-                          <Text as="strong" color="fg">
-                            video only
-                          </Text>
-                          , downloading it asks yt-dlp to merge in the best
-                          separate audio when possible (same as many CLI
-                          workflows). That path needs{' '}
-                          <Text as="strong" color="fg">
-                            ffmpeg
-                          </Text>{' '}
-                          installed.
-                        </Text>
-                      </VStack>
-                    </Collapsible.Content>
-                  </Collapsible.Root>
-
-                  {result.videoId ? (
-                    <Text mt={4} textAlign="center" fontSize="sm">
-                      Video ID: {result.videoId}
-                    </Text>
-                  ) : (
-                    <Text
-                      mt={4}
-                      textAlign="center"
-                      fontSize="sm"
-                      color="orange.300"
-                    >
-                      Video ID could not be parsed from this URL; confirm the
-                      link uses a standard watch, shorts, embed, or youtu.be
-                      shape.
-                    </Text>
-                  )}
-
-                  {outputMode === 'mp4' ? (
-                    result.bestQuality ? (
-                      <Text mt={2} textAlign="center" fontSize="sm">
-                        Best raw quality: {result.bestQuality.resolutionLabel} @{' '}
-                        {result.bestQuality.fps}fps (
-                        {result.bestQuality.container})
-                      </Text>
-                    ) : (
-                      <Text
-                        mt={2}
-                        textAlign="center"
-                        fontSize="sm"
-                        color="fg.muted"
-                      >
-                        No downloadable video quality available for this URL.
-                      </Text>
-                    )
-                  ) : result.bestAudioQuality ? (
-                    <Text mt={2} textAlign="center" fontSize="sm">
-                      Best audio quality:{' '}
-                      {result.bestAudioQuality.audioBitrateKbps ?? '?'}kbps (
-                      {result.bestAudioQuality.container})
-                    </Text>
-                  ) : mp3FallbackNeeded ? (
-                    <Text
-                      mt={2}
-                      textAlign="center"
-                      fontSize="sm"
-                      color="orange.300"
-                    >
-                      No separate audio streams — audio will be extracted from
-                      the best available video stream.
-                    </Text>
-                  ) : (
-                    <Text
-                      mt={2}
-                      textAlign="center"
-                      fontSize="sm"
-                      color="fg.muted"
-                    >
-                      No downloadable audio quality available for this URL.
-                    </Text>
-                  )}
-
-                  <Stack
-                    as="ul"
-                    role="list"
-                    gap={3}
-                    listStyleType="none"
-                    m={0}
-                    mt={4}
-                    p={0}
-                  >
-                    {displayQualities.map((quality) => {
-                      const isBest = displayBest?.formatId === quality.formatId;
-                      const videoBr = quality.hasVideo
-                        ? formatVideoBitrateKbps(quality.videoBitrateKbps)
-                        : undefined;
-                      const audioBr = formatAudioBitrateKbps(
-                        quality.audioBitrateKbps,
-                      );
-                      const showCompare =
-                        hoveredFormatId === quality.formatId ||
-                        downloadFormatId === quality.formatId;
-                      const qualityLabel = quality.hasVideo
-                        ? `${quality.resolutionLabel} @ ${quality.fps}fps`
-                        : `${quality.audioBitrateKbps ?? '?'}kbps`;
-                      return (
-                        <Box as="li" key={quality.formatId}>
-                          <Box
-                            role="group"
-                            tabIndex={0}
-                            p={3}
-                            borderRadius="md"
-                            borderWidth="1px"
-                            borderColor={
-                              isBest ? 'green.600' : 'whiteAlpha.200'
-                            }
-                            bg={
-                              isBest
-                                ? 'rgba(56, 161, 105, 0.12)'
-                                : 'blackAlpha.400'
-                            }
-                            outline="none"
-                            _focusVisible={{
-                              boxShadow: '0 0 0 2px #00f0ff',
-                            }}
-                            _hover={{
-                              borderColor: isBest ? 'green.400' : 'cyan.500',
-                            }}
-                            onMouseEnter={() =>
-                              setHoveredFormatId(quality.formatId)
-                            }
-                            onMouseLeave={() => setHoveredFormatId(null)}
-                            onFocus={() => setHoveredFormatId(quality.formatId)}
-                            onBlur={(event) => {
-                              if (
-                                !event.currentTarget.contains(
-                                  event.relatedTarget,
-                                )
-                              ) {
-                                setHoveredFormatId(null);
-                              }
-                            }}
-                            onKeyDown={(event) => {
-                              if (
-                                event.key === 'Enter' &&
-                                !downloadBusy &&
-                                !loading
-                              ) {
-                                event.preventDefault();
-                                void downloadQuality(
-                                  quality.formatId,
-                                  quality.hasAudio,
-                                );
-                              }
-                            }}
-                          >
-                            <HStack gap={2} flexWrap="wrap" align="baseline">
-                              <Text fontWeight="bold">{qualityLabel}</Text>
-                              {isBest ? (
-                                <Badge
-                                  colorPalette="green"
-                                  variant="solid"
-                                  size="sm"
-                                >
-                                  Ranked #1 (app)
-                                </Badge>
-                              ) : null}
-                            </HStack>
-                            <Text fontSize="sm" color="fg.muted" mt={2}>
-                              {streamKindLabel(quality)}
-                              {videoBr ? ` · ${videoBr}` : ''}
-                              {audioBr ? ` · ${audioBr}` : ''}
-                            </Text>
-                            {showCompare && quality.hasVideo ? (
-                              <Text
-                                fontSize="xs"
-                                color="fg.muted"
-                                fontStyle="italic"
-                                mt={2}
-                                aria-live="polite"
-                              >
-                                {describeQualityAgainstBest(
-                                  quality,
-                                  result.bestQuality,
-                                )}
-                              </Text>
-                            ) : null}
-                            <Box mt={3}>
-                              <Button
-                                size="sm"
-                                colorPalette="cyan"
-                                variant="outline"
-                                onClick={() =>
-                                  void downloadQuality(
-                                    quality.formatId,
-                                    quality.hasAudio,
-                                  )
-                                }
-                                disabled={downloadBusy || loading}
-                                loading={downloadFormatId === quality.formatId}
-                                loadingText="Downloading…"
-                              >
-                                Download
-                              </Button>
-                            </Box>
-                          </Box>
-                        </Box>
-                      );
-                    })}
-                    {mp3FallbackNeeded ? (
-                      <Mp3FallbackCard
-                        isDownloading={downloadFormatId === fallbackFormatId}
-                        isDisabled={downloadBusy || loading}
-                        onDownload={() =>
-                          void downloadQuality(fallbackFormatId, true)
-                        }
-                      />
-                    ) : null}
-                  </Stack>
-                </Box>
+                <QualityResultsPanel
+                  result={result}
+                  outputMode={outputMode}
+                  downloadBusy={downloadBusy}
+                  loading={loading}
+                  hoveredFormatId={hoveredFormatId}
+                  downloadFormatId={downloadFormatId}
+                  onHoverChange={setHoveredFormatId}
+                  onDownloadQuality={downloadQuality}
+                />
               ) : null}
             </VStack>
           </Card.Body>

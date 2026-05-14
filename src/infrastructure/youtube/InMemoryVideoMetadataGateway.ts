@@ -1,4 +1,7 @@
-import type { VideoAnalysis, VideoMetadataGateway } from '../../application/ports/VideoMetadataGateway.js';
+import type {
+  VideoAnalysis,
+  VideoMetadataGateway,
+} from '../../application/ports/VideoMetadataGateway.js';
 import type { QualityOption } from '../../domain/quality/QualityOption.js';
 
 const DEFAULT_QUALITY_OPTIONS: QualityOption[] = [

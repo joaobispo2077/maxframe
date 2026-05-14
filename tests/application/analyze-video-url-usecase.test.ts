@@ -1,5 +1,5 @@
-import type { QualityOption } from '@src/domain/quality/QualityOption';
 import type { VideoMetadataGateway } from '@src/application/ports/VideoMetadataGateway';
+import type { QualityOption } from '@src/domain/quality/QualityOption';
 
 import { createAnalyzeVideoUrlUseCase } from '@src/application/use-cases/AnalyzeVideoUrlUseCase';
 import { describe, expect, it } from 'vitest';
@@ -16,7 +16,12 @@ function gatewayWith(videoQualities: QualityOption[]): VideoMetadataGateway {
 }
 
 const emptyGateway: VideoMetadataGateway = {
-  analyzeVideo: async () => ({ videoQualities: [], audioQualities: [], title: '', uploader: 'Unknown Channel' }),
+  analyzeVideo: async () => ({
+    videoQualities: [],
+    audioQualities: [],
+    title: '',
+    uploader: 'Unknown Channel',
+  }),
 };
 
 describe('AnalyzeVideoUrlUseCase', () => {

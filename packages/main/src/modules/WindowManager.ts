@@ -37,7 +37,9 @@ class WindowManager implements AppModule {
   }
 
   async createWindow(): Promise<BrowserWindow> {
-    const icon = this.#icon ? nativeImage.createFromPath(this.#icon) : undefined;
+    const icon = this.#icon
+      ? nativeImage.createFromPath(this.#icon)
+      : undefined;
 
     const browserWindow = new BrowserWindow({
       show: false, // Use the 'ready-to-show' event to show the instantiated BrowserWindow.

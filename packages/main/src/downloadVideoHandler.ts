@@ -34,26 +34,27 @@ export type DownloadVideoSink = {
   onProgressLine?: (line: string) => void;
 };
 
-export async function downloadVideoHandler(
-  params: DownloadVideoRequest,
-  sink?: DownloadVideoSink,
-): Promise<DownloadVideoResult> {
-  createVideoUrl(params.url);
+function dialogFiltersForMode(outputMode: 'mp3' | 'mp4') {
+  if (outputMode === 'mp3') {
+    return [
+      { name: 'Audio', extensions: ['mp3'] },
+      { name: 'All files', extensions: ['*'] },
+    ];
+  }
+  return [
+    { name: 'Video', extensions: ['mp4', 'mkv', 'webm'] },
+    { name: 'All files', extensions: ['*'] },
+  ];
+}
 
+async function promptSaveFilePath(
+  suggestedFileName: string,
+  outputMode: 'mp3' | 'mp4',
+): Promise<string> {
   const parentWindow = BrowserWindow.getFocusedWindow();
-  const dialogFilters =
-    params.outputMode === 'mp3'
-      ? [
-          { name: 'Audio', extensions: ['mp3'] },
-          { name: 'All files', extensions: ['*'] },
-        ]
-      : [
-          { name: 'Video', extensions: ['mp4', 'mkv', 'webm'] },
-          { name: 'All files', extensions: ['*'] },
-        ];
   const dialogOptions = {
-    defaultPath: params.suggestedFileName,
-    filters: dialogFilters,
+    defaultPath: suggestedFileName,
+    filters: dialogFiltersForMode(outputMode),
   };
   const { canceled, filePath } = parentWindow
     ? await dialog.showSaveDialog(parentWindow, dialogOptions)
@@ -62,7 +63,60 @@ export async function downloadVideoHandler(
   if (canceled || !filePath) {
     throw new Error('Download canceled.');
   }
+  return filePath;
+}
 
+async function resolveFfmpegForDownload(
+  hasAudio: boolean,
+  outputMode: 'mp3' | 'mp4',
+): Promise<string> {
+  const ffmpegExecutable = resolveFfmpegExecutable();
+  const needsProbe = ytdlpDownloadNeedsFfmpeg(hasAudio) || outputMode === 'mp3';
+  if (!needsProbe) {
+    return ffmpegExecutable;
+  }
+  const ok = await probeFfmpegAvailable(ffmpegExecutable);
+  if (!ok) {
+    throw new Error(ffmpegMissingMessage(ffmpegExecutable));
+  }
+  return ffmpegExecutable;
+}
+
+function buildRunYtdlpParams(
+  params: DownloadVideoRequest,
+  sink: DownloadVideoSink | undefined,
+  formatSelector: string,
+  outputTemplate: string,
+  ffmpegExecutable: string,
+) {
+  return {
+    executable: resolveYtdlpExecutable(),
+    ffmpegExecutable,
+    url: params.url,
+    formatSelector,
+    outputTemplate,
+    ...(params.outputMode === 'mp4'
+      ? { mergeOutputFormat: 'mp4' as const }
+      : {}),
+    ...(params.outputMode === 'mp3'
+      ? { extractAudio: { format: 'mp3' as const } }
+      : {}),
+    timeoutMs: 0,
+    onProgressLine: sink?.onProgressLine,
+    signal: sink?.signal,
+  };
+}
+
+export async function downloadVideoHandler(
+  params: DownloadVideoRequest,
+  sink?: DownloadVideoSink,
+): Promise<DownloadVideoResult> {
+  createVideoUrl(params.url);
+
+  const filePath = await promptSaveFilePath(
+    params.suggestedFileName,
+    params.outputMode,
+  );
   const parsed = parsePath(filePath);
   const outputTemplate = join(parsed.dir, parsed.name) + '.%(ext)s';
   const formatSelector = buildYtdlpFormatSelector(
@@ -71,29 +125,20 @@ export async function downloadVideoHandler(
     params.outputMode,
   );
 
-  const ffmpegExecutable = resolveFfmpegExecutable();
+  const ffmpegExecutable = await resolveFfmpegForDownload(
+    params.hasAudio,
+    params.outputMode,
+  );
 
-  if (ytdlpDownloadNeedsFfmpeg(params.hasAudio) || params.outputMode === 'mp3') {
-    const ok = await probeFfmpegAvailable(ffmpegExecutable);
-    if (!ok) {
-      throw new Error(ffmpegMissingMessage(ffmpegExecutable));
-    }
-  }
-
-  await runYtdlpDownload({
-    executable: resolveYtdlpExecutable(),
-    ffmpegExecutable,
-    url: params.url,
-    formatSelector,
-    outputTemplate,
-    ...(params.outputMode === 'mp4' ? { mergeOutputFormat: 'mp4' as const } : {}),
-    ...(params.outputMode === 'mp3'
-      ? { extractAudio: { format: 'mp3' as const } }
-      : {}),
-    timeoutMs: 0,
-    onProgressLine: sink?.onProgressLine,
-    signal: sink?.signal,
-  });
+  await runYtdlpDownload(
+    buildRunYtdlpParams(
+      params,
+      sink,
+      formatSelector,
+      outputTemplate,
+      ffmpegExecutable,
+    ),
+  );
 
   const resolved =
     findYtdlpOutputFile(parsed.dir, parsed.name) ??

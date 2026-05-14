@@ -9,25 +9,13 @@
     "skipLibCheck": true,
     "strict": true,
     "isolatedModules": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@maxframe/preload": [
-        "../preload"
-      ],
-      "@maxframe/renderer": [
-        "../renderer"
-      ]
+      "@maxframe/preload": ["../preload"],
+      "@maxframe/renderer": ["../renderer"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "../../types/**/*.d.ts"
-  ],
-  "exclude": [
-    "**/*.spec.ts",
-    "**/*.test.ts"
-  ]
+  "include": ["src/**/*.ts", "../../types/**/*.d.ts"],
+  "exclude": ["**/*.spec.ts", "**/*.test.ts"]
 }

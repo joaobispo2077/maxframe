@@ -1,4 +1,7 @@
-import type { VideoAnalysis, VideoMetadataGateway } from '@src/application/ports/VideoMetadataGateway';
+import type {
+  VideoAnalysis,
+  VideoMetadataGateway,
+} from '@src/application/ports/VideoMetadataGateway';
 
 import { createAnalyzeVideoUrlUseCase } from '@src/application/use-cases/AnalyzeVideoUrlUseCase';
 import { describe, expect, it } from 'vitest';
@@ -42,7 +45,9 @@ const BASE_ANALYSIS: VideoAnalysis = {
 
 describe('AnalyzeVideoUrlUseCase — audio enrichment', () => {
   it('propagates title and uploader from gateway analysis', async () => {
-    const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(makeGateway(BASE_ANALYSIS));
+    const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(
+      makeGateway(BASE_ANALYSIS),
+    );
     const result = await analyzeVideoUrl(
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
@@ -52,7 +57,9 @@ describe('AnalyzeVideoUrlUseCase — audio enrichment', () => {
   });
 
   it('includes audioQualities in result', async () => {
-    const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(makeGateway(BASE_ANALYSIS));
+    const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(
+      makeGateway(BASE_ANALYSIS),
+    );
     const result = await analyzeVideoUrl(
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
@@ -65,8 +72,16 @@ describe('AnalyzeVideoUrlUseCase — audio enrichment', () => {
     const analysis: VideoAnalysis = {
       ...BASE_ANALYSIS,
       audioQualities: [
-        { ...BASE_ANALYSIS.audioQualities[0]!, formatId: 'low', audioBitrateKbps: 64 },
-        { ...BASE_ANALYSIS.audioQualities[0]!, formatId: 'high', audioBitrateKbps: 256 },
+        {
+          ...BASE_ANALYSIS.audioQualities[0]!,
+          formatId: 'low',
+          audioBitrateKbps: 64,
+        },
+        {
+          ...BASE_ANALYSIS.audioQualities[0]!,
+          formatId: 'high',
+          audioBitrateKbps: 256,
+        },
       ],
     };
     const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(makeGateway(analysis));
@@ -91,8 +106,26 @@ describe('AnalyzeVideoUrlUseCase — audio enrichment', () => {
     const analysis: VideoAnalysis = {
       ...BASE_ANALYSIS,
       videoQualities: [
-        { formatId: '137', container: 'mp4', resolutionLabel: '1080p', width: 1920, height: 1080, fps: 30, hasVideo: true, hasAudio: false },
-        { formatId: '299', container: 'mp4', resolutionLabel: '1080p60', width: 1920, height: 1080, fps: 60, hasVideo: true, hasAudio: false },
+        {
+          formatId: '137',
+          container: 'mp4',
+          resolutionLabel: '1080p',
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          hasVideo: true,
+          hasAudio: false,
+        },
+        {
+          formatId: '299',
+          container: 'mp4',
+          resolutionLabel: '1080p60',
+          width: 1920,
+          height: 1080,
+          fps: 60,
+          hasVideo: true,
+          hasAudio: false,
+        },
       ],
     };
     const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(makeGateway(analysis));

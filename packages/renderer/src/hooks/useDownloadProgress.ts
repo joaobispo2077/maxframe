@@ -33,8 +33,11 @@ export function useDownloadProgress(): {
   progress: DownloadProgressState;
   clear: () => void;
 } {
-  const [progress, setProgress] = useState<DownloadProgressState>(INITIAL_STATE);
-  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [progress, setProgress] =
+    useState<DownloadProgressState>(INITIAL_STATE);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   const clearFlashTimer = () => {
     if (flashTimerRef.current !== undefined) {

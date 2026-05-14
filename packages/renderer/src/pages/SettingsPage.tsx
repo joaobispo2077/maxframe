@@ -77,11 +77,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 defaults, and appearance). Use this screen to grow settings
                 without crowding the analyze flow.
               </Text>
-                <Box
-                borderTopWidth="1px"
-                borderColor="whiteAlpha.200"
-                pt={4}
-              >
+              <Box borderTopWidth="1px" borderColor="whiteAlpha.200" pt={4}>
                 <VStack align="stretch" gap={3}>
                   <HStack justify="space-between" align="center">
                     <VStack align="start" gap={0}>
@@ -113,7 +109,12 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                       gap={2}
                       flexWrap="wrap"
                     >
-                      <Text fontSize="xs" color="fg.muted" flex="1" wordBreak="break-all">
+                      <Text
+                        fontSize="xs"
+                        color="fg.muted"
+                        flex="1"
+                        wordBreak="break-all"
+                      >
                         Log file:{' '}
                         <Text as="span" color="fg.subtle" fontFamily="mono">
                           {logPath}

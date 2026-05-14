@@ -74,7 +74,11 @@ describe('App — output format selector', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     window.maxframeApi = {
-      getInitialAppState: vi.fn().mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: false }),
+      getInitialAppState: vi.fn().mockResolvedValue({
+        appName: 'Maxframe',
+        status: 'ready',
+        isPortable: false,
+      }),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
       downloadVideo: vi.fn(),
@@ -82,7 +86,9 @@ describe('App — output format selector', () => {
       cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
-      getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
+      getLogPath: vi
+        .fn()
+        .mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
       showItemInFolder: vi.fn().mockResolvedValue(undefined),
     };
   });
@@ -106,7 +112,9 @@ describe('App — output format selector', () => {
   });
 
   it('shows video quality list in mp4 mode after analyze', async () => {
-    window.maxframeApi.analyzeVideoUrl = vi.fn().mockResolvedValue(BASE_ANALYZE_RESULT);
+    window.maxframeApi.analyzeVideoUrl = vi
+      .fn()
+      .mockResolvedValue(BASE_ANALYZE_RESULT);
     render(<App />);
 
     fireEvent.change(screen.getByLabelText('YouTube URL'), {
@@ -120,7 +128,9 @@ describe('App — output format selector', () => {
   });
 
   it('shows audio quality list in mp3 mode after analyze', async () => {
-    window.maxframeApi.analyzeVideoUrl = vi.fn().mockResolvedValue(BASE_ANALYZE_RESULT);
+    window.maxframeApi.analyzeVideoUrl = vi
+      .fn()
+      .mockResolvedValue(BASE_ANALYZE_RESULT);
     render(<App />);
 
     fireEvent.change(screen.getByLabelText('Output format'), {
@@ -137,8 +147,12 @@ describe('App — output format selector', () => {
   });
 
   it('downloading in MP4 mode sends outputMode mp4 and title-based suggestedFileName', async () => {
-    const downloadVideo = vi.fn().mockResolvedValue({ outputPath: 'C:\\out.mp4' });
-    window.maxframeApi.analyzeVideoUrl = vi.fn().mockResolvedValue(BASE_ANALYZE_RESULT);
+    const downloadVideo = vi
+      .fn()
+      .mockResolvedValue({ outputPath: 'C:\\out.mp4' });
+    window.maxframeApi.analyzeVideoUrl = vi
+      .fn()
+      .mockResolvedValue(BASE_ANALYZE_RESULT);
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
@@ -164,8 +178,12 @@ describe('App — output format selector', () => {
   });
 
   it('downloading in MP3 mode sends outputMode mp3 and .mp3 suggestedFileName', async () => {
-    const downloadVideo = vi.fn().mockResolvedValue({ outputPath: 'C:\\out.mp3' });
-    window.maxframeApi.analyzeVideoUrl = vi.fn().mockResolvedValue(BASE_ANALYZE_RESULT);
+    const downloadVideo = vi
+      .fn()
+      .mockResolvedValue({ outputPath: 'C:\\out.mp3' });
+    window.maxframeApi.analyzeVideoUrl = vi
+      .fn()
+      .mockResolvedValue(BASE_ANALYZE_RESULT);
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
@@ -194,7 +212,9 @@ describe('App — output format selector', () => {
   });
 
   it('shows Ranked #1 (app) badge for best audio quality in mp3 mode', async () => {
-    window.maxframeApi.analyzeVideoUrl = vi.fn().mockResolvedValue(BASE_ANALYZE_RESULT);
+    window.maxframeApi.analyzeVideoUrl = vi
+      .fn()
+      .mockResolvedValue(BASE_ANALYZE_RESULT);
     render(<App />);
 
     fireEvent.change(screen.getByLabelText('Output format'), {
