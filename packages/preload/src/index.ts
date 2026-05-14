@@ -112,11 +112,6 @@ export async function getLogPath(): Promise<string> {
   return ipcRenderer.invoke('app:get-log-path');
 }
 
-/** Reveal the file in the OS file manager (Explorer / Finder). */
-export async function showItemInFolder(filePath: string): Promise<void> {
-  return ipcRenderer.invoke('app:show-item-in-folder', filePath);
-}
-
 /** Reveal the file in the OS file manager (Explorer / Finder), with the file highlighted. */
 export async function showItemInFolder(filePath: string): Promise<void> {
   return ipcRenderer.invoke('app:show-item-in-folder', filePath);
