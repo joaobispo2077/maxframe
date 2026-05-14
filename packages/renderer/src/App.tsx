@@ -43,6 +43,18 @@ type Mp3FallbackCardProps = {
   onDownload: () => void;
 };
 
+function deduplicateByResolution(
+  qualities: AnalyzeResult['qualities'],
+): AnalyzeResult['qualities'] {
+  const seen = new Set<string>();
+  return qualities.filter((q) => {
+    const key = `${q.height}x${q.fps}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function Mp3FallbackCard({
   isDownloading,
   isDisabled,
@@ -101,6 +113,7 @@ function App() {
   const [downloadFormatId, setDownloadFormatId] = useState<string>();
   const [error, setError] = useState<string>();
   const [downloadNote, setDownloadNote] = useState<string>();
+  const [savedPath, setSavedPath] = useState<string>();
   const [result, setResult] = useState<AnalyzeResult>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
   const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>('mp4');
@@ -145,6 +158,7 @@ function App() {
     setLoading(true);
     setError(undefined);
     setDownloadNote(undefined);
+    setSavedPath(undefined);
     setHoveredFormatId(null);
     setDiagnosticsReport(undefined);
     setReportCopied(false);
@@ -184,6 +198,7 @@ function App() {
     clearDownloadProgress();
     setError(undefined);
     setDownloadNote(undefined);
+    setSavedPath(undefined);
     setDiagnosticsReport(undefined);
     setReportCopied(false);
     try {
@@ -204,6 +219,7 @@ function App() {
         outputMode,
       });
       setDownloadNote(`Saved to ${outputPath}`);
+      setSavedPath(outputPath);
     } catch (caughtError) {
       const msg =
         caughtError instanceof Error ? caughtError.message : 'Unknown error';
@@ -225,7 +241,9 @@ function App() {
   const downloadBusy = Boolean(downloadFormatId);
 
   const displayQualities =
-    outputMode === 'mp3' ? (result?.audioQualities ?? []) : (result?.qualities ?? []);
+    outputMode === 'mp3'
+      ? (result?.audioQualities ?? [])
+      : deduplicateByResolution(result?.qualities ?? []);
   const displayBest =
     outputMode === 'mp3' ? result?.bestAudioQuality : result?.bestQuality;
   const mp3FallbackNeeded =
@@ -366,14 +384,32 @@ function App() {
                   <Text fontSize="sm" flex="1">
                     {downloadNote}
                   </Text>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => setDownloadNote(undefined)}
-                    aria-label="Dismiss save message"
-                  >
-                    Dismiss
-                  </Button>
+                  <HStack gap={1}>
+                    {savedPath ? (
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        colorPalette="cyan"
+                        onClick={() =>
+                          void window.maxframeApi.showItemInFolder(savedPath)
+                        }
+                        aria-label="Open containing folder"
+                      >
+                        Open folder
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => {
+                        setDownloadNote(undefined);
+                        setSavedPath(undefined);
+                      }}
+                      aria-label="Dismiss save message"
+                    >
+                      Dismiss
+                    </Button>
+                  </HStack>
                 </HStack>
               ) : null}
 
@@ -554,8 +590,8 @@ function App() {
                         hoveredFormatId === quality.formatId ||
                         downloadFormatId === quality.formatId;
                       const qualityLabel = quality.hasVideo
-                        ? `${quality.resolutionLabel} @ ${quality.fps}fps (${quality.container}) — format ${quality.formatId}`
-                        : `${quality.audioBitrateKbps ?? '?'}kbps (${quality.container}) — format ${quality.formatId}`;
+                        ? `${quality.resolutionLabel} @ ${quality.fps}fps`
+                        : `${quality.audioBitrateKbps ?? '?'}kbps`;
                       return (
                         <Box as="li" key={quality.formatId}>
                           <Box
