@@ -73,10 +73,10 @@ describe('parseYtdlpProgressLine', () => {
         '[ExtractAudio] Destination: /tmp/video.mp3',
       );
       expect(result).toEqual({
-        percent: 100,
+        percent: 0,
         speedLabel: '',
         etaLabel: '',
-        sizeLabel: '',
+        sizeLabel: 'Destination: /tmp/video.mp3',
         stage: 'extracting-audio',
       });
     });
@@ -86,25 +86,44 @@ describe('parseYtdlpProgressLine', () => {
         '[Merger] Merging formats into "video.mp4"',
       );
       expect(result).toEqual({
-        percent: 100,
+        percent: 0,
         speedLabel: '',
         etaLabel: '',
-        sizeLabel: '',
+        sizeLabel: 'Merging formats into "video.mp4"',
         stage: 'merging',
       });
     });
 
-    it('returns merging for [ffmpeg] lines', () => {
+    it('returns merging for [ffmpeg] status lines', () => {
       const result = parseYtdlpProgressLine(
         '[ffmpeg] Correcting container in "video.mp4"',
       );
       expect(result).toEqual({
-        percent: 100,
+        percent: 0,
         speedLabel: '',
         etaLabel: '',
-        sizeLabel: '',
+        sizeLabel: 'Correcting container in "video.mp4"',
         stage: 'merging',
       });
+    });
+
+    it('parses ffmpeg frame progress with time and frame count', () => {
+      const result = parseYtdlpProgressLine(
+        '[ffmpeg] frame=  120 fps= 45 q=-1.0 size= 1024kB time=00:00:05.00 bitrate=1200.0kbits/s',
+      );
+      expect(result).toEqual({
+        percent: 0,
+        speedLabel: 'frame 120',
+        etaLabel: '',
+        sizeLabel: 'time 00:00:05.00',
+        stage: 'merging',
+      });
+    });
+
+    it('parses postprocess percent when present on ffmpeg lines', () => {
+      const result = parseYtdlpProgressLine('[ffmpeg]  45.0% of postprocess');
+      expect(result?.stage).toBe('merging');
+      expect(result?.percent).toBe(45);
     });
   });
 
