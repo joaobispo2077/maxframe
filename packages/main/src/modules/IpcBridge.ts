@@ -6,12 +6,14 @@ import { join } from 'node:path';
 import { ipcMain, shell } from 'electron';
 import { app } from 'electron';
 
+import { AnalyzeVideoUrlError } from '../../../../src/application/errors/AnalyzeVideoErrors.js';
 import { writeLogEntry } from '../../../../src/infrastructure/diagnostics/debugLogger.js';
 import { analyzeVideoHandler } from '../../../../src/interface/ipc/analyzeVideoHandler.js';
 import { setDebugMode } from '../../../../src/interface/ipc/debugModeStore.js';
 import {
   clearError,
   recordError,
+  recordSubmittedUrl,
 } from '../../../../src/interface/ipc/errorStore.js';
 import { getDiagnosticsHandler } from '../../../../src/interface/ipc/getDiagnosticsHandler.js';
 import {
@@ -49,12 +51,22 @@ class IpcBridge implements AppModule {
 
     ipcMain.handle(CHANNEL_ANALYZE_VIDEO_URL, async (_event, url: string) => {
       clearError();
+      recordSubmittedUrl(url);
       try {
         return await analyzeVideoHandler(url);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        recordError(msg);
-        writeLogEntry({ event: 'analyze-error', error: msg });
+        const detail =
+          error instanceof AnalyzeVideoUrlError
+            ? error.technicalDetail
+            : undefined;
+        recordError(msg, detail);
+        writeLogEntry({
+          event: 'analyze-error',
+          error: msg,
+          submittedUrl: url,
+          ...(detail ? { errorDetail: detail } : {}),
+        });
         throw error;
       }
     });
