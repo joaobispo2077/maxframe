@@ -19,6 +19,8 @@ export type LogEntry = {
   ytdlpFound?: boolean;
   ffmpegFound?: boolean;
   error?: string;
+  errorDetail?: string;
+  submittedUrl?: string;
   appVersion?: string;
   platform?: string;
 };

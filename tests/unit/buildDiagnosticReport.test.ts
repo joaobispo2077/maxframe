@@ -13,6 +13,9 @@ const BASE_REPORT: DiagnosticsReport = {
   appVersion: '1.0.1',
   pathEnv: '/usr/local/bin:/usr/bin',
   lastError: undefined,
+  lastErrorDetail: undefined,
+  lastSubmittedUrl: undefined,
+  ytdlpVersion: undefined,
 };
 
 describe('buildDiagnosticReport', () => {
@@ -62,5 +65,21 @@ describe('buildDiagnosticReport', () => {
     const report = buildDiagnosticReport(BASE_REPORT);
     expect(report).toContain('/usr/local/bin/yt-dlp');
     expect(report).toContain('ffmpeg');
+  });
+
+  it('shows technical last error, submitted URL, and yt-dlp version sections', () => {
+    const report = buildDiagnosticReport({
+      ...BASE_REPORT,
+      lastErrorDetail: 'ERROR: signature extraction failed',
+      lastSubmittedUrl:
+        'https://www.youtube.com/watch?v=Zt62nsFLqA0&list=RDZt62nsFLqA0&start_radio=1',
+      ytdlpVersion: '2026.03.17',
+    });
+    expect(report).toContain('--- Last Error (technical) ---');
+    expect(report).toContain('ERROR: signature extraction failed');
+    expect(report).toContain('--- Submitted URL ---');
+    expect(report).toContain('list=RDZt62nsFLqA0');
+    expect(report).toContain('--- yt-dlp version ---');
+    expect(report).toContain('2026.03.17');
   });
 });

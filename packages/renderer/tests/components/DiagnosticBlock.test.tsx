@@ -24,6 +24,9 @@ const REPORT: DiagnosticsReport = {
   appVersion: '1.0.1',
   pathEnv: 'C:\\Windows\\system32',
   lastError: 'yt-dlp failed',
+  lastErrorDetail: undefined,
+  lastSubmittedUrl: undefined,
+  ytdlpVersion: undefined,
 };
 
 describe('DiagnosticBlock', () => {

@@ -27,6 +27,10 @@ const DIAGNOSTICS_REPORT = {
   appVersion: '1.0.1',
   pathEnv: 'C:\\Windows',
   lastError: 'yt-dlp not found',
+  lastErrorDetail: 'ERROR: could not find yt-dlp',
+  lastSubmittedUrl:
+    'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&start_radio=1',
+  ytdlpVersion: undefined,
 };
 
 function setupMaxframeApi(overrides: Partial<typeof window.maxframeApi> = {}) {
