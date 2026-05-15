@@ -64,6 +64,54 @@ describe('DownloadProgressCard', () => {
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
+  it('shows merge status instead of waiting message during merging', () => {
+    render(
+      <DownloadProgressCard
+        progress={{
+          ...waitingProgress,
+          stage: 'merging',
+          percent: 0,
+          sizeLabel: 'Merging formats into "video.mp4"',
+        }}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Merging formats into/)).toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for yt-dlp/)).not.toBeInTheDocument();
+  });
+
+  it('shows ffmpeg frame stats during merging', () => {
+    render(
+      <DownloadProgressCard
+        progress={{
+          ...waitingProgress,
+          stage: 'merging',
+          percent: 0,
+          speedLabel: 'frame 120',
+          sizeLabel: 'time 00:00:05.00',
+        }}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/frame 120/)).toBeInTheDocument();
+    expect(screen.getByText(/time 00:00:05.00/)).toBeInTheDocument();
+  });
+
+  it('shows merge percent when postprocess reports it', () => {
+    render(
+      <DownloadProgressCard
+        progress={{
+          ...waitingProgress,
+          stage: 'merging',
+          percent: 45,
+          sizeLabel: 'Merging streams',
+        }}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('45%')).toBeInTheDocument();
+  });
+
   it('shows stats line when speed is available', () => {
     render(
       <DownloadProgressCard

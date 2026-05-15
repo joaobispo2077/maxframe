@@ -1,6 +1,12 @@
 import { spawn } from 'node:child_process';
 import { dirname } from 'node:path';
 
+import {
+  createYtdlpStreamLineState,
+  feedYtdlpStreamLines,
+  flushYtdlpStreamLines,
+} from './feedYtdlpStreamLines.js';
+
 export type YtdlpDownloadParams = {
   executable: string;
   url: string;
@@ -47,28 +53,13 @@ function attachLineStream(
   onRaw: (chunk: string) => void,
 ): void {
   stream.setEncoding('utf8');
-  let buffer = '';
+  const state = createYtdlpStreamLineState();
   stream.on('data', (chunk: string) => {
     onRaw(chunk);
-    buffer += chunk;
-    for (;;) {
-      const nl = buffer.indexOf('\n');
-      if (nl < 0) {
-        break;
-      }
-      const line = buffer.slice(0, nl).replace(/\r$/, '').trim();
-      buffer = buffer.slice(nl + 1);
-      if (line.length > 0) {
-        onLine(line);
-      }
-    }
+    feedYtdlpStreamLines(state, chunk, onLine);
   });
   stream.on('end', () => {
-    const tail = buffer.replace(/\r$/, '').trim();
-    buffer = '';
-    if (tail.length > 0) {
-      onLine(tail);
-    }
+    flushYtdlpStreamLines(state, onLine);
   });
 }
 
@@ -81,6 +72,8 @@ export async function runYtdlpDownload(
   const args: string[] = [
     '--no-warnings',
     '--no-playlist',
+    // Piped stdout is not a TTY; newline-terminated progress is easier to parse.
+    '--newline',
     '-f',
     params.formatSelector,
     '-o',
