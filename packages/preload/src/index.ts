@@ -95,6 +95,9 @@ export type DiagnosticsReport = {
   appVersion: string;
   pathEnv: string;
   lastError: string | undefined;
+  lastErrorDetail: string | undefined;
+  lastSubmittedUrl: string | undefined;
+  ytdlpVersion: string | undefined;
 };
 
 /** Sync the debug mode toggle state to the main process. */

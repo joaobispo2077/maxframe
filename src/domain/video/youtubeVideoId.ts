@@ -57,3 +57,15 @@ function normalizeVideoId(value: string | undefined): string | undefined {
   }
   return trimmed;
 }
+
+/**
+ * When an 11-char id can be parsed, returns canonical watch URL for yt-dlp.
+ * Otherwise returns the original URL string (playlists, invalid v, etc.).
+ */
+export function canonicalYoutubeWatchUrl(url: URL): string {
+  const id = parseYoutubeVideoId(url);
+  if (id) {
+    return `https://www.youtube.com/watch?v=${id}`;
+  }
+  return url.toString();
+}

@@ -36,4 +36,31 @@ describe('errorStore', () => {
     recordError('second error');
     expect(getLastError()).toBe('second error');
   });
+
+  it('stores and clears technical detail alongside user message', async () => {
+    const { recordError, clearError, getLastError, getLastErrorDetail } =
+      await import('@src/interface/ipc/errorStore.js');
+    recordError('Could not analyze this video right now.', 'network down');
+    expect(getLastError()).toBe('Could not analyze this video right now.');
+    expect(getLastErrorDetail()).toBe('network down');
+    clearError();
+    expect(getLastError()).toBeUndefined();
+    expect(getLastErrorDetail()).toBeUndefined();
+  });
+
+  it('stores submitted URL until clearError', async () => {
+    const {
+      recordSubmittedUrl,
+      getLastSubmittedUrl,
+      clearError,
+    } = await import('@src/interface/ipc/errorStore.js');
+    recordSubmittedUrl(
+      'https://www.youtube.com/watch?v=Zt62nsFLqA0&list=RDZt62nsFLqA0&start_radio=1',
+    );
+    expect(getLastSubmittedUrl()).toBe(
+      'https://www.youtube.com/watch?v=Zt62nsFLqA0&list=RDZt62nsFLqA0&start_radio=1',
+    );
+    clearError();
+    expect(getLastSubmittedUrl()).toBeUndefined();
+  });
 });
