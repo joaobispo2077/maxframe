@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/joaobispo2077/maxframe/compare/v1.3.0...v1.3.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **download:** stream yt-dlp progress on carriage returns ([e3de9ad](https://github.com/joaobispo2077/maxframe/commit/e3de9adee33a813dbf6627b435357bc2401dc929))
+
 # [1.3.0](https://github.com/joaobispo2077/maxframe/compare/v1.2.0...v1.3.0) (2026-05-14)
 
 
