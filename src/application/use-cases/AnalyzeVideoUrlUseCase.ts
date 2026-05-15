@@ -11,8 +11,20 @@ import {
   InvalidVideoUrlError,
   createVideoUrl,
 } from '../../domain/video/VideoUrl.js';
-import { parseYoutubeVideoId } from '../../domain/video/youtubeVideoId.js';
+import {
+  canonicalYoutubeWatchUrl,
+  parseYoutubeVideoId,
+} from '../../domain/video/youtubeVideoId.js';
 import { AnalyzeVideoUrlError } from '../errors/AnalyzeVideoErrors.js';
+
+const METADATA_UNAVAILABLE_MESSAGE =
+  'Could not analyze this video right now. Please try again.';
+const MAX_TECHNICAL_DETAIL_LENGTH = 500;
+
+function boundTechnicalDetail(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  return raw.trim().slice(0, MAX_TECHNICAL_DETAIL_LENGTH);
+}
 
 export type AnalyzeVideoUrlResult = {
   url: string;
@@ -44,11 +56,14 @@ export function createAnalyzeVideoUrlUseCase(
 
     let analysis: Awaited<ReturnType<VideoMetadataGateway['analyzeVideo']>>;
     try {
-      analysis = await metadataGateway.analyzeVideo(videoUrl.toString());
-    } catch {
+      analysis = await metadataGateway.analyzeVideo(
+        canonicalYoutubeWatchUrl(videoUrl),
+      );
+    } catch (error: unknown) {
       throw new AnalyzeVideoUrlError(
         'METADATA_UNAVAILABLE',
-        'Could not analyze this video right now. Please try again.',
+        METADATA_UNAVAILABLE_MESSAGE,
+        boundTechnicalDetail(error),
       );
     }
 

@@ -2,7 +2,7 @@ import type { VideoMetadataGateway } from '@src/application/ports/VideoMetadataG
 import type { QualityOption } from '@src/domain/quality/QualityOption';
 
 import { createAnalyzeVideoUrlUseCase } from '@src/application/use-cases/AnalyzeVideoUrlUseCase';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 function gatewayWith(videoQualities: QualityOption[]): VideoMetadataGateway {
   return {
@@ -95,7 +95,46 @@ describe('AnalyzeVideoUrlUseCase', () => {
     expect(result.qualities).toEqual([]);
   });
 
-  it('maps metadata provider failures to typed user-safe errors', async () => {
+  it('calls metadata gateway with canonical watch URL when input has playlist params', async () => {
+    const analyzeVideo = vi.fn().mockResolvedValue({
+      videoQualities: [],
+      audioQualities: [],
+      title: '',
+      uploader: 'Unknown Channel',
+    });
+    const gateway: VideoMetadataGateway = { analyzeVideo };
+    const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(gateway);
+
+    const pasted =
+      'https://www.youtube.com/watch?v=Zt62nsFLqA0&list=RDZt62nsFLqA0&start_radio=1';
+    const result = await analyzeVideoUrl(pasted);
+
+    expect(analyzeVideo).toHaveBeenCalledWith(
+      'https://www.youtube.com/watch?v=Zt62nsFLqA0',
+    );
+    expect(result.url).toBe(pasted);
+  });
+
+  it('calls metadata gateway with canonical watch URL when input is shorts', async () => {
+    const analyzeVideo = vi.fn().mockResolvedValue({
+      videoQualities: [],
+      audioQualities: [],
+      title: '',
+      uploader: 'Unknown Channel',
+    });
+    const gateway: VideoMetadataGateway = { analyzeVideo };
+    const analyzeVideoUrl = createAnalyzeVideoUrlUseCase(gateway);
+
+    const pasted = 'https://www.youtube.com/shorts/dQw4w9WgXcQ';
+    const result = await analyzeVideoUrl(pasted);
+
+    expect(analyzeVideo).toHaveBeenCalledWith(
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+    expect(result.url).toBe(pasted);
+  });
+
+  it('maps metadata provider failures to typed user-safe errors with technical detail', async () => {
     const gateway: VideoMetadataGateway = {
       analyzeVideo: async () => {
         throw new Error('network down');
@@ -109,6 +148,7 @@ describe('AnalyzeVideoUrlUseCase', () => {
       name: 'AnalyzeVideoUrlError',
       code: 'METADATA_UNAVAILABLE',
       message: 'Could not analyze this video right now. Please try again.',
+      technicalDetail: 'network down',
     });
   });
 });
