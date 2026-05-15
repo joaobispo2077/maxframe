@@ -86,6 +86,7 @@ describe('runYtdlpDownload', () => {
       'mp4',
       '--no-warnings',
       '--no-playlist',
+      '--newline',
       '-f',
       '137+bestaudio/best',
       '-o',
@@ -100,6 +101,36 @@ describe('runYtdlpDownload', () => {
 
     await expect(donePromise).resolves.toBeUndefined();
     expect(lines).toEqual(['[download] 12.0%', 'line-a', 'line-b']);
+  });
+
+  it('streams carriage-return download progress before a final newline', async () => {
+    const child = createFakeChild();
+    spawnMock.mockReturnValue(child);
+    const lines: string[] = [];
+    const { runYtdlpDownload } = await import(
+      '@src/infrastructure/youtube/runYtdlpDownload'
+    );
+
+    const donePromise = runYtdlpDownload({
+      executable: 'yt-dlp',
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      formatSelector: '137',
+      outputTemplate: 'C:\\Videos\\out.%(ext)s',
+      onProgressLine: (line) => lines.push(line),
+    });
+
+    const p10 =
+      '[download]  10.0% of  100.00MiB at    5.00MiB/s ETA 00:18';
+    const p50 =
+      '[download]  50.0% of  100.00MiB at    5.00MiB/s ETA 00:10';
+    const p90 =
+      '[download]  90.0% of  100.00MiB at    5.00MiB/s ETA 00:02';
+    child.stderr?.emit('data', `${p10}\r${p50}\r${p90}`);
+    child.stderr?.emit('end');
+    child.emit('close', 0);
+
+    await expect(donePromise).resolves.toBeUndefined();
+    expect(lines).toEqual([p10, p50, p90]);
   });
 
   it('rejects with not-found message when spawn emits ENOENT', async () => {

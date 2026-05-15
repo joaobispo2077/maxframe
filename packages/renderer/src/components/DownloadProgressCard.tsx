@@ -31,6 +31,14 @@ const STAGE_COLORS: Record<DownloadProgressState['stage'], string> = {
   done: 'green',
 };
 
+const STAGE_STATUS_FALLBACK: Record<DownloadProgressState['stage'], string> = {
+  waiting: 'Waiting for yt-dlp…',
+  downloading: 'Downloading…',
+  'extracting-audio': 'Extracting audio…',
+  merging: 'Processing with ffmpeg…',
+  done: 'Complete',
+};
+
 export function DownloadProgressCard({
   progress,
   onCancel,
@@ -39,13 +47,14 @@ export function DownloadProgressCard({
   const stageLabel = STAGE_LABELS[stage];
   const stageColor = STAGE_COLORS[stage];
 
-  const statsLine = [
-    speedLabel && `${speedLabel}`,
-    etaLabel && etaLabel !== 'done' && `ETA ${etaLabel}`,
-    sizeLabel && sizeLabel,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const statsLine =
+    [
+      speedLabel && `${speedLabel}`,
+      etaLabel && etaLabel !== 'done' && `ETA ${etaLabel}`,
+      sizeLabel && sizeLabel,
+    ]
+      .filter(Boolean)
+      .join(' · ') || STAGE_STATUS_FALLBACK[stage];
 
   return (
     <Box
@@ -78,7 +87,11 @@ export function DownloadProgressCard({
 
       <VStack gap={2} align="stretch">
         <Progress.Root
-          value={stage === 'waiting' ? undefined : percent}
+          value={
+            stage === 'waiting' || (stage === 'merging' && percent <= 0)
+              ? undefined
+              : percent
+          }
           max={100}
           size="sm"
           colorPalette={stageColor}
@@ -90,7 +103,7 @@ export function DownloadProgressCard({
 
         <HStack justify="space-between" gap={2}>
           <Text fontSize="xs" color="fg.muted" aria-live="polite">
-            {statsLine || 'Waiting for yt-dlp…'}
+            {statsLine}
           </Text>
           <Text fontSize="xs" fontWeight="medium" color="fg">
             {stage === 'waiting' ? '0%' : `${percent.toFixed(0)}%`}

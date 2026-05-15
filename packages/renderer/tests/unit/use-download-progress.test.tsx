@@ -58,6 +58,38 @@ describe('useDownloadProgress', () => {
     expect(result.current.progress.stage).toBe('downloading');
   });
 
+  it('updates percent on each download progress tick', () => {
+    let onProgress: ((e: { line: string }) => void) | undefined;
+    window.maxframeApi.subscribeDownloadProgress = vi.fn((cb) => {
+      onProgress = cb;
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useDownloadProgress());
+
+    act(() => {
+      onProgress?.({
+        line: '[download]  10.0% of  100.00MiB at    5.00MiB/s ETA 00:18',
+      });
+    });
+    expect(result.current.progress.percent).toBe(10);
+
+    act(() => {
+      onProgress?.({
+        line: '[download]  50.0% of  100.00MiB at    5.00MiB/s ETA 00:10',
+      });
+    });
+    expect(result.current.progress.percent).toBe(50);
+
+    act(() => {
+      onProgress?.({
+        line: '[download]  90.0% of  100.00MiB at    5.00MiB/s ETA 00:02',
+      });
+    });
+    expect(result.current.progress.percent).toBe(90);
+    expect(result.current.progress.stage).toBe('downloading');
+  });
+
   it('ignores unrecognized lines (returns null from parser)', () => {
     let onProgress: ((e: { line: string }) => void) | undefined;
     window.maxframeApi.subscribeDownloadProgress = vi.fn((cb) => {
