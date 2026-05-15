@@ -97,7 +97,7 @@ export function DownloadProgressCard({
           colorPalette={stageColor}
         >
           <Progress.Track borderRadius="full">
-            <Progress.Range style={{ transition: 'width 0.6s ease' }} />
+            <Progress.Range style={{ transition: 'width 0.3s ease' }} />
           </Progress.Track>
         </Progress.Root>
 
