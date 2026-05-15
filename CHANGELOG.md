@@ -1,3 +1,13 @@
+# [1.4.0](https://github.com/joaobispo2077/maxframe/compare/v1.3.1...v1.4.0) (2026-05-15)
+
+
+### Features
+
+* **application:** analyze via canonical URL with technical errors ([f9c1ddb](https://github.com/joaobispo2077/maxframe/commit/f9c1ddbcf523be2979dc898a7f1acfa0c32b9621))
+* **domain:** canonical YouTube watch URL for yt-dlp ([aeeb405](https://github.com/joaobispo2077/maxframe/commit/aeeb4058b41e17cebe91fd7d5c94f0f288271bd0))
+* **main:** use canonical YouTube URL for downloads ([0347909](https://github.com/joaobispo2077/maxframe/commit/0347909b9d31f306b6559475bf36bf9bc4ab38cf))
+* **diagnostics:** yt-dlp version, error detail, and submitted URL ([7eb699e](https://github.com/joaobispo2077/maxframe/commit/7eb699ec3de43ef562d27be4fb9b50cda44f3876))
+
 ## [1.3.1](https://github.com/joaobispo2077/maxframe/compare/v1.3.0...v1.3.1) (2026-05-15)
 
 
