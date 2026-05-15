@@ -148,12 +148,8 @@ vite.config.ts.timestamp-*
 .cursor/
 .cursor-plugin/
 .sdd/
-# Track `specs/active/video-pipeline/` only; other `specs/**` stays local.
 specs/**
-!specs/active/
 specs/active/**
-!specs/active/video-pipeline/
-!specs/active/video-pipeline/**
 
 # Mutation testing outputs
 .stryker-tmp/

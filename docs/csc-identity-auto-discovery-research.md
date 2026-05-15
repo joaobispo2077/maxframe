@@ -143,4 +143,3 @@ And plan next:
 - Tauri Windows signing guide: <https://tauri.app/v1/guides/distribution/sign-windows/>
 - Electron Forge Windows signing guide: <https://www.electronforge.io/guides/code-signing/code-signing-windows>
 - Electron-builder issue discussion on `CSC_IDENTITY_AUTO_DISCOVERY`: <https://github.com/electron-userland/electron-builder/issues/7515>
-

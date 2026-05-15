@@ -1,6 +1,14 @@
-import { Badge, Box, Button, HStack, Progress, Text, VStack } from '@chakra-ui/react';
-
 import type { DownloadProgressState } from '../hooks/useDownloadProgress.js';
+
+import {
+  Badge,
+  Box,
+  Button,
+  HStack,
+  Progress,
+  Text,
+  VStack,
+} from '@chakra-ui/react';
 
 type DownloadProgressCardProps = {
   progress: DownloadProgressState;
@@ -23,7 +31,10 @@ const STAGE_COLORS: Record<DownloadProgressState['stage'], string> = {
   done: 'green',
 };
 
-export function DownloadProgressCard({ progress, onCancel }: DownloadProgressCardProps) {
+export function DownloadProgressCard({
+  progress,
+  onCancel,
+}: DownloadProgressCardProps) {
   const { percent, speedLabel, etaLabel, sizeLabel, stage } = progress;
   const stageLabel = STAGE_LABELS[stage];
   const stageColor = STAGE_COLORS[stage];
@@ -73,9 +84,7 @@ export function DownloadProgressCard({ progress, onCancel }: DownloadProgressCar
           colorPalette={stageColor}
         >
           <Progress.Track borderRadius="full">
-            <Progress.Range
-              style={{ transition: 'width 0.6s ease' }}
-            />
+            <Progress.Range style={{ transition: 'width 0.6s ease' }} />
           </Progress.Track>
         </Progress.Root>
 

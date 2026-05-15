@@ -1,11 +1,11 @@
-import {existsSync, readdirSync} from 'node:fs';
-import {join} from 'node:path';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const releaseAssetsDir = join(process.cwd(), 'release-assets');
 // Matches both the NSIS installer (*-win-x64.exe) and the portable (*-portable-win-x64.exe).
 const hasWindowsInstallerInWorkspace =
   existsSync(releaseAssetsDir) &&
-  readdirSync(releaseAssetsDir).some(f => /-win-x64\.exe$/i.test(f));
+  readdirSync(releaseAssetsDir).some((f) => /-win-x64\.exe$/i.test(f));
 
 /** @type {import('semantic-release').Options} */
 export default {
@@ -37,10 +37,16 @@ export default {
             assets: [
               {
                 // Negation excludes the portable artifact so only the NSIS installer is labelled here.
-                path: ['release-assets/*-win-x64.exe', '!release-assets/*-portable-win-x64.exe'],
+                path: [
+                  'release-assets/*-win-x64.exe',
+                  '!release-assets/*-portable-win-x64.exe',
+                ],
                 label: 'Windows Installer (x64)',
               },
-              { path: 'release-assets/*-portable-win-x64.exe', label: 'Windows Portable (x64)' },
+              {
+                path: 'release-assets/*-portable-win-x64.exe',
+                label: 'Windows Portable (x64)',
+              },
             ],
           },
         ]

@@ -2,7 +2,12 @@
   "$schema": "../../.vscode/tsconfig.compilerOptions-open.schema.json",
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
-    "types": ["vite/client", "node", "vitest/globals", "@testing-library/jest-dom"]
+    "types": [
+      "vite/client",
+      "node",
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ]
   },
   "include": [
     "tests/**/*.test.ts",

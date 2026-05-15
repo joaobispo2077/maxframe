@@ -65,7 +65,11 @@ describe('rankAudioOptions', () => {
 
 describe('selectBestAudioQuality', () => {
   it('returns the highest bitrate audio option', () => {
-    const options = [makeAudio('a', 128), makeAudio('b', 256), makeAudio('c', 64)];
+    const options = [
+      makeAudio('a', 128),
+      makeAudio('b', 256),
+      makeAudio('c', 64),
+    ];
     expect(selectBestAudioQuality(options)?.formatId).toBe('b');
   });
 

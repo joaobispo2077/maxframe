@@ -90,9 +90,16 @@ export async function runYtdlpDownload(
     args.unshift('--merge-output-format', params.mergeOutputFormat);
   }
   if (params.extractAudio) {
-    args.unshift('--extract-audio', '--audio-format', params.extractAudio.format);
+    args.unshift(
+      '--extract-audio',
+      '--audio-format',
+      params.extractAudio.format,
+    );
   }
-  if (params.ffmpegExecutable && !isBareExecutableName(params.ffmpegExecutable)) {
+  if (
+    params.ffmpegExecutable &&
+    !isBareExecutableName(params.ffmpegExecutable)
+  ) {
     args.unshift('--ffmpeg-location', params.ffmpegExecutable);
   }
   args.push(params.url);

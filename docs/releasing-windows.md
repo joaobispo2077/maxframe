@@ -12,11 +12,11 @@ artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 So a Windows x64 build produces, under `dist/`:
 
-| File | Purpose |
-|------|---------|
-| `Maxframe-*-win-x64.exe` (resolved by `package.json` version) | NSIS installer (attached to the GitHub Release) |
-| `*.blockmap` alongside the installer | Blockmap for `electron-updater` |
-| `latest.yml` | Update metadata (when `generateUpdatesFilesForAllChannels` is enabled) |
+| File                                                          | Purpose                                                                |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `Maxframe-*-win-x64.exe` (resolved by `package.json` version) | NSIS installer (attached to the GitHub Release)                        |
+| `*.blockmap` alongside the installer                          | Blockmap for `electron-updater`                                        |
+| `latest.yml`                                                  | Update metadata (when `generateUpdatesFilesForAllChannels` is enabled) |
 
 **Workflows and CI** glob the installer with `*-win-x64.exe` (name is version-agnostic in scripts).
 
@@ -30,7 +30,7 @@ So a Windows x64 build produces, under `dist/`:
 
 Releases are **unsigned** in phase 1. Users should expect to **allow** the app to run and install in the usual Windows way:
 
-- **SmartScreen** (“Windows protected your PC”): user chooses *More info* → *Run anyway* (or similar), or you later ship a **signed** installer.
+- **SmartScreen** (“Windows protected your PC”): user chooses _More info_ → _Run anyway_ (or similar), or you later ship a **signed** installer.
 - **UAC** / folder choice: the NSIS wizard (or silent `/D=…`) may require an account that can write to the chosen install path; per-user installs under `%LOCALAPPDATA%` need fewer admin prompts than per-machine `Program Files`.
 
 ## Local build and run
@@ -38,6 +38,12 @@ Releases are **unsigned** in phase 1. Users should expect to **allow** the app t
 1. **Build:** from the repo root, `npm run compile:win` (uses `cross-env` to set `CSC_IDENTITY_AUTO_DISCOVERY=false` for the `electron-builder` step).
 2. **Run the app without installing:** `dist\win-unpacked\Maxframe.exe`
 3. **Test the NSIS flow:** run `dist\Maxframe-*-win-x64.exe` (e.g. double-click in Explorer) and go through the prompts above.
+
+## Bundled yt-dlp and ffmpeg
+
+Windows release builds use the same **`extraResources`** layout as in [electron-builder.mjs](../electron-builder.mjs): binaries from **`buildResources/yt-dlp/`** and **`buildResources/ffmpeg/`** are copied into **`resources/`** inside the packaged app. **Release maintainers** should place `yt-dlp.exe` and `ffmpeg.exe` in those folders **before** `npm run compile:win` so end users get a self-contained installer (see [buildResources/yt-dlp/README.txt](../buildResources/yt-dlp/README.txt) and [buildResources/ffmpeg/README.txt](../buildResources/ffmpeg/README.txt)).
+
+**End users** of such a build normally do **not** install yt-dlp or ffmpeg separately. That is different from **local `npm start` development**, where developers still need tools on `PATH` or `YT_DLP_PATH` / `FFMPEG_PATH` — see the root [README.md](../README.md) section _yt-dlp and ffmpeg: packaged app vs local development_.
 
 ## NSIS silent install (smoke and automation)
 

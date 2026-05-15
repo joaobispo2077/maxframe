@@ -6,10 +6,29 @@
 
 Electron + React + TypeScript desktop app for transparent, high-quality video downloads.
 
-## First run (analyze + download)
+## yt-dlp and ffmpeg: packaged app vs local development
 
-- **yt-dlp** — Required for real metadata and downloads. Install a release from [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp/releases) and ensure `yt-dlp` is on your `PATH`, or set **`YT_DLP_PATH`** to the binary. Packaged builds can drop an executable under `buildResources/yt-dlp/` (see `buildResources/yt-dlp/README.txt`); the app also checks `resources/yt-dlp/` at runtime.
-- **ffmpeg** — Required when you download a **video-only** row (yt-dlp merges best audio). Install from [ffmpeg.org](https://ffmpeg.org/download.html) and keep `ffmpeg` on your `PATH`, or set **`FFMPEG_PATH`**. For packaged builds you can drop `ffmpeg` / `ffmpeg.exe` under `buildResources/ffmpeg/` (see `buildResources/ffmpeg/README.txt`); the app checks `resources/ffmpeg/` at runtime.
+Behavior differs on purpose: **production builds** ship binaries next to the app; **`npm start`** does not.
+
+### Packaged app (installer, portable, or `dist/win-unpacked/…`)
+
+[electron-builder.mjs](electron-builder.mjs) copies **`buildResources/yt-dlp/`** and **`buildResources/ffmpeg/`** into the app as **`resources/yt-dlp/`** and **`resources/ffmpeg/`** (see `extraResources` there). At runtime, [resolveYtdlpExecutable](src/infrastructure/youtube/resolveYtdlpExecutable.ts) and [resolveFfmpegExecutable](src/infrastructure/ffmpeg/resolveFfmpegExecutable.ts) prefer those folders when Electron exposes `process.resourcesPath`.
+
+**End users who install a build that was compiled with real binaries in those folders do not need a separate yt-dlp or ffmpeg install** — Maxframe resolves them from inside the package.
+
+If a compile was run **without** placing `yt-dlp.exe` / `ffmpeg.exe` (or non-Windows equivalents) in those `buildResources` folders, the packaged app still falls back to **`PATH`** or **`YT_DLP_PATH`** / **`FFMPEG_PATH`** (see [buildResources/yt-dlp/README.txt](buildResources/yt-dlp/README.txt) and [buildResources/ffmpeg/README.txt](buildResources/ffmpeg/README.txt)).
+
+### Local development (`npm start`)
+
+Dev runs Electron from the repo **without** the packaged `resources/` layout from `electron-builder`. There is **no** bundled copy of yt-dlp/ffmpeg unless you point the app at one yourself.
+
+For real analyze/download on your machine you still need:
+
+- **yt-dlp** — on `PATH`, or **`YT_DLP_PATH`** set to the binary ([releases](https://github.com/yt-dlp/yt-dlp/releases)).
+- **ffmpeg** — on `PATH`, or **`FFMPEG_PATH`** set, especially for **video-only** downloads that merge audio ([ffmpeg.org](https://ffmpeg.org/download.html)).
+
+### Tests and CI
+
 - **Tests / CI without yt-dlp** — Set **`MAXFRAME_FAKE_VIDEO_METADATA=1`** so analyze uses deterministic in-memory metadata (default for the `unit-tests` job in `.github/workflows/ci.yml`).
 - **Optional real-tool smoke** — Use the manual workflow [yt-dlp smoke](.github/workflows/yt-dlp-smoke.yml) (`workflow_dispatch`) when you want a maintainer-only check with network and upstream binaries (not part of default PR CI).
 

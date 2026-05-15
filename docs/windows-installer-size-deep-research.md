@@ -58,10 +58,12 @@ Long answer:
 - In your repo, this flag is used to avoid accidental certificate discovery/sign attempts in CI/local automation where no intentional signing cert is configured.
 
 So:
+
 - **Keep it `false`** while intentionally shipping unsigned Windows artifacts.
 - Change strategy only when you move to managed certificate-based signing.
 
 Sources:
+
 - [electron-builder code signing setup](https://www.electron.build/code-signing.html)
 - [electron-builder config docs](https://www.electron.build/configuration.html)
 
@@ -76,6 +78,7 @@ Because NSIS installer is compressed and the install target is decompressed.
 - Your measured values line up exactly with this behavior.
 
 Source:
+
 - [electron-builder NSIS docs](https://www.electron.build/nsis.html)
 
 ---
@@ -86,6 +89,7 @@ Most Electron apps accept a relatively large installed footprint because they sh
 Common practice is to optimize where practical (language packs, dependency pruning, splitting optional binaries), but not to expect "native app tiny" sizes.
 
 General reference:
+
 - [Electron distribution model](https://www.electronjs.org/docs/latest/tutorial/application-distribution)
 
 ---
@@ -97,13 +101,16 @@ General reference:
 Use `electronLanguages` to keep only required languages (for example, `en-US` and maybe `pt-BR`).
 
 Why it matters:
+
 - You currently ship ~46 MB of locales.
 - This is likely the fastest safe win.
 
 Potential gain:
+
 - Roughly tens of MB (often 30-45 MB range, depending on final language set).
 
 Source:
+
 - [electron-builder configuration (`electronLanguages`)](https://www.electron.build/configuration.html)
 
 ## Option 2: Audit `app.asar` composition (Medium impact, medium risk)
@@ -111,11 +118,13 @@ Source:
 `app.asar` is ~47 MB. Verify if unused UI/dependency payload is being included in production bundle.
 
 Targets:
+
 - Reduce large frontend/library payloads
 - Ensure only runtime-required files are packed
 - Validate workspace package `"files"` fields are minimal
 
 Potential gain:
+
 - 10-30+ MB depending on dependency cleanup and bundling efficiency.
 
 ## Option 3: Keep current NSIS but add lightweight distribution mode (Medium impact, low risk)
@@ -124,6 +133,7 @@ Potential gain:
 It does **not** magically reduce installed footprint.
 
 Source:
+
 - [electron-builder NSIS web installer](https://www.electron.build/nsis.html)
 
 ## Option 4: Make heavy binaries optional/on-demand (High impact later, medium-high product risk)
@@ -219,10 +229,10 @@ Adopt **Size Limit + `@size-limit/file`** in CI for **budgets on built JS** afte
 
 ## Sources
 
-1. [Release v1.0.0 asset context](https://github.com/joaobispo2077/maxframe/releases/tag/v1.0.0)  
-2. [electron-builder: Code signing setup](https://www.electron.build/code-signing.html)  
-3. [electron-builder: Common configuration](https://www.electron.build/configuration.html)  
-4. [electron-builder: NSIS target](https://www.electron.build/nsis.html)  
-5. [Electron: Application distribution](https://www.electronjs.org/docs/latest/tutorial/application-distribution)  
-6. [Size Limit](https://github.com/ai/size-limit) — performance budgets, `--why`, CI reporting  
+1. [Release v1.0.0 asset context](https://github.com/joaobispo2077/maxframe/releases/tag/v1.0.0)
+2. [electron-builder: Code signing setup](https://www.electron.build/code-signing.html)
+3. [electron-builder: Common configuration](https://www.electron.build/configuration.html)
+4. [electron-builder: NSIS target](https://www.electron.build/nsis.html)
+5. [Electron: Application distribution](https://www.electronjs.org/docs/latest/tutorial/application-distribution)
+6. [Size Limit](https://github.com/ai/size-limit) — performance budgets, `--why`, CI reporting
 7. [bundlewatch](https://www.npmjs.com/package/bundlewatch) — baseline file-size checks in CI

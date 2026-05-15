@@ -21,7 +21,11 @@ describe('HomePage', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     window.maxframeApi = {
-      getInitialAppState: vi.fn().mockResolvedValue({ appName: 'Maxframe', status: 'ready', isPortable: false }),
+      getInitialAppState: vi.fn().mockResolvedValue({
+        appName: 'Maxframe',
+        status: 'ready',
+        isPortable: false,
+      }),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
       downloadVideo: vi.fn(),
@@ -29,7 +33,9 @@ describe('HomePage', () => {
       cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
-      getLogPath: vi.fn().mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
+      getLogPath: vi
+        .fn()
+        .mockResolvedValue('C:\\AppData\\Maxframe\\maxframe-debug.log'),
     };
   });
 
