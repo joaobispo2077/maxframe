@@ -4,6 +4,7 @@ import { join, parse as parsePath } from 'node:path';
 import { BrowserWindow, dialog } from 'electron';
 
 import { createVideoUrl } from '../../../src/domain/video/VideoUrl.js';
+import { canonicalYoutubeWatchUrl } from '../../../src/domain/video/youtubeVideoId.js';
 import {
   ffmpegMissingMessage,
   probeFfmpegAvailable,
@@ -111,7 +112,11 @@ export async function downloadVideoHandler(
   params: DownloadVideoRequest,
   sink?: DownloadVideoSink,
 ): Promise<DownloadVideoResult> {
-  createVideoUrl(params.url);
+  const validatedUrl = createVideoUrl(params.url);
+  const paramsForYtdlp: DownloadVideoRequest = {
+    ...params,
+    url: canonicalYoutubeWatchUrl(validatedUrl),
+  };
 
   const filePath = await promptSaveFilePath(
     params.suggestedFileName,
@@ -120,19 +125,19 @@ export async function downloadVideoHandler(
   const parsed = parsePath(filePath);
   const outputTemplate = join(parsed.dir, parsed.name) + '.%(ext)s';
   const formatSelector = buildYtdlpFormatSelector(
-    params.formatId,
-    params.hasAudio,
-    params.outputMode,
+    paramsForYtdlp.formatId,
+    paramsForYtdlp.hasAudio,
+    paramsForYtdlp.outputMode,
   );
 
   const ffmpegExecutable = await resolveFfmpegForDownload(
-    params.hasAudio,
-    params.outputMode,
+    paramsForYtdlp.hasAudio,
+    paramsForYtdlp.outputMode,
   );
 
   await runYtdlpDownload(
     buildRunYtdlpParams(
-      params,
+      paramsForYtdlp,
       sink,
       formatSelector,
       outputTemplate,
