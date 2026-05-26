@@ -26,7 +26,7 @@ describe('maxframeTheme', () => {
     expect(config.globalCss['#root'].color).toBe('fg');
   });
 
-  it('overrides semantic tokens for fg and border colors', () => {
+  it('overrides semantic tokens for fg, border, and queue colors', () => {
     const config = (maxframeSystem as { _config: Record<string, unknown> })
       ._config as {
       theme: {
@@ -59,5 +59,47 @@ describe('maxframeTheme', () => {
         },
       },
     });
+
+    expect(colors.queue).toMatchObject({
+      panel: {
+        value: {
+          _light: '{colors.gray.50}',
+          _dark: 'rgba(255, 255, 255, 0.03)',
+        },
+      },
+      rowActive: {
+        value: {
+          _light: '{colors.cyan.50}',
+          _dark: 'rgba(0, 240, 255, 0.07)',
+        },
+      },
+      rail: {
+        value: {
+          _light: '{colors.cyan.500}',
+          _dark: '#00f0ff',
+        },
+      },
+    });
+  });
+
+  it('defines queue typography text styles', () => {
+    const config = (maxframeSystem as { _config: Record<string, unknown> })
+      ._config as {
+      theme: {
+        textStyles: Record<
+          string,
+          { value: Record<string, string | number | undefined> }
+        >;
+      };
+    };
+
+    expect(config.theme.textStyles.queueTitle.value.color).toBe('fg');
+    expect(config.theme.textStyles.queueTitle.value.fontWeight).toBe(
+      'semibold',
+    );
+    expect(config.theme.textStyles.queueMeta.value.color).toBe('fg.muted');
+    expect(config.theme.textStyles.queueNumeric.value.fontVariantNumeric).toBe(
+      'tabular-nums',
+    );
   });
 });

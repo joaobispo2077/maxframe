@@ -13,9 +13,9 @@ import {
   Heading,
   HStack,
   Image,
-  Input,
   Stack,
   Text,
+  Textarea,
   VStack,
 } from '@chakra-ui/react';
 
@@ -23,16 +23,19 @@ import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
 
 import { ActiveDownloadPanel } from './components/ActiveDownloadPanel.js';
 import { AnalyzeErrorBanner } from './components/AnalyzeErrorBanner.js';
+import { DownloadQueuePanel } from './components/DownloadQueuePanel.js';
 import { AnalyzingIndicator } from './components/AnalyzingIndicator.js';
 import { QualityResultsPanel } from './components/QualityResultsPanel.js';
 import { SaveMessageBanner } from './components/SaveMessageBanner.js';
+import { useDownloadQueue } from './hooks/useDownloadQueue.js';
 import { useDownloadProgress } from './hooks/useDownloadProgress.js';
 import { buildDiagnosticReport } from './lib/buildDiagnosticReport.js';
+import { firstNonEmptyLine } from './lib/firstNonEmptyLine.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 
 function App() {
   const [activeView, setActiveView] = useState<'home' | 'settings'>('home');
-  const [url, setUrl] = useState('');
+  const [urlsText, setUrlsText] = useState('');
   const [loading, setLoading] = useState(false);
   const [downloadFormatId, setDownloadFormatId] = useState<string>();
   const [error, setError] = useState<string>();
@@ -42,6 +45,16 @@ function App() {
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
   const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>('mp4');
   const { progress, clear: clearDownloadProgress } = useDownloadProgress();
+  const {
+    model: queueModel,
+    summary: queueSummary,
+    enqueueBulkText,
+    moveJobInQueue,
+    removeJobFromQueue,
+  } = useDownloadQueue();
+
+  const analyzeTargetUrl = firstNonEmptyLine(urlsText);
+  const canAddToQueue = urlsText.trim().length > 0;
 
   const [isPortable, setIsPortable] = useState(false);
 
@@ -79,6 +92,11 @@ function App() {
   }
 
   async function analyzeUrl(): Promise<void> {
+    const urlToAnalyze = analyzeTargetUrl;
+    if (!urlToAnalyze) {
+      return;
+    }
+
     setLoading(true);
     setError(undefined);
     setDownloadNote(undefined);
@@ -88,7 +106,7 @@ function App() {
     setReportCopied(false);
 
     try {
-      const analysis = await window.maxframeApi.analyzeVideoUrl(url);
+      const analysis = await window.maxframeApi.analyzeVideoUrl(urlToAnalyze);
       setResult(analysis);
     } catch (caughtError) {
       setResult(undefined);
@@ -164,13 +182,18 @@ function App() {
 
   const downloadBusy = Boolean(downloadFormatId);
 
+  function handleAddToQueue(): void {
+    enqueueBulkText(urlsText);
+    setUrlsText('');
+  }
+
   if (activeView === 'settings') {
     return <SettingsPage onBack={() => setActiveView('home')} />;
   }
 
   return (
     <Box minH="100vh" py={{ base: 6, md: 10 }} px={4}>
-      <Container maxW="720px">
+      <Container maxW="960px">
         <Card.Root
           bg="#0f141c"
           borderWidth="1px"
@@ -197,7 +220,8 @@ function App() {
                   </Badge>
                 )}
                 <Text fontSize="lg" color="fg.muted">
-                  Paste your URL below and check the Quality available
+                  Paste YouTube URLs below — Analyze uses the first line; Add to
+                  queue saves every non-empty line.
                 </Text>
                 <HStack justify="flex-end" w="100%">
                   <Button
@@ -212,7 +236,32 @@ function App() {
                 </HStack>
               </VStack>
 
-              <Stack gap={4}>
+              <Stack gap={4} align="stretch" minW={0}>
+                <Field.Root>
+                  <Field.Label htmlFor="unified-queue-urls">
+                    Video URLs
+                  </Field.Label>
+                  <Textarea
+                    id="unified-queue-urls"
+                    value={urlsText}
+                    onChange={(e) => setUrlsText(e.target.value)}
+                    placeholder={
+                      'https://www.youtube.com/watch?v=...\nhttps://youtu.be/...'
+                    }
+                    rows={4}
+                    resize="vertical"
+                    w="100%"
+                    minW={0}
+                    overflowWrap="anywhere"
+                    bg="blackAlpha.400"
+                    borderColor="border"
+                    fontSize="sm"
+                    _focusVisible={{
+                      borderColor: 'cyan.400',
+                      boxShadow: '0 0 0 1px #00f0ff',
+                    }}
+                  />
+                </Field.Root>
                 <Field.Root>
                   <Field.Label htmlFor="output-format">
                     Output format
@@ -237,33 +286,31 @@ function App() {
                     <option value="mp3">MP3 (best audio)</option>
                   </select>
                 </Field.Root>
-                <Field.Root>
-                  <Field.Label htmlFor="youtube-url">YouTube URL</Field.Label>
-                  <Input
-                    id="youtube-url"
-                    type="url"
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    value={url}
-                    onChange={(event) => setUrl(event.target.value)}
-                    bg="blackAlpha.400"
-                    borderColor="panelBorder"
-                    _focusVisible={{
-                      borderColor: 'cyan.400',
-                      boxShadow: '0 0 0 1px #00f0ff',
-                    }}
-                  />
-                </Field.Root>
-                <Button
-                  colorPalette="cyan"
-                  variant="surface"
-                  onClick={() => void analyzeUrl()}
-                  disabled={!url || loading || downloadBusy}
-                  loading={loading}
-                  loadingText="Analyzing..."
-                  alignSelf={{ base: 'stretch', sm: 'flex-start' }}
-                >
-                  Analyze quality
-                </Button>
+                <HStack gap={3} flexWrap="wrap" align="stretch">
+                  <Button
+                    flex={{ base: '1', sm: 'initial' }}
+                    colorPalette="cyan"
+                    variant="surface"
+                    onClick={() => void analyzeUrl()}
+                    disabled={
+                      analyzeTargetUrl === undefined || loading || downloadBusy
+                    }
+                    loading={loading}
+                    loadingText="Analyzing..."
+                  >
+                    Analyze quality
+                  </Button>
+                  <Button
+                    flex={{ base: '1', sm: 'initial' }}
+                    type="button"
+                    variant="outline"
+                    colorPalette="cyan"
+                    onClick={handleAddToQueue}
+                    disabled={!canAddToQueue}
+                  >
+                    Add to queue
+                  </Button>
+                </HStack>
                 <AnalyzingIndicator visible={loading} />
               </Stack>
 
@@ -302,6 +349,12 @@ function App() {
                   onDownloadQuality={downloadQuality}
                 />
               ) : null}
+              <DownloadQueuePanel
+                model={queueModel}
+                summary={queueSummary}
+                moveJobInQueue={moveJobInQueue}
+                removeJobFromQueue={removeJobFromQueue}
+              />
             </VStack>
           </Card.Body>
         </Card.Root>

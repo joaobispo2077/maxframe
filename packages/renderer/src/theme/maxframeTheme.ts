@@ -26,6 +26,26 @@ const maxframeSemColors = defineSemanticTokens.colors({
       value: { _light: '{colors.gray.200}', _dark: 'rgba(255, 255, 255, 0.2)' },
     },
   },
+  queue: {
+    panel: {
+      value: {
+        _light: '{colors.gray.50}',
+        _dark: 'rgba(255, 255, 255, 0.03)',
+      },
+    },
+    rowActive: {
+      value: {
+        _light: '{colors.cyan.50}',
+        _dark: 'rgba(0, 240, 255, 0.07)',
+      },
+    },
+    rail: {
+      value: {
+        _light: '{colors.cyan.500}',
+        _dark: '#00f0ff',
+      },
+    },
+  },
 });
 
 /**
@@ -57,6 +77,31 @@ export const maxframeSystem = createSystem(
     theme: {
       semanticTokens: {
         colors: maxframeSemColors,
+      },
+      textStyles: {
+        queueTitle: {
+          value: {
+            fontWeight: 'semibold',
+            fontSize: 'sm',
+            lineHeight: 'short',
+            color: 'fg',
+          },
+        },
+        queueMeta: {
+          value: {
+            fontSize: 'xs',
+            lineHeight: 'short',
+            color: 'fg.muted',
+          },
+        },
+        queueNumeric: {
+          value: {
+            fontSize: 'xs',
+            lineHeight: 'short',
+            fontVariantNumeric: 'tabular-nums',
+            color: 'fg.muted',
+          },
+        },
       },
     },
   }),

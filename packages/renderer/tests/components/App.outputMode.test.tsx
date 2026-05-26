@@ -117,7 +117,7 @@ describe('App — output format selector', () => {
       .mockResolvedValue(BASE_ANALYZE_RESULT);
     render(<App />);
 
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -136,7 +136,7 @@ describe('App — output format selector', () => {
     fireEvent.change(screen.getByLabelText('Output format'), {
       target: { value: 'mp3' },
     });
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -156,7 +156,7 @@ describe('App — output format selector', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -190,7 +190,7 @@ describe('App — output format selector', () => {
     fireEvent.change(screen.getByLabelText('Output format'), {
       target: { value: 'mp3' },
     });
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -220,7 +220,7 @@ describe('App — output format selector', () => {
     fireEvent.change(screen.getByLabelText('Output format'), {
       target: { value: 'mp3' },
     });
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));

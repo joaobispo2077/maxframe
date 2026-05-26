@@ -72,7 +72,7 @@ describe('App debug mode', () => {
 
     render(<App />);
 
-    fireEvent.change(screen.getByPlaceholderText(/youtube.com/i), {
+    fireEvent.change(screen.getByRole('textbox', { name: /^Video URLs$/i }), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: /analyze quality/i }));
@@ -99,7 +99,7 @@ describe('App debug mode', () => {
 
     render(<App />);
 
-    fireEvent.change(screen.getByPlaceholderText(/youtube.com/i), {
+    fireEvent.change(screen.getByRole('textbox', { name: /^Video URLs$/i }), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: /analyze quality/i }));

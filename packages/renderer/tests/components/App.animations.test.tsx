@@ -77,7 +77,7 @@ describe('App — animated UI transitions', () => {
       .mockResolvedValue(MOCK_ANALYZE_RESULT);
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -101,7 +101,7 @@ describe('App — animated UI transitions', () => {
     );
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
