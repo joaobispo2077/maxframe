@@ -23,6 +23,8 @@ export type DownloadVideoRequest = {
   /** Suggested file name without path (e.g. `Video Title - Channel.mp4`). */
   suggestedFileName: string;
   outputMode: 'mp3' | 'mp4';
+  /** When set, skips save dialog and writes under this directory. */
+  outputDir?: string;
 };
 
 export type DownloadVideoResult = {
@@ -46,6 +48,20 @@ function dialogFiltersForMode(outputMode: 'mp3' | 'mp4') {
     { name: 'Video', extensions: ['mp4', 'mkv', 'webm'] },
     { name: 'All files', extensions: ['*'] },
   ];
+}
+
+async function resolveOutputLocation(
+  params: DownloadVideoRequest,
+): Promise<{ filePath: string }> {
+  if (params.outputDir) {
+    const stem = parsePath(params.suggestedFileName).name;
+    return { filePath: join(params.outputDir, stem + parsePath(params.suggestedFileName).ext) };
+  }
+  const filePath = await promptSaveFilePath(
+    params.suggestedFileName,
+    params.outputMode,
+  );
+  return { filePath };
 }
 
 async function promptSaveFilePath(
@@ -118,11 +134,8 @@ export async function downloadVideoHandler(
     url: canonicalYoutubeWatchUrl(validatedUrl),
   };
 
-  const filePath = await promptSaveFilePath(
-    params.suggestedFileName,
-    params.outputMode,
-  );
-  const parsed = parsePath(filePath);
+  const outputLocation = await resolveOutputLocation(params);
+  const parsed = parsePath(outputLocation.filePath);
   const outputTemplate = join(parsed.dir, parsed.name) + '.%(ext)s';
   const formatSelector = buildYtdlpFormatSelector(
     paramsForYtdlp.formatId,
@@ -147,7 +160,9 @@ export async function downloadVideoHandler(
 
   const resolved =
     findYtdlpOutputFile(parsed.dir, parsed.name) ??
-    (existsSync(filePath) ? filePath : undefined);
+    (existsSync(outputLocation.filePath)
+      ? outputLocation.filePath
+      : undefined);
 
   if (!resolved) {
     throw new Error(
