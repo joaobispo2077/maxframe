@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog } from 'electron';
+import { BrowserWindow, dialog, type OpenDialogOptions } from 'electron';
 
 export type PickOutputFolderResult =
   | { canceled: true }
@@ -6,8 +6,8 @@ export type PickOutputFolderResult =
 
 export async function pickOutputFolderHandler(): Promise<PickOutputFolderResult> {
   const parentWindow = BrowserWindow.getFocusedWindow();
-  const dialogOptions = {
-    properties: ['openDirectory', 'createDirectory'] as const,
+  const dialogOptions: OpenDialogOptions = {
+    properties: ['openDirectory', 'createDirectory'],
   };
   const { canceled, filePaths } = parentWindow
     ? await dialog.showOpenDialog(parentWindow, dialogOptions)
