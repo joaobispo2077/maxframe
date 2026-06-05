@@ -15,6 +15,11 @@ import { QueueView } from './views/QueueView.js';
 function App() {
   const { activeTab, setActiveTab } = useAppNavigation('analyze');
   const [isPortable, setIsPortable] = useState(false);
+  const [titleBarInset, setTitleBarInset] = useState({
+    height: 0,
+    padLeft: 0,
+    padRight: 0,
+  });
   const [debugMode] = useState(
     () => localStorage.getItem('maxframe.debugMode') === 'true',
   );
@@ -44,7 +49,12 @@ function App() {
   useEffect(() => {
     window.maxframeApi
       ?.getInitialAppState?.()
-      .then((s) => setIsPortable(s.isPortable ?? false))
+      .then((s) => {
+        setIsPortable(s.isPortable ?? false);
+        setTitleBarInset(
+          s.titleBarInset ?? { height: 0, padLeft: 0, padRight: 0 },
+        );
+      })
       .catch(() => {});
   }, []);
 
@@ -57,7 +67,9 @@ function App() {
   return (
     <AppShell
       isPortable={isPortable}
-      subtitle="Paste YouTube URLs below — Analyze uses the first line; Add to queue saves every non-empty line."
+      titleBarInset={titleBarInset}
+      subtitle="Pick a video, compare quality options, then download."
+      onGoHome={() => setActiveTab('analyze')}
       headerActions={<AppNav activeTab={activeTab} onChange={setActiveTab} />}
     >
       {activeTab === 'analyze' ? (
