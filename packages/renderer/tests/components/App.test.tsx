@@ -33,6 +33,7 @@ describe('App', () => {
         appName: 'Maxframe',
         status: 'ready',
         isPortable: false,
+        titleBarInset: { height: 0, padLeft: 0, padRight: 0 },
       }),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),
@@ -49,12 +50,33 @@ describe('App', () => {
     };
   });
 
-  it('renders the foundation message', () => {
+  it('renders analyze guidance in the header and next to the URL field', () => {
     render(<App />);
 
     expect(
-      screen.getByText('Paste YouTube URLs below — Analyze uses the first line; Add to queue saves every non-empty line.'),
+      screen.getByText(
+        'Pick a video, compare quality options, then download.',
+      ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'One URL per line. Analyze quality previews the first URL. Add to queue sends every URL to the Queue tab.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a queue-specific header message on the Queue tab', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Queue' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Download multiple videos you added from Analyze.',
+        ),
+      ).toBeInTheDocument();
+    });
   });
 
   it('hides download queue on the default Analyze tab', () => {
@@ -142,6 +164,7 @@ describe('App', () => {
       appName: 'Maxframe',
       status: 'ready',
       isPortable: true,
+      titleBarInset: { height: 0, padLeft: 0, padRight: 0 },
     });
 
     render(<App />);
@@ -156,6 +179,7 @@ describe('App', () => {
       appName: 'Maxframe',
       status: 'ready',
       isPortable: false,
+      titleBarInset: { height: 0, padLeft: 0, padRight: 0 },
     });
 
     render(<App />);

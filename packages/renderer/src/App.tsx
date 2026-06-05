@@ -8,6 +8,7 @@ import { useAppNavigation } from './hooks/useAppNavigation.js';
 import { setDefaultOutputMode } from './lib/appPreferences.js';
 import { useDownloadQueue } from './hooks/useDownloadQueue.js';
 import { useQueueRunner } from './hooks/useQueueRunner.js';
+import { PAGE_SUBTITLES } from './lib/pageSubtitles.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 import { AnalyzeView } from './views/AnalyzeView.js';
 import { QueueView } from './views/QueueView.js';
@@ -68,7 +69,7 @@ function App() {
     <AppShell
       isPortable={isPortable}
       titleBarInset={titleBarInset}
-      subtitle="Pick a video, compare quality options, then download."
+      subtitle={PAGE_SUBTITLES[activeTab]}
       onGoHome={() => setActiveTab('analyze')}
       headerActions={<AppNav activeTab={activeTab} onChange={setActiveTab} />}
     >
