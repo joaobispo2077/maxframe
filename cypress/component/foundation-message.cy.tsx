@@ -5,7 +5,7 @@ describe('Foundation message', () => {
     cy.mount(<App />);
 
     cy.contains(
-      'Paste YouTube URLs below — Analyze uses the first line; Add to queue saves every non-empty line.',
+      'Pick a video, compare quality options, then download.',
     ).should('be.visible');
   });
 });

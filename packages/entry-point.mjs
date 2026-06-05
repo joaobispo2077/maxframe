@@ -38,6 +38,6 @@ initApp({
   },
 
   icon: fileURLToPath(
-    new URL('../.github/assets/maxframe-logo.png', import.meta.url),
+    new URL('../.github/assets/maxframe-logo-icon.png', import.meta.url),
   ),
 });

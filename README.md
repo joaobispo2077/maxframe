@@ -43,7 +43,7 @@ GitHub Actions workflows include:
     - `typecheck`
     - `unit-tests` (coverage summary generated and posted as sticky PR comment)
     - `e2e-tests` (Cypress component mode via `cypress-io/github-action@v7`; only for `dev -> release` and `release -> main` PRs)
-    - `mutation-tests` (Stryker on promotion PRs; **incremental** + Actions cache on `reports/stryker-incremental.json`. Full local/forced: `npm run test:mutation` or `stryker run --force`. [Incremental docs](https://stryker-mutator.io/docs/stryker-js/incremental/). Weekly full run: `stryker-full.yml`.)
+    - `mutation-tests` (Stryker **PR fast profile** on promotion PRs; `ignoreStatic` + InMemory gateway excluded; **incremental** + Actions cache on `reports/stryker-incremental.pr.json`. Strict local/weekly: `npm run test:mutation` or `stryker-full.yml`. [Incremental docs](https://stryker-mutator.io/docs/stryker-js/incremental/).)
 - `Stryker full` (`.github/workflows/stryker-full.yml`) — weekly and manual **non-incremental** mutation run on `ubuntu-latest` (mitigates incremental drift after dependency-only changes).
 - `Release` (`.github/workflows/release.yml`)
   - **Windows (phase 1):** the pipeline is **gated** — `build-windows` (NSIS on `windows-latest`) → `smoke-windows` (silent install + launch) → `release` (semantic-release on `ubuntu-latest`). A push to `release` (or `workflow_dispatch`) will **not** publish a GitHub release if the Windows build or smoke job fails. macOS and Linux packaged builds are not part of this workflow yet.
@@ -79,8 +79,10 @@ Use **Node.js 24.10+** locally (required by **semantic-release v25** and matched
 - `npm run typecheck`
 - `npm run test:unit`
 - `npm run test:e2e`
-- `npm run test:mutation` (full baseline)
-- `npm run test:mutation:incremental` (reuse `reports/stryker-incremental.json` when present)
+- `npm run test:mutation` (strict full baseline — all `src/**`, static mutants run)
+- `npm run test:mutation:incremental` (strict incremental; cache: `reports/stryker-incremental.json`)
+- `npm run test:mutation:pr` (PR fast profile — mirrors promotion PR CI)
+- `npm run test:mutation:pr:incremental` (PR fast incremental; cache: `reports/stryker-incremental.pr.json`)
 - `npm run lint`
 - `npm run release:local` (local semantic-release with `--no-ci`; CI uses `npm run release`)
 

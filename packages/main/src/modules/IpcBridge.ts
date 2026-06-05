@@ -22,6 +22,7 @@ import {
   type DownloadVideoSink,
 } from '../downloadVideoHandler.js';
 import { pickOutputFolderHandler } from '../pickOutputFolderHandler.js';
+import { getTitleBarInset } from '../windowChrome.js';
 
 const CHANNEL_GET_INITIAL_STATE = 'app:get-initial-state';
 const CHANNEL_PING = 'app:ping';
@@ -47,6 +48,7 @@ class IpcBridge implements AppModule {
       appName: 'Maxframe',
       status: 'ready',
       isPortable: this.#isPortable,
+      titleBarInset: getTitleBarInset(),
     }));
 
     ipcMain.handle(CHANNEL_PING, (_event, payload: string) => payload);

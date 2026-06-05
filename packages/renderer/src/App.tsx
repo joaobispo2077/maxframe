@@ -8,6 +8,7 @@ import { useAppNavigation } from './hooks/useAppNavigation.js';
 import { setDefaultOutputMode } from './lib/appPreferences.js';
 import { useDownloadQueue } from './hooks/useDownloadQueue.js';
 import { useQueueRunner } from './hooks/useQueueRunner.js';
+import { PAGE_SUBTITLES } from './lib/pageSubtitles.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 import { AnalyzeView } from './views/AnalyzeView.js';
 import { QueueView } from './views/QueueView.js';
@@ -15,6 +16,11 @@ import { QueueView } from './views/QueueView.js';
 function App() {
   const { activeTab, setActiveTab } = useAppNavigation('analyze');
   const [isPortable, setIsPortable] = useState(false);
+  const [titleBarInset, setTitleBarInset] = useState({
+    height: 0,
+    padLeft: 0,
+    padRight: 0,
+  });
   const [debugMode] = useState(
     () => localStorage.getItem('maxframe.debugMode') === 'true',
   );
@@ -44,7 +50,12 @@ function App() {
   useEffect(() => {
     window.maxframeApi
       ?.getInitialAppState?.()
-      .then((s) => setIsPortable(s.isPortable ?? false))
+      .then((s) => {
+        setIsPortable(s.isPortable ?? false);
+        setTitleBarInset(
+          s.titleBarInset ?? { height: 0, padLeft: 0, padRight: 0 },
+        );
+      })
       .catch(() => {});
   }, []);
 
@@ -57,7 +68,9 @@ function App() {
   return (
     <AppShell
       isPortable={isPortable}
-      subtitle="Paste YouTube URLs below — Analyze uses the first line; Add to queue saves every non-empty line."
+      titleBarInset={titleBarInset}
+      subtitle={PAGE_SUBTITLES[activeTab]}
+      onGoHome={() => setActiveTab('analyze')}
       headerActions={<AppNav activeTab={activeTab} onChange={setActiveTab} />}
     >
       {activeTab === 'analyze' ? (

@@ -192,17 +192,17 @@ jobs:
       - name: Ensure reports directory for Stryker cache
         run: mkdir -p reports
 
-      - name: Cache Stryker incremental report
+      - name: Cache Stryker incremental report (PR fast profile)
         uses: actions/cache@v5
         with:
-          path: reports/stryker-incremental.json
-          key: stryker-incremental-${{ runner.os }}-${{ hashFiles('package-lock.json', 'stryker.config.mjs', 'vitest.stryker.config.ts') }}
+          path: reports/stryker-incremental.pr.json
+          key: stryker-incremental-pr-${{ runner.os }}-${{ hashFiles('package-lock.json', 'stryker.config.base.mjs', 'stryker.config.pr.mjs', 'vitest.stryker.config.ts') }}
           restore-keys: |
-            stryker-incremental-${{ runner.os }}-
+            stryker-incremental-pr-${{ runner.os }}-
 
       - name: Run mutation tests
         id: run-mutation-tests
-        run: npm run test:mutation:incremental
+        run: npm run test:mutation:pr:incremental
 
       - name: Upload mutation reports artifact
         if: always()
@@ -282,6 +282,11 @@ jobs:
 
           const lines = [
             '## Mutation Tests (Stryker)',
+            '',
+            '- **Profile:** fast (PR)',
+            '- **ignoreStatic:** true',
+            '- **Excluded files:** `src/infrastructure/youtube/InMemoryVideoMetadataGateway.ts`',
+            '- **Strict weekly backstop:** `stryker-full.yml` (full `src/**`, static mutants run)',
             '',
             `- Mutation score: **${scoreText}%**`,
             `- Threshold: **${threshold ?? 'not set'}**`,
