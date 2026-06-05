@@ -28,3 +28,12 @@ jobs:
 
       - name: Run mutation tests (full)
         run: npm run test:mutation
+
+      - name: Upload mutation reports artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-reports-full
+          path: reports/mutation
+          if-no-files-found: warn
+          retention-days: 14
