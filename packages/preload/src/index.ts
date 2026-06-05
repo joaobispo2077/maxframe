@@ -38,7 +38,12 @@ export type DownloadVideoRequest = {
   hasAudio: boolean;
   suggestedFileName: string;
   outputMode: 'mp3' | 'mp4';
+  outputDir?: string;
 };
+
+export type PickOutputFolderResult =
+  | { canceled: true }
+  | { canceled: false; folderPath: string };
 
 export type DownloadVideoResult = {
   outputPath: string;
@@ -83,6 +88,11 @@ export function subscribeDownloadProgress(
 /** Request cancellation of the in-flight download (main process aborts yt-dlp). */
 export async function cancelDownload(): Promise<{ canceled: boolean }> {
   return ipcRenderer.invoke(CHANNEL_DOWNLOAD_CANCEL);
+}
+
+/** Pick a folder for batch queue downloads (skips per-file save dialogs). */
+export async function pickOutputFolder(): Promise<PickOutputFolderResult> {
+  return ipcRenderer.invoke('app:pick-output-folder');
 }
 
 export type DiagnosticsReport = {

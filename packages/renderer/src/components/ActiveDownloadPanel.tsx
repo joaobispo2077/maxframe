@@ -2,6 +2,7 @@ import type { DownloadProgressState } from '../hooks/useDownloadProgress.js';
 
 import { Box } from '@chakra-ui/react';
 
+import { fadeSlideInRevealStyles } from '../theme/motionStyles.js';
 import { DownloadProgressCard } from './DownloadProgressCard.js';
 
 type ActiveDownloadPanelProps = {
@@ -20,15 +21,7 @@ export function ActiveDownloadPanel({
   }
 
   return (
-    <Box
-      css={{
-        '@keyframes fadeSlideIn': {
-          from: { opacity: 0, transform: 'translateY(-6px)' },
-          to: { opacity: 1, transform: 'translateY(0)' },
-        },
-        animation: 'fadeSlideIn 0.25s ease',
-      }}
-    >
+    <Box css={fadeSlideInRevealStyles}>
       <DownloadProgressCard progress={progress} onCancel={onCancel} />
     </Box>
   );
