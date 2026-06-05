@@ -7,6 +7,7 @@ import {
   parentFolderFromFilePath,
   setLastOutputFolder,
 } from '../lib/appPreferences.js';
+import { buildSuggestedFileName } from '../lib/buildSuggestedFileName.js';
 import { useDownloadProgress } from './useDownloadProgress.js';
 
 type UseActiveDownloadOptions = {
@@ -66,15 +67,12 @@ export function useActiveDownload({
     setDiagnosticsReport(undefined);
     setReportCopied(false);
     try {
-      const clean = (s: string) =>
-        s
-          .replace(/[\\/:*?"<>|]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-      const safeTitle = clean(result.title || result.videoId || 'video');
-      const safeUploader = clean(result.uploader) || 'Unknown Channel';
-      const stem = `${safeTitle} - ${safeUploader}`.slice(0, 200).trimEnd();
-      const suggestedFileName = `${stem}.${outputMode}`;
+      const suggestedFileName = buildSuggestedFileName({
+        title: result.title,
+        videoId: result.videoId,
+        uploader: result.uploader,
+        outputMode,
+      });
       const { outputPath } = await window.maxframeApi.downloadVideo({
         url: result.url,
         formatId,
