@@ -119,11 +119,24 @@ This keeps mutation outcomes visible and reviewable without opening full logs.
 
 ---
 
+## Implementation (2026-06-05)
+
+Dual profiles are now in place:
+
+| Profile | Config | Used by |
+|---|---|---|
+| **Strict** | `stryker.config.mjs` | `npm run test:mutation`, weekly `stryker-full.yml` |
+| **PR fast** | `stryker.config.pr.mjs` | `npm run test:mutation:pr:incremental`, CI `mutation-tests` job |
+
+Shared options live in `stryker.config.base.mjs`. PR fast sets `ignoreStatic: true` and excludes `InMemoryVideoMetadataGateway.ts` (test double). See `specs/active/stryker-172-mutants/`.
+
+---
+
 ## Suggested Next Iteration
 
-1. Add a second Stryker config for renderer-fast profile (candidate: `ignoreStatic: true`).
-2. Keep existing full workflow strict (no `ignoreStatic`).
-3. Track both trendlines in PR comments / artifacts.
+1. Add a renderer mutation profile (optional; `packages/renderer/src/**` with `ignoreStatic: true`).
+2. Track strict vs fast score trendlines from weekly artifacts.
+3. Kill runtime survived mutants in ytdlp/ffmpeg surfaces as backlog allows.
 
 ---
 

@@ -39,4 +39,13 @@ describe('AppNav', () => {
 
     expect(onChange).toHaveBeenCalledWith('queue');
   });
+
+  it('calls onChange with analyze when the logo is clicked', () => {
+    const onChange = vi.fn();
+    render(<AppNav activeTab="queue" onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /go to homepage/i }));
+
+    expect(onChange).toHaveBeenCalledWith('analyze');
+  });
 });
