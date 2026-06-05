@@ -34,7 +34,12 @@ type DownloadVideoRequest = {
   hasAudio: boolean;
   suggestedFileName: string;
   outputMode: 'mp3' | 'mp4';
+  outputDir?: string;
 };
+
+type PickOutputFolderResult =
+  | { canceled: true }
+  | { canceled: false; folderPath: string };
 
 type DownloadVideoResult = {
   outputPath: string;
@@ -66,6 +71,7 @@ type MaxframeApi = {
     listener: (payload: { line: string }) => void,
   ) => () => void;
   cancelDownload: () => Promise<{ canceled: boolean }>;
+  pickOutputFolder: () => Promise<PickOutputFolderResult>;
   setDebugMode: (on: boolean) => Promise<void>;
   getDiagnostics: () => Promise<DiagnosticsReport>;
   getLogPath: () => Promise<string>;

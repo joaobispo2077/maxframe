@@ -150,7 +150,8 @@ vite.config.ts.timestamp-*
 .sdd/
 specs/**
 specs/active/**
-
+.agents
+.specify
 # Mutation testing outputs
 .stryker-tmp/
 reports/mutation/

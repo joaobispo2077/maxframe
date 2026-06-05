@@ -39,6 +39,7 @@ describe('App', () => {
       downloadVideo: vi.fn(),
       subscribeDownloadProgress: vi.fn(() => () => {}),
       cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
+      pickOutputFolder: vi.fn().mockResolvedValue({ canceled: true }),
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
       getLogPath: vi
@@ -52,8 +53,88 @@ describe('App', () => {
     render(<App />);
 
     expect(
-      screen.getByText('Paste your URL below and check the Quality available'),
+      screen.getByText('Paste YouTube URLs below — Analyze uses the first line; Add to queue saves every non-empty line.'),
     ).toBeInTheDocument();
+  });
+
+  it('hides download queue on the default Analyze tab', () => {
+    render(<App />);
+
+    expect(
+      screen.queryByRole('heading', { name: /download queue/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows download queue heading on the Queue tab', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Queue' }));
+
+    expect(
+      screen.getByRole('heading', { name: /download queue/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('calls analyzeVideoUrl with only the first non-empty line when several URLs are present', async () => {
+    const analyzeVideoUrl = vi.fn().mockResolvedValue({
+      ...EXTRA_FIELDS,
+      url: 'https://www.youtube.com/watch?v=firstonly',
+      videoId: 'firstonly',
+      bestQuality: {
+        formatId: '299',
+        container: 'mp4',
+        resolutionLabel: '1080p60',
+        width: 1920,
+        height: 1080,
+        fps: 60,
+        hasVideo: true,
+        hasAudio: false,
+      },
+      qualities: [
+        {
+          formatId: '299',
+          container: 'mp4',
+          resolutionLabel: '1080p60',
+          width: 1920,
+          height: 1080,
+          fps: 60,
+          hasVideo: true,
+          hasAudio: false,
+        },
+      ],
+    });
+    window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
+
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
+      target: {
+        value:
+          'https://www.youtube.com/watch?v=firstonly\nhttps://youtu.be/secondline',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+
+    await waitFor(() => {
+      expect(analyzeVideoUrl).toHaveBeenCalledWith(
+        'https://www.youtube.com/watch?v=firstonly',
+      );
+    });
+  });
+
+  it('clears Video URLs after Add to queue and shows queue rows', () => {
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
+      target: {
+        value:
+          'https://www.youtube.com/watch?v=aaa\nhttps://youtu.be/bbb',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /add to queue/i }));
+    expect((screen.getByLabelText('Video URLs') as HTMLTextAreaElement).value).toBe(
+      '',
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Queue' }));
+    expect(screen.queryByText(/No active queue items/i)).not.toBeInTheDocument();
   });
 
   it('shows Portable badge when isPortable is true', async () => {
@@ -84,17 +165,17 @@ describe('App', () => {
     });
   });
 
-  it('opens settings and returns to home', () => {
+  it('opens settings tab and returns to analyze tab', () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
     expect(
       screen.getByRole('heading', { name: 'Settings' }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back to home' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Analyze' }));
     expect(
-      screen.getByText('Paste your URL below and check the Quality available'),
+      screen.getByRole('button', { name: /analyze quality/i }),
     ).toBeInTheDocument();
   });
 
@@ -129,7 +210,7 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -157,7 +238,7 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=bad' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -189,7 +270,7 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -216,7 +297,7 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -237,7 +318,7 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -282,7 +363,7 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -337,7 +418,7 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -383,7 +464,7 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -444,7 +525,7 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -497,7 +578,7 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -578,7 +659,7 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -628,7 +709,7 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
@@ -689,7 +770,7 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('YouTube URL'), {
+    fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
