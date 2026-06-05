@@ -1,62 +1,37 @@
-import type { AnalyzeVideoResult } from './lib/analyzeVideoResultType.js';
-import type { DiagnosticsReport } from './maxframe-api.js';
-
 import { useEffect, useState } from 'react';
 
-import {
-  Badge,
-  Box,
-  Button,
-  Card,
-  Container,
-  Field,
-  Heading,
-  HStack,
-  Image,
-  Stack,
-  Text,
-  Textarea,
-  VStack,
-} from '@chakra-ui/react';
-
-import maxframeLogo from '../../../.github/assets/maxframe-logo.png';
-
-import { ActiveDownloadPanel } from './components/ActiveDownloadPanel.js';
-import { AnalyzeErrorBanner } from './components/AnalyzeErrorBanner.js';
-import { DownloadQueuePanel } from './components/DownloadQueuePanel.js';
-import { AnalyzingIndicator } from './components/AnalyzingIndicator.js';
-import { QualityResultsPanel } from './components/QualityResultsPanel.js';
-import { SaveMessageBanner } from './components/SaveMessageBanner.js';
+import { AppNav } from './components/AppNav.js';
+import { AppShell } from './components/AppShell.js';
+import { useActiveDownload } from './hooks/useActiveDownload.js';
+import { useAnalyzeFlow } from './hooks/useAnalyzeFlow.js';
+import { useAppNavigation } from './hooks/useAppNavigation.js';
+import { setDefaultOutputMode } from './lib/appPreferences.js';
 import { useDownloadQueue } from './hooks/useDownloadQueue.js';
-import { useDownloadProgress } from './hooks/useDownloadProgress.js';
-import { buildDiagnosticReport } from './lib/buildDiagnosticReport.js';
-import { firstNonEmptyLine } from './lib/firstNonEmptyLine.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { AnalyzeView } from './views/AnalyzeView.js';
+import { QueueView } from './views/QueueView.js';
 
 function App() {
-  const [activeView, setActiveView] = useState<'home' | 'settings'>('home');
-  const [urlsText, setUrlsText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [downloadFormatId, setDownloadFormatId] = useState<string>();
-  const [error, setError] = useState<string>();
-  const [downloadNote, setDownloadNote] = useState<string>();
-  const [savedPath, setSavedPath] = useState<string>();
-  const [result, setResult] = useState<AnalyzeVideoResult>();
-  const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
-  const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>('mp4');
-  const { progress, clear: clearDownloadProgress } = useDownloadProgress();
-  const {
-    model: queueModel,
-    summary: queueSummary,
-    enqueueBulkText,
-    moveJobInQueue,
-    removeJobFromQueue,
-  } = useDownloadQueue();
-
-  const analyzeTargetUrl = firstNonEmptyLine(urlsText);
-  const canAddToQueue = urlsText.trim().length > 0;
-
+  const { activeTab, setActiveTab } = useAppNavigation('analyze');
   const [isPortable, setIsPortable] = useState(false);
+  const [debugMode] = useState(
+    () => localStorage.getItem('maxframe.debugMode') === 'true',
+  );
+
+  const queue = useDownloadQueue();
+  const analyze = useAnalyzeFlow({
+    enqueueBulkText: queue.enqueueBulkText,
+    debugMode,
+  });
+
+  const download = useActiveDownload({
+    result: analyze.result,
+    outputMode: analyze.outputMode,
+    debugMode,
+    setError: analyze.setError,
+    setDiagnosticsReport: analyze.setDiagnosticsReport,
+    setReportCopied: analyze.setReportCopied,
+  });
 
   useEffect(() => {
     window.maxframeApi
@@ -65,301 +40,38 @@ function App() {
       .catch(() => {});
   }, []);
 
-  const [debugMode] = useState(
-    () => localStorage.getItem('maxframe.debugMode') === 'true',
-  );
-  const [diagnosticsReport, setDiagnosticsReport] = useState<
-    DiagnosticsReport | undefined
-  >();
-  const [reportCopied, setReportCopied] = useState(false);
-
-  async function fetchDiagnostics(): Promise<void> {
-    try {
-      const report = await window.maxframeApi.getDiagnostics();
-      setDiagnosticsReport(report);
-    } catch {
-      // diagnostic fetch failure should not surface to user
-    }
-  }
-
-  function handleCopyReport(): void {
-    if (!diagnosticsReport) return;
-    const text = buildDiagnosticReport(diagnosticsReport);
-    void navigator.clipboard.writeText(text).then(() => {
-      setReportCopied(true);
-      setTimeout(() => setReportCopied(false), 2000);
-    });
-  }
-
-  async function analyzeUrl(): Promise<void> {
-    const urlToAnalyze = analyzeTargetUrl;
-    if (!urlToAnalyze) {
-      return;
-    }
-
-    setLoading(true);
-    setError(undefined);
-    setDownloadNote(undefined);
-    setSavedPath(undefined);
-    setHoveredFormatId(null);
-    setDiagnosticsReport(undefined);
-    setReportCopied(false);
-
-    try {
-      const analysis = await window.maxframeApi.analyzeVideoUrl(urlToAnalyze);
-      setResult(analysis);
-    } catch (caughtError) {
-      setResult(undefined);
-      setError(
-        caughtError instanceof Error ? caughtError.message : 'Unknown error',
-      );
-      if (debugMode) {
-        void fetchDiagnostics();
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function cancelActiveDownload(): Promise<void> {
-    try {
-      await window.maxframeApi.cancelDownload();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function downloadQuality(
-    formatId: string,
-    hasAudio: boolean,
-  ): Promise<void> {
-    if (!result) {
-      return;
-    }
-    setDownloadFormatId(formatId);
-    clearDownloadProgress();
-    setError(undefined);
-    setDownloadNote(undefined);
-    setSavedPath(undefined);
-    setDiagnosticsReport(undefined);
-    setReportCopied(false);
-    try {
-      const clean = (s: string) =>
-        s
-          .replace(/[\\/:*?"<>|]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-      const safeTitle = clean(result.title || result.videoId || 'video');
-      const safeUploader = clean(result.uploader) || 'Unknown Channel';
-      const stem = `${safeTitle} - ${safeUploader}`.slice(0, 200).trimEnd();
-      const suggestedFileName = `${stem}.${outputMode}`;
-      const { outputPath } = await window.maxframeApi.downloadVideo({
-        url: result.url,
-        formatId,
-        hasAudio,
-        suggestedFileName,
-        outputMode,
-      });
-      setDownloadNote(`Saved to ${outputPath}`);
-      setSavedPath(outputPath);
-    } catch (caughtError) {
-      const msg =
-        caughtError instanceof Error ? caughtError.message : 'Unknown error';
-      if (msg === 'Download canceled.') {
-        setError(undefined);
-        setDownloadNote(undefined);
-      } else {
-        setError(msg);
-        if (debugMode) {
-          void fetchDiagnostics();
-        }
-      }
-    } finally {
-      setDownloadFormatId(undefined);
-      clearDownloadProgress();
-    }
-  }
-
-  const downloadBusy = Boolean(downloadFormatId);
-
-  function handleAddToQueue(): void {
-    enqueueBulkText(urlsText);
-    setUrlsText('');
-  }
-
-  if (activeView === 'settings') {
-    return <SettingsPage onBack={() => setActiveView('home')} />;
+  async function handleAnalyze(): Promise<void> {
+    download.clearSaveMessage();
+    download.setHoveredFormatId(null);
+    await analyze.analyzeUrl();
   }
 
   return (
-    <Box minH="100vh" py={{ base: 6, md: 10 }} px={4}>
-      <Container maxW="960px">
-        <Card.Root
-          bg="#0f141c"
-          borderWidth="1px"
-          borderColor="rgba(0, 240, 255, 0.22)"
-          boxShadow="0 0 40px rgba(0, 240, 255, 0.06)"
-          borderRadius="xl"
-        >
-          <Card.Body>
-            <VStack gap={6} align="stretch">
-              <VStack gap={3} textAlign="center">
-                <Image
-                  src={maxframeLogo}
-                  alt="Maxframe logo"
-                  boxSize="96px"
-                  mx="auto"
-                  objectFit="contain"
-                />
-                <Heading size="xl" letterSpacing="tight">
-                  Maxframe
-                </Heading>
-                {isPortable && (
-                  <Badge colorPalette="cyan" variant="subtle" size="sm">
-                    Portable
-                  </Badge>
-                )}
-                <Text fontSize="lg" color="fg.muted">
-                  Paste YouTube URLs below — Analyze uses the first line; Add to
-                  queue saves every non-empty line.
-                </Text>
-                <HStack justify="flex-end" w="100%">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    colorPalette="cyan"
-                    onClick={() => setActiveView('settings')}
-                  >
-                    Settings
-                  </Button>
-                </HStack>
-              </VStack>
-
-              <Stack gap={4} align="stretch" minW={0}>
-                <Field.Root>
-                  <Field.Label htmlFor="unified-queue-urls">
-                    Video URLs
-                  </Field.Label>
-                  <Textarea
-                    id="unified-queue-urls"
-                    value={urlsText}
-                    onChange={(e) => setUrlsText(e.target.value)}
-                    placeholder={
-                      'https://www.youtube.com/watch?v=...\nhttps://youtu.be/...'
-                    }
-                    rows={4}
-                    resize="vertical"
-                    w="100%"
-                    minW={0}
-                    overflowWrap="anywhere"
-                    bg="blackAlpha.400"
-                    borderColor="border"
-                    fontSize="sm"
-                    _focusVisible={{
-                      borderColor: 'cyan.400',
-                      boxShadow: '0 0 0 1px #00f0ff',
-                    }}
-                  />
-                </Field.Root>
-                <Field.Root>
-                  <Field.Label htmlFor="output-format">
-                    Output format
-                  </Field.Label>
-                  <select
-                    id="output-format"
-                    value={outputMode}
-                    onChange={(e) =>
-                      setOutputMode(e.target.value as 'mp3' | 'mp4')
-                    }
-                    style={{
-                      background: 'rgba(0,0,0,0.4)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      borderRadius: '6px',
-                      color: 'white',
-                      padding: '8px 12px',
-                      width: '100%',
-                      fontSize: '14px',
-                    }}
-                  >
-                    <option value="mp4">MP4 (best video)</option>
-                    <option value="mp3">MP3 (best audio)</option>
-                  </select>
-                </Field.Root>
-                <HStack gap={3} flexWrap="wrap" align="stretch">
-                  <Button
-                    flex={{ base: '1', sm: 'initial' }}
-                    colorPalette="cyan"
-                    variant="surface"
-                    onClick={() => void analyzeUrl()}
-                    disabled={
-                      analyzeTargetUrl === undefined || loading || downloadBusy
-                    }
-                    loading={loading}
-                    loadingText="Analyzing..."
-                  >
-                    Analyze quality
-                  </Button>
-                  <Button
-                    flex={{ base: '1', sm: 'initial' }}
-                    type="button"
-                    variant="outline"
-                    colorPalette="cyan"
-                    onClick={handleAddToQueue}
-                    disabled={!canAddToQueue}
-                  >
-                    Add to queue
-                  </Button>
-                </HStack>
-                <AnalyzingIndicator visible={loading} />
-              </Stack>
-
-              <AnalyzeErrorBanner
-                error={error}
-                debugMode={debugMode}
-                diagnosticsReport={diagnosticsReport}
-                onCopyReport={handleCopyReport}
-                reportCopied={reportCopied}
-              />
-
-              <SaveMessageBanner
-                downloadNote={downloadNote}
-                savedPath={savedPath}
-                onDismiss={() => {
-                  setDownloadNote(undefined);
-                  setSavedPath(undefined);
-                }}
-              />
-
-              <ActiveDownloadPanel
-                visible={downloadBusy}
-                progress={progress}
-                onCancel={() => void cancelActiveDownload()}
-              />
-
-              {result ? (
-                <QualityResultsPanel
-                  result={result}
-                  outputMode={outputMode}
-                  downloadBusy={downloadBusy}
-                  loading={loading}
-                  hoveredFormatId={hoveredFormatId}
-                  downloadFormatId={downloadFormatId}
-                  onHoverChange={setHoveredFormatId}
-                  onDownloadQuality={downloadQuality}
-                />
-              ) : null}
-              <DownloadQueuePanel
-                model={queueModel}
-                summary={queueSummary}
-                moveJobInQueue={moveJobInQueue}
-                removeJobFromQueue={removeJobFromQueue}
-              />
-            </VStack>
-          </Card.Body>
-        </Card.Root>
-      </Container>
-    </Box>
+    <AppShell
+      isPortable={isPortable}
+      subtitle="Paste YouTube URLs below — Analyze uses the first line; Add to queue saves every non-empty line."
+      headerActions={<AppNav activeTab={activeTab} onChange={setActiveTab} />}
+    >
+      {activeTab === 'analyze' ? (
+        <AnalyzeView
+          analyze={analyze}
+          download={download}
+          debugMode={debugMode}
+          onAnalyze={handleAnalyze}
+        />
+      ) : null}
+      {activeTab === 'queue' ? <QueueView queue={queue} /> : null}
+      {activeTab === 'settings' ? (
+        <SettingsPage
+          embedded
+          defaultOutputMode={analyze.outputMode}
+          onDefaultOutputModeChange={(mode) => {
+            setDefaultOutputMode(mode);
+            analyze.setOutputMode(mode);
+          }}
+        />
+      ) : null}
+    </AppShell>
   );
 }
 

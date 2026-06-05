@@ -95,10 +95,10 @@ export function QualityResultRow({
         bg={isBest ? 'rgba(56, 161, 105, 0.12)' : 'blackAlpha.400'}
         outline="none"
         _focusVisible={{
-          boxShadow: '0 0 0 2px #00f0ff',
+          boxShadow: '0 0 0 2px var(--chakra-colors-purple-400)',
         }}
         _hover={{
-          borderColor: isBest ? 'green.400' : 'cyan.500',
+          borderColor: isBest ? 'green.400' : 'purple.400',
         }}
         onMouseEnter={() => onHoverChange(quality.formatId)}
         onMouseLeave={() => onHoverChange(null)}
@@ -127,7 +127,7 @@ export function QualityResultRow({
         <Box mt={3}>
           <Button
             size="sm"
-            colorPalette="cyan"
+            colorPalette="purple"
             variant="outline"
             onClick={() => void onDownload(quality.formatId, quality.hasAudio)}
             disabled={downloadBusy || loading}

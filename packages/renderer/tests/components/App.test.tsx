@@ -56,8 +56,18 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows download queue heading on the home screen', () => {
+  it('hides download queue on the default Analyze tab', () => {
     render(<App />);
+
+    expect(
+      screen.queryByRole('heading', { name: /download queue/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows download queue heading on the Queue tab', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Queue' }));
 
     expect(
       screen.getByRole('heading', { name: /download queue/i }),
@@ -122,6 +132,7 @@ describe('App', () => {
     expect((screen.getByLabelText('Video URLs') as HTMLTextAreaElement).value).toBe(
       '',
     );
+    fireEvent.click(screen.getByRole('tab', { name: 'Queue' }));
     expect(screen.queryByText(/No active queue items/i)).not.toBeInTheDocument();
   });
 
@@ -153,17 +164,17 @@ describe('App', () => {
     });
   });
 
-  it('opens settings and returns to home', () => {
+  it('opens settings tab and returns to analyze tab', () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
     expect(
       screen.getByRole('heading', { name: 'Settings' }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back to home' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Analyze' }));
     expect(
-      screen.getByText('Paste YouTube URLs below — Analyze uses the first line; Add to queue saves every non-empty line.'),
+      screen.getByRole('button', { name: /analyze quality/i }),
     ).toBeInTheDocument();
   });
 

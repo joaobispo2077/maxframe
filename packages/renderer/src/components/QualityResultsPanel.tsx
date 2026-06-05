@@ -12,6 +12,7 @@ import {
   VStack,
 } from '@chakra-ui/react';
 
+import { slideUpRevealStyles } from '../theme/motionStyles.js';
 import { QualityResultRow } from './QualityResultRow.js';
 
 function deduplicateByResolution(
@@ -68,7 +69,7 @@ function Mp3FallbackCard({
         <Box mt={3}>
           <Button
             size="sm"
-            colorPalette="cyan"
+            colorPalette="purple"
             variant="outline"
             onClick={onDownload}
             disabled={isDisabled}
@@ -246,13 +247,7 @@ export function QualityResultsPanel({
     <Box
       as="section"
       aria-label="quality-results"
-      css={{
-        '@keyframes slideUp': {
-          from: { opacity: 0, transform: 'translateY(16px)' },
-          to: { opacity: 1, transform: 'translateY(0)' },
-        },
-        animation: 'slideUp 0.3s ease',
-      }}
+      css={slideUpRevealStyles}
       aria-busy={downloadBusy}
       borderTopWidth="1px"
       borderColor="whiteAlpha.200"
