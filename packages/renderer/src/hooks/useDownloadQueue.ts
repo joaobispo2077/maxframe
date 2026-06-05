@@ -1,21 +1,51 @@
-import { useCallback, useMemo, useReducer } from 'react';
+import { useCallback, useMemo, useReducer, type Dispatch } from 'react';
 
+import type { YtdlpProgressEvent } from '@src/domain/progress/parseYtdlpProgressLine.js';
 import {
+  applyParsedProgress,
   canReorderJob,
   createEmptyQueueModel,
   enqueueJobs,
+  markJobCancelled,
+  markJobComplete,
+  markJobFailed,
   moveJob,
   removeJob,
+  setActiveJobId,
+  setDownloadStarted,
+  setJobAnalysis,
+  setJobFormatChoice,
   summarizeQueue,
   type QueueModel,
+  type VideoAnalysisSnapshot,
 } from '@src/domain/download-queue/model.js';
 
 export type QueueAction =
   | { type: 'enqueue'; entries: { id: string; url: string }[] }
   | { type: 'move'; id: string; direction: 'up' | 'down' }
-  | { type: 'remove'; id: string };
+  | { type: 'remove'; id: string }
+  | { type: 'setActiveJob'; id: string | null }
+  | {
+      type: 'setAnalysis';
+      jobId: string;
+      analysis: VideoAnalysisSnapshot;
+    }
+  | {
+      type: 'setFormat';
+      jobId: string;
+      choice: { formatId: string; hasAudio: boolean };
+    }
+  | { type: 'setDownloadStarted'; jobId: string; started: boolean }
+  | {
+      type: 'applyProgress';
+      jobId: string;
+      event: YtdlpProgressEvent;
+    }
+  | { type: 'completeJob'; jobId: string; outputPath?: string }
+  | { type: 'failJob'; jobId: string; status: string; detail?: string }
+  | { type: 'cancelJob'; jobId: string };
 
-function queueReducer(state: QueueModel, action: QueueAction): QueueModel {
+export function queueReducer(state: QueueModel, action: QueueAction): QueueModel {
   switch (action.type) {
     case 'enqueue':
       return enqueueJobs(state, action.entries);
@@ -26,6 +56,22 @@ function queueReducer(state: QueueModel, action: QueueAction): QueueModel {
       return moveJob(state, action.id, action.direction);
     case 'remove':
       return removeJob(state, action.id);
+    case 'setActiveJob':
+      return setActiveJobId(state, action.id);
+    case 'setAnalysis':
+      return setJobAnalysis(state, action.jobId, action.analysis);
+    case 'setFormat':
+      return setJobFormatChoice(state, action.jobId, action.choice);
+    case 'setDownloadStarted':
+      return setDownloadStarted(state, action.jobId, action.started);
+    case 'applyProgress':
+      return applyParsedProgress(state, action.jobId, action.event);
+    case 'completeJob':
+      return markJobComplete(state, action.jobId, action.outputPath);
+    case 'failJob':
+      return markJobFailed(state, action.jobId, action.status, action.detail);
+    case 'cancelJob':
+      return markJobCancelled(state, action.jobId);
     default:
       return state;
   }
@@ -42,6 +88,7 @@ function splitUrlsToEntries(blob: string): { id: string; url: string }[] {
 export function useDownloadQueue(): {
   model: QueueModel;
   summary: ReturnType<typeof summarizeQueue>;
+  dispatch: Dispatch<QueueAction>;
   enqueueBulkText: (text: string) => void;
   moveJobInQueue: (id: string, direction: 'up' | 'down') => void;
   removeJobFromQueue: (id: string) => void;
@@ -71,6 +118,7 @@ export function useDownloadQueue(): {
   return {
     model,
     summary,
+    dispatch,
     enqueueBulkText,
     moveJobInQueue,
     removeJobFromQueue,
