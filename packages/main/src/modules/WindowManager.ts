@@ -4,6 +4,7 @@ import type { AppModule } from '../AppModule.js';
 import { BrowserWindow, Menu, nativeImage } from 'electron';
 
 import { ModuleContext } from '../ModuleContext.js';
+import { getBrowserWindowChromeOptions } from '../windowChrome.js';
 
 class WindowManager implements AppModule {
   readonly #preload: { path: string };
@@ -45,6 +46,7 @@ class WindowManager implements AppModule {
       show: false, // Use the 'ready-to-show' event to show the instantiated BrowserWindow.
       title: this.#isPortable ? 'Maxframe (Portable)' : 'Maxframe',
       ...(icon && { icon }),
+      ...getBrowserWindowChromeOptions(),
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,

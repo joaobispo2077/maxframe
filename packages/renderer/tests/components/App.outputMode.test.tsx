@@ -78,6 +78,7 @@ describe('App — output format selector', () => {
         appName: 'Maxframe',
         status: 'ready',
         isPortable: false,
+        titleBarInset: { height: 0, padLeft: 0, padRight: 0 },
       }),
       ping: vi.fn(),
       analyzeVideoUrl: vi.fn(),

@@ -37,6 +37,20 @@ describe('AppShell', () => {
     expect(screen.getByText('Portable')).toBeInTheDocument();
   });
 
+  it('renders a custom title bar drag region when inset height is set', () => {
+    render(
+      <AppShell
+        isPortable={false}
+        subtitle="Subtitle"
+        titleBarInset={{ height: 40, padLeft: 0, padRight: 140 }}
+      >
+        <Text>Child</Text>
+      </AppShell>,
+    );
+
+    expect(screen.getByTestId('title-bar-drag-region')).toBeInTheDocument();
+  });
+
   it('renders children inside the panel', () => {
     render(
       <AppShell isPortable={false} subtitle="Subtitle">
