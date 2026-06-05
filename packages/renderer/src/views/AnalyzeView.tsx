@@ -16,6 +16,7 @@ import { SaveMessageBanner } from '../components/SaveMessageBanner.js';
 import { VideoPreviewCard } from '../components/VideoPreviewCard.js';
 import type { useActiveDownload } from '../hooks/useActiveDownload.js';
 import type { useAnalyzeFlow } from '../hooks/useAnalyzeFlow.js';
+import { ANALYZE_URLS_HELPER } from '../lib/pageSubtitles.js';
 
 type AnalyzeFlow = ReturnType<typeof useAnalyzeFlow>;
 type ActiveDownload = ReturnType<typeof useActiveDownload>;
@@ -39,6 +40,9 @@ export function AnalyzeView({
     <Stack gap={4} align="stretch" minW={0}>
       <Field.Root>
         <Field.Label htmlFor="unified-queue-urls">Video URLs</Field.Label>
+        <Field.HelperText fontSize="sm" color="fg.muted">
+          {ANALYZE_URLS_HELPER}
+        </Field.HelperText>
         <Textarea
           id="unified-queue-urls"
           value={analyze.urlsText}

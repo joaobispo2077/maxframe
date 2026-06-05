@@ -2,10 +2,17 @@ import type { IpcRendererEvent } from 'electron';
 
 import { ipcRenderer } from 'electron';
 
+export type TitleBarInset = {
+  height: number;
+  padLeft: number;
+  padRight: number;
+};
+
 export type InitialAppState = {
   appName: string;
   status: 'ready';
   isPortable: boolean;
+  titleBarInset: TitleBarInset;
 };
 
 export type QualityOption = {

@@ -8,6 +8,7 @@ describe('App queue runner flow', () => {
         appName: 'Maxframe',
         status: 'ready' as const,
         isPortable: false,
+        titleBarInset: { height: 0, padLeft: 0, padRight: 0 },
       }),
       ping: async (payload: string) => payload,
       pickOutputFolder: async () => ({

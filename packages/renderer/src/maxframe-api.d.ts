@@ -1,7 +1,14 @@
+type TitleBarInset = {
+  height: number;
+  padLeft: number;
+  padRight: number;
+};
+
 type InitialAppState = {
   appName: string;
   status: 'ready';
   isPortable: boolean;
+  titleBarInset: TitleBarInset;
 };
 
 type QualityOption = {
