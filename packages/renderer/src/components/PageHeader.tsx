@@ -1,4 +1,4 @@
-import { Badge, Box, Heading, Image, Text, VStack } from '@chakra-ui/react';
+import { Badge, Button, Heading, Image, Text, VStack } from '@chakra-ui/react';
 
 import maxframeLogo from '../../../../.github/assets/maxframe-logo.png';
 
@@ -22,9 +22,9 @@ export function PageHeader({ isPortable, subtitle, onGoHome }: PageHeaderProps) 
   return (
     <VStack gap={3} textAlign="center">
       {onGoHome ? (
-        <Box
-          as="button"
+        <Button
           type="button"
+          variant="ghost"
           onClick={onGoHome}
           aria-label="Go to homepage"
           cursor="pointer"
@@ -32,11 +32,13 @@ export function PageHeader({ isPortable, subtitle, onGoHome }: PageHeaderProps) 
           border="none"
           p={0}
           mx="auto"
+          minW="auto"
+          h="auto"
           transition="opacity 0.2s"
           _hover={{ opacity: 0.85 }}
         >
           {logo}
-        </Box>
+        </Button>
       ) : (
         logo
       )}

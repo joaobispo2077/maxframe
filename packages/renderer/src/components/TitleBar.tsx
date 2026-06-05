@@ -15,7 +15,7 @@ export function TitleBar({ height, padLeft, padRight }: TitleBarProps) {
     return null;
   }
 
-  const dragStyle: CSSProperties = {
+  const dragStyle: CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' } = {
     WebkitAppRegion: 'drag',
     userSelect: 'none',
   };
