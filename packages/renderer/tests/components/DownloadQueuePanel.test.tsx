@@ -32,14 +32,16 @@ describe('DownloadQueuePanel', () => {
         summary={summary}
         moveJobInQueue={vi.fn()}
         removeJobFromQueue={vi.fn()}
+        runnerRunning={false}
+        runnerCanStart={false}
+        onRunnerStart={vi.fn()}
+        onRunnerStop={vi.fn()}
       />,
     );
 
     expect(screen.getByRole('heading', { name: /download queue/i })).toBeInTheDocument();
     expect(screen.getByText(/No active queue items/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Use Add to queue above to build a batch/i),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start queue/i })).toBeDisabled();
   });
 
   it('renders one row per queued job', () => {
@@ -54,10 +56,15 @@ describe('DownloadQueuePanel', () => {
         summary={summary}
         moveJobInQueue={vi.fn()}
         removeJobFromQueue={vi.fn()}
+        runnerRunning={false}
+        runnerCanStart={true}
+        onRunnerStart={vi.fn()}
+        onRunnerStop={vi.fn()}
       />,
     );
 
     expect(screen.queryByText(/No active queue items/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start queue/i })).toBeEnabled();
     expect(
       screen.getAllByText('https://www.youtube.com/watch?v=aaa').length,
     ).toBeGreaterThanOrEqual(1);
@@ -76,6 +83,10 @@ describe('DownloadQueuePanel', () => {
         summary={summary}
         moveJobInQueue={vi.fn()}
         removeJobFromQueue={vi.fn()}
+        runnerRunning={false}
+        runnerCanStart={true}
+        onRunnerStart={vi.fn()}
+        onRunnerStop={vi.fn()}
       />,
     );
 

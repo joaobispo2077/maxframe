@@ -84,6 +84,7 @@ describe('App — output format selector', () => {
       downloadVideo: vi.fn(),
       subscribeDownloadProgress: vi.fn(() => () => {}),
       cancelDownload: vi.fn().mockResolvedValue({ canceled: false }),
+      pickOutputFolder: vi.fn().mockResolvedValue({ canceled: true }),
       setDebugMode: vi.fn().mockResolvedValue(undefined),
       getDiagnostics: vi.fn().mockResolvedValue(undefined),
       getLogPath: vi

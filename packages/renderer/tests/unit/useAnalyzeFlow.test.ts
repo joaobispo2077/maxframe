@@ -15,6 +15,7 @@ describe('useAnalyzeFlow', () => {
       downloadVideo: vi.fn(),
       subscribeDownloadProgress: vi.fn(() => () => {}),
       cancelDownload: vi.fn(),
+      pickOutputFolder: vi.fn(),
       setDebugMode: vi.fn(),
       getDiagnostics: vi.fn(),
       getLogPath: vi.fn(),

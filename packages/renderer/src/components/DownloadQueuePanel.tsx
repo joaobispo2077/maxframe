@@ -17,6 +17,7 @@ import {
 
 import { QueueHistorySection } from './QueueHistorySection.js';
 import { QueueJobRow } from './QueueJobRow.js';
+import { QueueRunnerControls } from './QueueRunnerControls.js';
 import { QueueSummaryBar } from './QueueSummaryBar.js';
 
 export type DownloadQueuePanelProps = {
@@ -24,6 +25,10 @@ export type DownloadQueuePanelProps = {
   summary: SummaryCounts;
   moveJobInQueue: (id: string, direction: 'up' | 'down') => void;
   removeJobFromQueue: (id: string) => void;
+  runnerRunning: boolean;
+  runnerCanStart: boolean;
+  onRunnerStart: () => void;
+  onRunnerStop: () => void;
 };
 
 function sortJobs(jobs: QueueJob[]): QueueJob[] {
@@ -35,6 +40,10 @@ export function DownloadQueuePanel({
   summary,
   moveJobInQueue,
   removeJobFromQueue,
+  runnerRunning,
+  runnerCanStart,
+  onRunnerStart,
+  onRunnerStop,
 }: DownloadQueuePanelProps): ReactElement {
   const ordered = sortJobs(model.jobs);
 
@@ -48,9 +57,17 @@ export function DownloadQueuePanel({
       <VStack gap={4} align="stretch">
         <Heading size="md">Download queue</Heading>
         <Text fontSize="sm" color="fg.muted">
-          Use <strong>Add to queue</strong> above for batch URLs (one per line).
-          Runner automation comes next — reorder and remove freely for now.
+          Use <strong>Add to queue</strong> on the Analyze tab for batch URLs (one
+          per line). Reorder and remove jobs before starting.
         </Text>
+        <QueueRunnerControls
+          running={runnerRunning}
+          canStart={runnerCanStart}
+          jobCount={ordered.length}
+          summary={summary}
+          onStart={onRunnerStart}
+          onStop={onRunnerStop}
+        />
         <QueueSummaryBar counts={summary} />
         <Separator borderColor="border" />
         <Stack gap={3}>

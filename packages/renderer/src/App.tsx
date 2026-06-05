@@ -7,6 +7,7 @@ import { useAnalyzeFlow } from './hooks/useAnalyzeFlow.js';
 import { useAppNavigation } from './hooks/useAppNavigation.js';
 import { setDefaultOutputMode } from './lib/appPreferences.js';
 import { useDownloadQueue } from './hooks/useDownloadQueue.js';
+import { useQueueRunner } from './hooks/useQueueRunner.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 import { AnalyzeView } from './views/AnalyzeView.js';
 import { QueueView } from './views/QueueView.js';
@@ -33,6 +34,13 @@ function App() {
     setReportCopied: analyze.setReportCopied,
   });
 
+  const runner = useQueueRunner({
+    model: queue.model,
+    dispatch: queue.dispatch,
+    outputMode: analyze.outputMode,
+    downloadBusy: download.downloadBusy,
+  });
+
   useEffect(() => {
     window.maxframeApi
       ?.getInitialAppState?.()
@@ -57,10 +65,24 @@ function App() {
           analyze={analyze}
           download={download}
           debugMode={debugMode}
+          queueRunnerActive={runner.running}
           onAnalyze={handleAnalyze}
         />
       ) : null}
-      {activeTab === 'queue' ? <QueueView queue={queue} /> : null}
+      {activeTab === 'queue' ? (
+        <QueueView
+          queue={queue}
+          runner={{
+            running: runner.running,
+            canStart:
+              queue.model.jobs.length > 0 &&
+              !runner.running &&
+              !download.downloadBusy,
+            start: runner.start,
+            stop: runner.stop,
+          }}
+        />
+      ) : null}
       {activeTab === 'settings' ? (
         <SettingsPage
           embedded

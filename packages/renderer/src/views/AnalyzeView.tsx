@@ -24,6 +24,7 @@ type AnalyzeViewProps = {
   analyze: AnalyzeFlow;
   download: ActiveDownload;
   debugMode: boolean;
+  queueRunnerActive: boolean;
   onAnalyze: () => Promise<void>;
 };
 
@@ -31,6 +32,7 @@ export function AnalyzeView({
   analyze,
   download,
   debugMode,
+  queueRunnerActive,
   onAnalyze,
 }: AnalyzeViewProps) {
   return (
@@ -117,7 +119,7 @@ export function AnalyzeView({
           <DownloadBestButton
             result={analyze.result}
             outputMode={analyze.outputMode}
-            downloadBusy={download.downloadBusy}
+            downloadBusy={download.downloadBusy || queueRunnerActive}
             loading={analyze.loading}
             onDownload={download.downloadQuality}
           />
@@ -128,7 +130,7 @@ export function AnalyzeView({
         <QualityResultsPanel
           result={analyze.result}
           outputMode={analyze.outputMode}
-          downloadBusy={download.downloadBusy}
+          downloadBusy={download.downloadBusy || queueRunnerActive}
           loading={analyze.loading}
           hoveredFormatId={download.hoveredFormatId}
           downloadFormatId={download.downloadFormatId}
