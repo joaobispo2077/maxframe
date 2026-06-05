@@ -248,6 +248,20 @@ describe('downloadQueueModel', () => {
     expect(m1.historyJobs[0]!.terminal).toBe('cancelled');
   });
 
+  it('setJobAnalysis preserves uploader on snapshot', () => {
+    let i = 0;
+    const ids = () => `up-${++i}`;
+    const m0 = enqueueJobs(createEmptyQueueModel(), [{ url: 'a', id: ids() }]);
+    const id = m0.jobs[0]!.id;
+    const m1 = setJobAnalysis(m0, id, {
+      url: 'https://www.youtube.com/watch?v=x',
+      title: 'Title',
+      videoId: 'x',
+      uploader: 'Channel Name',
+    });
+    expect(m1.jobs[0]?.analysis?.uploader).toBe('Channel Name');
+  });
+
   it('selectNextAction returns analyze for first job without analysis when idle', () => {
     let i = 0;
     const ids = () => `sn-${++i}`;

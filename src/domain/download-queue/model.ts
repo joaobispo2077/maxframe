@@ -10,6 +10,7 @@ export type VideoAnalysisSnapshot = {
   url: string;
   title?: string;
   videoId?: string;
+  uploader?: string;
 };
 
 export type QueueJob = {
