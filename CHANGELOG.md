@@ -1,3 +1,18 @@
+# [1.6.0](https://github.com/joaobispo2077/maxframe/compare/v1.5.0...v1.6.0) (2026-06-05)
+
+
+### Bug Fixes
+
+* adjust button type ([533e439](https://github.com/joaobispo2077/maxframe/commit/533e439cb771fc1b69fb8860b19bf9880ebe1449))
+
+
+### Features
+
+* **brand:** add Resolution Ladder logo assets ([608f384](https://github.com/joaobispo2077/maxframe/commit/608f384bcf9ea55854c14919ea385fb5b4127cd5))
+* **ui:** clarify analyze onboarding with tab-specific copy ([ca08541](https://github.com/joaobispo2077/maxframe/commit/ca08541f86c40b217a3713ef03992027c37dba96))
+* **electron:** integrate frameless title bar with app canvas ([119f1e3](https://github.com/joaobispo2077/maxframe/commit/119f1e3e606caee1f0b0ee18f66e376eccacab33))
+* **ui:** make logo navigate home and wire title bar insets ([478d94b](https://github.com/joaobispo2077/maxframe/commit/478d94b35fd606f2460e2879f1c0c3cd3dbab473))
+
 # [1.5.0](https://github.com/joaobispo2077/maxframe/compare/v1.4.0...v1.5.0) (2026-06-05)
 
 
