@@ -29,3 +29,8 @@ Disallowed:
 - Electron `main` + `preload` remain platform adapters.
 - They call into `src/interface`/`src/application` and do not own core business policy.
 - Renderer UI stays framework-specific, but app rules remain in `src/domain` and `src/application`.
+
+## Mutation testing scope
+
+- PR promotion CI uses the **fast profile** (`stryker.config.pr.mjs`): `ignoreStatic`, excludes `InMemoryVideoMetadataGateway` (test double).
+- Weekly strict runs mutate full `src/**` including static mutants and test doubles.
