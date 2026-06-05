@@ -1,3 +1,28 @@
+# [1.5.0](https://github.com/joaobispo2077/maxframe/compare/v1.4.0...v1.5.0) (2026-06-05)
+
+
+### Bug Fixes
+
+* adjust test assertion ([fb8eaa1](https://github.com/joaobispo2077/maxframe/commit/fb8eaa105d3026866ccf61829aab9b12ca50ba0d))
+* import missing type ([2e03667](https://github.com/joaobispo2077/maxframe/commit/2e036677a1aaa10812f241f999522f5ff5a05deb))
+* **theme:** use Emotion keyframes for motion reveal styles ([001e1c8](https://github.com/joaobispo2077/maxframe/commit/001e1c8cd652b93d57967084c8b313552c453ba5))
+
+
+### Features
+
+* **ipc:** add batch outputDir and folder picker ([3fd8798](https://github.com/joaobispo2077/maxframe/commit/3fd8798984a9fbddf7e1c60a3dfcbe51f7243a48))
+* **renderer:** add download queue panel ([1502418](https://github.com/joaobispo2077/maxframe/commit/1502418ddd4f3ca20bce14540ddb38a9828d531c))
+* **renderer:** add preferences and download helper libs ([9100859](https://github.com/joaobispo2077/maxframe/commit/9100859d7bddbbd0f00737600937bd5eb40f868d))
+* **theme:** add purple brand tokens and shared motion styles ([d9c7efb](https://github.com/joaobispo2077/maxframe/commit/d9c7efb4aaffd40d9c7f6c99ea915b301fef87aa))
+* **download-queue:** add queue domain model ([0718867](https://github.com/joaobispo2077/maxframe/commit/0718867ba86c569c0961897d52c9dc4c76f168e6))
+* **renderer:** add shared suggested filename helper ([e0a8371](https://github.com/joaobispo2077/maxframe/commit/e0a8371b9c4af0e25d3e6858fe54fdf6160977a5))
+* **renderer:** add shell primitives and orchestration hooks ([a08c865](https://github.com/joaobispo2077/maxframe/commit/a08c86559ebff4a113edde80d08f4c81d8e2da6a))
+* **domain:** add uploader to queue analysis snapshot ([6bbedef](https://github.com/joaobispo2077/maxframe/commit/6bbedef05447f7541250970a6075e53a5714faf2))
+* **renderer:** add useQueueRunner serial orchestration ([2bcd9d6](https://github.com/joaobispo2077/maxframe/commit/2bcd9d6bc0f9a3cd8447cadd7a432760253bf1c9))
+* **renderer:** extend queue reducer for runner actions ([8330cd3](https://github.com/joaobispo2077/maxframe/commit/8330cd3b8675e9e31730b8010d4b7523b23f739f))
+* **renderer:** refactor app with tab IA and polish UX ([c41a5ec](https://github.com/joaobispo2077/maxframe/commit/c41a5ecbd0c5251fc0d880eac80383383eede24b))
+* **renderer:** wire queue runner UI and analyze mutex ([6340eb0](https://github.com/joaobispo2077/maxframe/commit/6340eb0bf3e3e610f8c852f300720e4447c55929))
+
 # [1.4.0](https://github.com/joaobispo2077/maxframe/compare/v1.3.1...v1.4.0) (2026-05-15)
 
 

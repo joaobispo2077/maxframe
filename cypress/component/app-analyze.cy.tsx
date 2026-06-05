@@ -52,7 +52,7 @@ describe('App analyze flow', () => {
     cy.window().then((win) => {
       win.maxframeApi = api;
     });
-    cy.get('#youtube-url').type('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    cy.get('#unified-queue-urls').type('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     cy.contains('button', 'Analyze quality').click();
     cy.contains('Video ID: dQw4w9WgXcQ').should('be.visible');
     cy.contains('Best raw quality: 1080p60 @ 60fps (mp4)').should('be.visible');
@@ -65,7 +65,7 @@ describe('App analyze flow', () => {
     cy.window().then((win) => {
       win.maxframeApi = api;
     });
-    cy.get('#youtube-url').type('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    cy.get('#unified-queue-urls').type('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     cy.contains('button', 'Analyze quality').click();
     cy.contains('Video ID: dQw4w9WgXcQ').should('be.visible');
     cy.get('[aria-label="quality-results"]')
@@ -124,7 +124,7 @@ describe('App analyze flow', () => {
       win.maxframeApi = api;
     });
     cy.get('#output-format').select('mp3');
-    cy.get('#youtube-url').type('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    cy.get('#unified-queue-urls').type('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     cy.contains('button', 'Analyze quality').click();
     cy.contains('Video ID: dQw4w9WgXcQ').should('be.visible');
     cy.get('#output-format').should('have.value', 'mp3');

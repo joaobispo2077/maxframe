@@ -21,6 +21,7 @@ import {
   downloadVideoHandler,
   type DownloadVideoSink,
 } from '../downloadVideoHandler.js';
+import { pickOutputFolderHandler } from '../pickOutputFolderHandler.js';
 
 const CHANNEL_GET_INITIAL_STATE = 'app:get-initial-state';
 const CHANNEL_PING = 'app:ping';
@@ -30,6 +31,7 @@ const CHANNEL_DOWNLOAD_VIDEO_PROGRESS = 'app:download-video-progress';
 const CHANNEL_DOWNLOAD_VIDEO_CANCEL = 'app:download-video-cancel';
 const CHANNEL_SET_DEBUG_MODE = 'app:set-debug-mode';
 const CHANNEL_GET_DIAGNOSTICS = 'app:get-diagnostics';
+const CHANNEL_PICK_OUTPUT_FOLDER = 'app:pick-output-folder';
 
 let activeDownloadAbort: AbortController | undefined;
 
@@ -118,6 +120,10 @@ class IpcBridge implements AppModule {
     );
 
     ipcMain.handle(CHANNEL_GET_DIAGNOSTICS, () => getDiagnosticsHandler());
+
+    ipcMain.handle(CHANNEL_PICK_OUTPUT_FOLDER, () =>
+      pickOutputFolderHandler(),
+    );
 
     ipcMain.handle('app:get-log-path', () =>
       join(app.getPath('userData'), 'maxframe-debug.log'),

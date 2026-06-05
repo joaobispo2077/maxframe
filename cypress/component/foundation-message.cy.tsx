@@ -4,8 +4,8 @@ describe('Foundation message', () => {
   it('shows the first milestone message', () => {
     cy.mount(<App />);
 
-    cy.contains('Paste your URL below and check the Quality available').should(
-      'be.visible',
-    );
+    cy.contains(
+      'Paste YouTube URLs below — Analyze uses the first line; Add to queue saves every non-empty line.',
+    ).should('be.visible');
   });
 });
