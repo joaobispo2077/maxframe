@@ -36,6 +36,31 @@ Skill-generated landing-page patterns (hero video, app-store sections, light pal
 
 **Rejected from skill auto-output:** `#E11D48` rose CTA, light-mode palettes, landing-page section orders.
 
+### Brand Logo (Resolution Ladder)
+
+Icon-only mark — wordmark is rendered separately as `Heading` in `PageHeader`.
+
+| Attribute | Value |
+|-----------|-------|
+| Concept | Ascending bars = climbing to maximum video resolution |
+| Primary | `#A855F7` / `#9333EA` (icon variant uses full opacity) |
+| Accent | `#00f0ff` (top bar = peak quality) |
+| Display size | 96×96 in `PageHeader` |
+| Icon size | 16–48px taskbar, title bar, favicon, `AppNav` (28px) |
+
+**Two assets — do not mix:**
+
+| Asset | File | Consumer |
+|-------|------|----------|
+| Display (transparent, airy) | `.github/assets/maxframe-logo.png` | README, `PageHeader` hero |
+| Icon (compact, opaque) | `.github/assets/maxframe-logo-icon.png` | `AppNav`, favicon, Electron window, electron-builder |
+
+**Source SVGs:** `specs/active/maxframe-logo-refresh/maxframe-logo.svg` (display), `maxframe-logo-icon.svg` (compact).
+
+**Re-export:** `node specs/active/maxframe-logo-refresh/export-logo.mjs` (requires `npm install --no-save @resvg/resvg-js`).
+
+**Don'ts:** No 3D gloss, no play-button clichés, no baked wordmark in the icon, no low-opacity bars in icon variant (illegible at 16px).
+
 ---
 
 ## Global Rules
