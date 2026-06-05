@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const showSaveDialogMock = vi.fn();
@@ -100,7 +102,7 @@ describe('downloadVideoHandler — outputDir batch path', () => {
       unknown
     >;
     expect(call.outputTemplate).toBe(
-      'C:\\Videos\\Maxframe\\Title - Channel.%(ext)s',
+      join(OUTPUT_DIR, 'Title - Channel') + '.%(ext)s',
     );
   });
 
