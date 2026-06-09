@@ -24,7 +24,7 @@ export function streamKindLabel(quality: QualityOption): string {
     return 'Video + audio in one file';
   }
   if (quality.hasVideo) {
-    return 'Video only — download will try to add the best separate audio stream';
+    return 'Video only — MP4 download adds AAC audio for social upload compatibility';
   }
   return 'Not a primary video row';
 }
