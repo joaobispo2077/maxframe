@@ -6,6 +6,17 @@ import {
   feedYtdlpStreamLines,
   flushYtdlpStreamLines,
 } from './feedYtdlpStreamLines.js';
+import { socialCompatibleMp4YtdlpArgPairs } from './socialCompatibleMp4Policy.js';
+
+function prependYtdlpArgPairs(
+  args: string[],
+  pairs: readonly (readonly [string, string])[],
+): void {
+  for (let index = pairs.length - 1; index >= 0; index -= 1) {
+    const [flag, value] = pairs[index]!;
+    args.unshift(flag, value);
+  }
+}
 
 export type YtdlpDownloadParams = {
   executable: string;
@@ -79,7 +90,9 @@ export async function runYtdlpDownload(
     '-o',
     params.outputTemplate,
   ];
-  if (params.mergeOutputFormat) {
+  if (params.mergeOutputFormat === 'mp4') {
+    prependYtdlpArgPairs(args, socialCompatibleMp4YtdlpArgPairs());
+  } else if (params.mergeOutputFormat) {
     args.unshift('--merge-output-format', params.mergeOutputFormat);
   }
   if (params.extractAudio) {
