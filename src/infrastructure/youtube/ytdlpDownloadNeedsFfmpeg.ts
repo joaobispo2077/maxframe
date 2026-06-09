@@ -1,6 +1,9 @@
 /**
- * True when yt-dlp must merge separate streams (video + audio), which requires ffmpeg.
+ * True when yt-dlp needs ffmpeg for merge, recode, or audio extraction.
  */
-export function ytdlpDownloadNeedsFfmpeg(hasAudio: boolean): boolean {
-  return !hasAudio;
+export function ytdlpDownloadNeedsFfmpeg(
+  _hasAudio: boolean,
+  outputMode: 'mp3' | 'mp4',
+): boolean {
+  return outputMode === 'mp3' || outputMode === 'mp4';
 }

@@ -1,7 +1,9 @@
+import { buildSocialCompatibleVideoOnlySelector } from './socialCompatibleMp4Policy.js';
+
 /**
  * yt-dlp `-f` value for a chosen format row.
  * - MP3 mode always requests best audio regardless of formatId.
- * - MP4 mode: video-only rows merge best audio when possible.
+ * - MP4 mode: video-only rows merge AAC-preferring audio for social compatibility.
  */
 export function buildYtdlpFormatSelector(
   formatId: string,
@@ -14,5 +16,5 @@ export function buildYtdlpFormatSelector(
   if (hasAudio) {
     return formatId;
   }
-  return `${formatId}+bestaudio/best`;
+  return buildSocialCompatibleVideoOnlySelector(formatId);
 }

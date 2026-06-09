@@ -36,8 +36,10 @@ describe('formatAudioBitrateKbps', () => {
 });
 
 describe('streamKindLabel', () => {
-  it('describes video-only', () => {
+  it('describes video-only social-compatible MP4 merge', () => {
     expect(streamKindLabel(base)).toContain('Video only');
+    expect(streamKindLabel(base)).toContain('AAC');
+    expect(streamKindLabel(base)).toContain('social');
   });
   it('describes combined', () => {
     expect(
