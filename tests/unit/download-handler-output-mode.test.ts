@@ -46,9 +46,13 @@ vi.mock('@src/infrastructure/youtube/resolveYtdlpExecutable', () => ({
   resolveYtdlpExecutable: resolveYtdlpExecutableMock,
 }));
 
-vi.mock('@src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg', () => ({
-  ytdlpDownloadNeedsFfmpeg: vi.fn().mockReturnValue(false),
-}));
+vi.mock('@src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('@src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg')
+    >();
+  return { ytdlpDownloadNeedsFfmpeg: actual.ytdlpDownloadNeedsFfmpeg };
+});
 
 const OUTPUT_FILE = 'C:\\Videos\\out.mp4';
 
@@ -189,6 +193,22 @@ describe('downloadVideoHandler — outputMode branching', () => {
       hasAudio: true,
       suggestedFileName: 'test.mp3',
       outputMode: 'mp3',
+    });
+
+    expect(probeFfmpegAvailableMock).toHaveBeenCalled();
+  });
+
+  it('MP4 mode with muxed row: ffmpeg is checked', async () => {
+    const { downloadVideoHandler } = await import(
+      '../../packages/main/src/downloadVideoHandler'
+    );
+
+    await downloadVideoHandler({
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      formatId: '22',
+      hasAudio: true,
+      suggestedFileName: 'test.mp4',
+      outputMode: 'mp4',
     });
 
     expect(probeFfmpegAvailableMock).toHaveBeenCalled();

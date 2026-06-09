@@ -2,11 +2,15 @@ import { ytdlpDownloadNeedsFfmpeg } from '@src/infrastructure/youtube/ytdlpDownl
 import { describe, expect, it } from 'vitest';
 
 describe('ytdlpDownloadNeedsFfmpeg', () => {
-  it('requires ffmpeg when selected format has no audio', () => {
-    expect(ytdlpDownloadNeedsFfmpeg(false)).toBe(true);
+  it('requires ffmpeg for video-only MP4 downloads', () => {
+    expect(ytdlpDownloadNeedsFfmpeg(false, 'mp4')).toBe(true);
   });
 
-  it('does not require ffmpeg when selected format already has audio', () => {
-    expect(ytdlpDownloadNeedsFfmpeg(true)).toBe(false);
+  it('requires ffmpeg for muxed MP4 downloads', () => {
+    expect(ytdlpDownloadNeedsFfmpeg(true, 'mp4')).toBe(true);
+  });
+
+  it('requires ffmpeg for MP3 downloads', () => {
+    expect(ytdlpDownloadNeedsFfmpeg(true, 'mp3')).toBe(true);
   });
 });
