@@ -1,3 +1,14 @@
+# [1.7.0](https://github.com/joaobispo2077/maxframe/compare/v1.6.0...v1.7.0) (2026-06-09)
+
+
+### Features
+
+* **youtube:** add social-compatible MP4 policy module ([c747850](https://github.com/joaobispo2077/maxframe/commit/c747850463422b4d4f878195838d8ddd73ddd776))
+* **youtube:** apply social MP4 recode flags in yt-dlp download ([d7371be](https://github.com/joaobispo2077/maxframe/commit/d7371be2f9f85981e77b57ae33c96a1750e27ea0))
+* **ui:** clarify social-compatible AAC merge in quality rows ([e39b62d](https://github.com/joaobispo2077/maxframe/commit/e39b62d5c8a84fc6cc0c06c54aca315de8329335))
+* **youtube:** prefer AAC audio in video-only MP4 selector ([b0da2e8](https://github.com/joaobispo2077/maxframe/commit/b0da2e802e5bf302aaa4932acd191c906a9b9b0f))
+* **youtube:** probe ffmpeg for all MP4 download modes ([b19fc9d](https://github.com/joaobispo2077/maxframe/commit/b19fc9db7e2c55dd55b73f31a567191e7398a007))
+
 # [1.6.0](https://github.com/joaobispo2077/maxframe/compare/v1.5.0...v1.6.0) (2026-06-05)
 
 
