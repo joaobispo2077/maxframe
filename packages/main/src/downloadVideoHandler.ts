@@ -88,7 +88,7 @@ async function resolveFfmpegForDownload(
   outputMode: 'mp3' | 'mp4',
 ): Promise<string> {
   const ffmpegExecutable = resolveFfmpegExecutable();
-  const needsProbe = ytdlpDownloadNeedsFfmpeg(hasAudio) || outputMode === 'mp3';
+  const needsProbe = ytdlpDownloadNeedsFfmpeg(hasAudio, outputMode);
   if (!needsProbe) {
     return ffmpegExecutable;
   }

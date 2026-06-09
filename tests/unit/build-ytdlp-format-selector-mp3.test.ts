@@ -12,9 +12,9 @@ describe('buildYtdlpFormatSelector — outputMode support', () => {
     expect(buildYtdlpFormatSelector('137', true, 'mp3')).toBe('bestaudio/best');
   });
 
-  it('returns formatId+bestaudio/best for mp4 mode when no audio', () => {
+  it('returns AAC-preferring selector for mp4 mode when no audio', () => {
     expect(buildYtdlpFormatSelector('137', false, 'mp4')).toBe(
-      '137+bestaudio/best',
+      '137+ba[acodec^=mp4a]/bestaudio[acodec^=mp4a]/bestaudio',
     );
   });
 
