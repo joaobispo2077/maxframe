@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 
+import { SOCIAL_COMPATIBLE_VIDEO_CONVERTOR_PPA } from '@src/infrastructure/youtube/socialCompatibleMp4Policy';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const spawnMock = vi.fn();
@@ -82,6 +83,12 @@ describe('runYtdlpDownload', () => {
     const spawnArgs = spawnMock.mock.calls[0];
     expect(spawnArgs[0]).toBe('yt-dlp');
     expect(spawnArgs[1]).toEqual([
+      '-S',
+      'vcodec:h264,acodec:aac',
+      '--recode-video',
+      'mp4',
+      '--ppa',
+      SOCIAL_COMPATIBLE_VIDEO_CONVERTOR_PPA,
       '--merge-output-format',
       'mp4',
       '--no-warnings',
@@ -267,6 +274,67 @@ describe('runYtdlpDownload', () => {
     expect(spawnedArgs[locationIdx + 1]).toBe(ffmpegPath);
     // --ffmpeg-location must appear before the URL argument
     expect(locationIdx).toBeLessThan(spawnedArgs.indexOf(url));
+  });
+});
+
+describe('runYtdlpDownload — social-compatible MP4 args', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('omits social flags when mergeOutputFormat is omitted', async () => {
+    const child = createFakeChild();
+    spawnMock.mockReturnValue(child);
+    const { runYtdlpDownload } = await import(
+      '@src/infrastructure/youtube/runYtdlpDownload'
+    );
+
+    const promise = runYtdlpDownload({
+      executable: 'yt-dlp',
+      url: 'https://youtu.be/x',
+      formatSelector: 'best',
+      outputTemplate: 'out.%(ext)s',
+    });
+    child.emit('close', 0);
+    await promise;
+
+    const spawnedArgs: string[] = spawnMock.mock.calls[0][1];
+    expect(spawnedArgs).not.toContain('--recode-video');
+    expect(spawnedArgs).not.toContain('--ppa');
+    expect(spawnedArgs).not.toContain('-S');
+    expect(spawnedArgs).not.toContain('--merge-output-format');
+  });
+
+  it('includes social compatibility flags when mergeOutputFormat is mp4', async () => {
+    const child = createFakeChild();
+    spawnMock.mockReturnValue(child);
+    const { runYtdlpDownload } = await import(
+      '@src/infrastructure/youtube/runYtdlpDownload'
+    );
+
+    const promise = runYtdlpDownload({
+      executable: 'yt-dlp',
+      url: 'https://youtu.be/x',
+      formatSelector: '135+ba[acodec^=mp4a]/bestaudio[acodec^=mp4a]/bestaudio',
+      outputTemplate: 'out.%(ext)s',
+      mergeOutputFormat: 'mp4',
+    });
+    child.emit('close', 0);
+    await promise;
+
+    const spawnedArgs: string[] = spawnMock.mock.calls[0][1];
+    expect(spawnedArgs).toEqual(
+      expect.arrayContaining([
+        '-S',
+        'vcodec:h264,acodec:aac',
+        '--recode-video',
+        'mp4',
+        '--ppa',
+        SOCIAL_COMPATIBLE_VIDEO_CONVERTOR_PPA,
+        '--merge-output-format',
+        'mp4',
+      ]),
+    );
   });
 });
 
