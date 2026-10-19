@@ -1,0 +1,57 @@
+name: Stryker prefix cache proof
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  seed-stale-cache:
+    name: Seed stale Stryker cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Plant stale incremental file
+        run: |
+          mkdir -p reports
+          printf '%s\n' '{"marker":"STALE_PREFIX_SCORE_73.37"}' > reports/stryker-incremental.pr.json
+
+      - name: Save stale cache
+        uses: actions/cache/save@v5
+        with:
+          path: reports/stryker-incremental.pr.json
+          key: stryker-prefix-proof-${{ github.run_id }}-stale
+
+  prefix-restore:
+    name: Prefix restore reports no score
+    needs: seed-stale-cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.10'
+
+      - name: Restore only through a prefix key
+        id: restore
+        uses: actions/cache/restore@v5
+        with:
+          path: reports/stryker-incremental.pr.json
+          key: stryker-prefix-proof-${{ github.run_id }}-exact-miss
+          restore-keys: |
+            stryker-prefix-proof-${{ github.run_id }}-stale
+
+      - name: Reject the prefix restore
+        env:
+          STRYKER_CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+          STRYKER_CACHE_MATCHED_KEY: ${{ steps.restore.outputs.cache-matched-key }}
+        run: node scripts/ci/accept-stryker-cache.mjs
+
+      - name: Write mutation summary
+        run: node scripts/ci/write-mutation-summary.mjs
+
+      - name: Assert no score was reported
+        env:
+          STRYKER_EXACT_KEY: stryker-prefix-proof-${{ github.run_id }}-exact-miss
+        run: node scripts/ci/assert-no-prefix-score.mjs
