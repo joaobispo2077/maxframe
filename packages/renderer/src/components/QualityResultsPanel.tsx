@@ -13,6 +13,7 @@ import {
 } from '@chakra-ui/react';
 
 import { slideUpRevealStyles } from '../theme/motionStyles.js';
+
 import { QualityResultRow } from './QualityResultRow.js';
 
 function deduplicateByResolution(

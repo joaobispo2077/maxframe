@@ -1,6 +1,7 @@
+import type { YtdlpProgressEvent } from '@src/domain/progress/parseYtdlpProgressLine.js';
+
 import { useCallback, useMemo, useReducer, type Dispatch } from 'react';
 
-import type { YtdlpProgressEvent } from '@src/domain/progress/parseYtdlpProgressLine.js';
 import {
   applyParsedProgress,
   canReorderJob,
@@ -45,7 +46,10 @@ export type QueueAction =
   | { type: 'failJob'; jobId: string; status: string; detail?: string }
   | { type: 'cancelJob'; jobId: string };
 
-export function queueReducer(state: QueueModel, action: QueueAction): QueueModel {
+export function queueReducer(
+  state: QueueModel,
+  action: QueueAction,
+): QueueModel {
   switch (action.type) {
     case 'enqueue':
       return enqueueJobs(state, action.entries);

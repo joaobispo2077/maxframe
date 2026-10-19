@@ -1,19 +1,16 @@
-import { describe, expect, it } from 'vitest';
-
 import {
   createYtdlpStreamLineState,
   feedYtdlpStreamLines,
   flushYtdlpStreamLines,
 } from '@src/infrastructure/youtube/feedYtdlpStreamLines';
+import { describe, expect, it } from 'vitest';
 
 describe('feedYtdlpStreamLines', () => {
   it('emits each segment before a carriage return', () => {
     const state = createYtdlpStreamLineState();
     const lines: string[] = [];
-    const p10 =
-      '[download]  10.0% of  100.00MiB at    5.00MiB/s ETA 00:18';
-    const p50 =
-      '[download]  50.0% of  100.00MiB at    5.00MiB/s ETA 00:10';
+    const p10 = '[download]  10.0% of  100.00MiB at    5.00MiB/s ETA 00:18';
+    const p50 = '[download]  50.0% of  100.00MiB at    5.00MiB/s ETA 00:10';
     feedYtdlpStreamLines(state, `${p10}\r${p50}\r`, (line) => lines.push(line));
     expect(lines).toEqual([p10, p50]);
   });
@@ -21,14 +18,18 @@ describe('feedYtdlpStreamLines', () => {
   it('emits newline-terminated lines', () => {
     const state = createYtdlpStreamLineState();
     const lines: string[] = [];
-    feedYtdlpStreamLines(state, '[download] 12.0%\n', (line) => lines.push(line));
+    feedYtdlpStreamLines(state, '[download] 12.0%\n', (line) =>
+      lines.push(line),
+    );
     expect(lines).toEqual(['[download] 12.0%']);
   });
 
   it('handles \\r\\n sequences', () => {
     const state = createYtdlpStreamLineState();
     const lines: string[] = [];
-    feedYtdlpStreamLines(state, 'line-a\r\nline-b\n', (line) => lines.push(line));
+    feedYtdlpStreamLines(state, 'line-a\r\nline-b\n', (line) =>
+      lines.push(line),
+    );
     expect(lines).toEqual(['line-a', 'line-b']);
   });
 

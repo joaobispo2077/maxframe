@@ -39,8 +39,7 @@ function isBareExecutableName(path: string): boolean {
 export async function getDiagnosticsHandler(): Promise<DiagnosticsReport> {
   const ytdlpPath = resolveYtdlpExecutable();
   const ffmpegPath = resolveFfmpegExecutable();
-  const ytdlpFound =
-    !isBareExecutableName(ytdlpPath) && existsSync(ytdlpPath);
+  const ytdlpFound = !isBareExecutableName(ytdlpPath) && existsSync(ytdlpPath);
   const ytdlpVersion = ytdlpFound
     ? await probeYtdlpVersion(ytdlpPath)
     : undefined;

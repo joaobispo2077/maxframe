@@ -1,9 +1,10 @@
+import { describe, expect, it } from 'vitest';
+
 import {
   getBrowserWindowChromeOptions,
   getTitleBarInset,
   WINDOW_CANVAS_COLOR,
 } from '../../packages/main/src/windowChrome.js';
-import { describe, expect, it } from 'vitest';
 
 describe('windowChrome', () => {
   it('uses hidden title bar overlay on Windows', () => {

@@ -13,6 +13,8 @@ describe('firstNonEmptyLine', () => {
   });
 
   it('trims leading and trailing spaces on the chosen line', () => {
-    expect(firstNonEmptyLine('  https://x.test/y  \n')).toBe('https://x.test/y');
+    expect(firstNonEmptyLine('  https://x.test/y  \n')).toBe(
+      'https://x.test/y',
+    );
   });
 });

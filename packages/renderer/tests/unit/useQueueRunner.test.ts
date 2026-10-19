@@ -1,14 +1,12 @@
+import { useReducer } from 'react';
+
 import {
   createEmptyQueueModel,
   enqueueJobs,
 } from '@src/domain/download-queue/model.js';
-import {
-  queueReducer,
-  type QueueAction,
-} from '@ui/hooks/useDownloadQueue';
-import { useQueueRunner } from '@ui/hooks/useQueueRunner';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { useReducer } from 'react';
+import { queueReducer, type QueueAction } from '@ui/hooks/useDownloadQueue';
+import { useQueueRunner } from '@ui/hooks/useQueueRunner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const QUALITY = {
@@ -215,7 +213,9 @@ describe('useQueueRunner', () => {
       expect(result.current.model.historyJobs).toHaveLength(1);
     });
 
-    expect(localStorage.getItem('maxframe.lastOutputFolder')).toBe('C:\\Picked');
+    expect(localStorage.getItem('maxframe.lastOutputFolder')).toBe(
+      'C:\\Picked',
+    );
   });
 
   it('fails job when resolveBestDownload returns undefined', async () => {
@@ -229,9 +229,7 @@ describe('useQueueRunner', () => {
     });
 
     const { result } = renderHook(() =>
-      useHarness([
-        { id: 'j1', url: 'https://www.youtube.com/watch?v=nobest' },
-      ]),
+      useHarness([{ id: 'j1', url: 'https://www.youtube.com/watch?v=nobest' }]),
     );
 
     await act(async () => {
@@ -250,7 +248,10 @@ describe('useQueueRunner', () => {
 
   it('does not start when analyze download is busy', async () => {
     const { result } = renderHook(() =>
-      useHarness([{ id: 'j1', url: 'https://www.youtube.com/watch?v=aaa' }], true),
+      useHarness(
+        [{ id: 'j1', url: 'https://www.youtube.com/watch?v=aaa' }],
+        true,
+      ),
     );
 
     await act(async () => {

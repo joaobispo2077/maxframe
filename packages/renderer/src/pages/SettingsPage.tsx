@@ -65,12 +65,7 @@ export function SettingsPage({
 
   const content = (
     <VStack gap={6} align="stretch">
-      <HStack
-        justify="space-between"
-        align="center"
-        flexWrap="wrap"
-        gap={3}
-      >
+      <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
         <Heading size="lg" letterSpacing="tight">
           Settings
         </Heading>

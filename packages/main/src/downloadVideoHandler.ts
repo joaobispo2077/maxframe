@@ -55,7 +55,12 @@ async function resolveOutputLocation(
 ): Promise<{ filePath: string }> {
   if (params.outputDir) {
     const stem = parsePath(params.suggestedFileName).name;
-    return { filePath: join(params.outputDir, stem + parsePath(params.suggestedFileName).ext) };
+    return {
+      filePath: join(
+        params.outputDir,
+        stem + parsePath(params.suggestedFileName).ext,
+      ),
+    };
   }
   const filePath = await promptSaveFilePath(
     params.suggestedFileName,
@@ -160,9 +165,7 @@ export async function downloadVideoHandler(
 
   const resolved =
     findYtdlpOutputFile(parsed.dir, parsed.name) ??
-    (existsSync(outputLocation.filePath)
-      ? outputLocation.filePath
-      : undefined);
+    (existsSync(outputLocation.filePath) ? outputLocation.filePath : undefined);
 
   if (!resolved) {
     throw new Error(

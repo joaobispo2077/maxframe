@@ -8,7 +8,11 @@ type PageHeaderProps = {
   onGoHome?: () => void;
 };
 
-export function PageHeader({ isPortable, subtitle, onGoHome }: PageHeaderProps) {
+export function PageHeader({
+  isPortable,
+  subtitle,
+  onGoHome,
+}: PageHeaderProps) {
   const logo = (
     <Image
       src={maxframeLogo}
