@@ -1,0 +1,25 @@
+name: Dispatch Stryker full
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    name: Enable and dispatch Stryker full
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Enable stryker-full
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/stryker-full.yml/enable"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/stryker-full.yml" --jq .state
+
+      - name: Dispatch one stryker-full run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run stryker-full.yml --ref feature/maxframe-quality-gates-proof-stryker-full
