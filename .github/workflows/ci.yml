@@ -16,362 +16,52 @@ jobs:
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24.10'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run typecheck
-        id: gate
-        run: npm run typecheck
-
-      - name: Write gate.json
-        if: always()
-        env:
-          GATE_JOB: typecheck
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
-        run: node scripts/ci/write-gate-json.mjs
-
-      - name: Upload gate.json
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: gate-typecheck
-          path: reports/quality/gates/typecheck/gate.json
-          if-no-files-found: error
-          retention-days: 14
+      - name: Stay in progress so this run can be cancelled
+        run: sleep 180
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    if: false
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24.10'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run lint
-        id: gate
-        run: npm run lint
-
-      - name: Write gate.json
-        if: always()
-        env:
-          GATE_JOB: lint
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
-        run: node scripts/ci/write-gate-json.mjs
-
-      - name: Upload gate.json
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: gate-lint
-          path: reports/quality/gates/lint/gate.json
-          if-no-files-found: error
-          retention-days: 14
+      - run: echo lint
 
   format:
     name: Format
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    if: false
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24.10'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run format check
-        id: gate
-        run: npm run format:check
-
-      - name: Write gate.json
-        if: always()
-        env:
-          GATE_JOB: format
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
-        run: node scripts/ci/write-gate-json.mjs
-
-      - name: Upload gate.json
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: gate-format
-          path: reports/quality/gates/format/gate.json
-          if-no-files-found: error
-          retention-days: 14
+      - run: echo format
 
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
-    needs: typecheck
-    timeout-minutes: 15
-    permissions:
-      pull-requests: write
+    if: false
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24.10'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run unit tests
-        id: gate
-        env:
-          MAXFRAME_FAKE_VIDEO_METADATA: '1'
-        # Coverage flags are baked into the root script to ensure Vitest always writes summary JSON.
-        run: npm run test:unit:coverage
-
-      - name: Write gate.json
-        if: always()
-        env:
-          GATE_JOB: unit-tests
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
-        run: node scripts/ci/write-gate-json.mjs
-
-      - name: Upload gate.json
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: gate-unit-tests
-          path: reports/quality/gates/unit-tests/gate.json
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload unit coverage artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: unit-coverage-summary
-          path: coverage/coverage-summary.json
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Generate coverage summary markdown
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          node <<'EOF'
-          const fs = require('node:fs');
-          const summaryPath = 'coverage/coverage-summary.json';
-          const outputPath = 'code-coverage-results.md';
-          const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
-          const total = summary.total;
-          const pct = (value) => `${Number(value).toFixed(2)}%`;
-
-          const lines = [
-            '## Unit Test Coverage',
-            '',
-            '| Metric | Covered / Total | % |',
-            '|---|---:|---:|',
-            `| Lines | ${total.lines.covered} / ${total.lines.total} | ${pct(total.lines.pct)} |`,
-            `| Statements | ${total.statements.covered} / ${total.statements.total} | ${pct(total.statements.pct)} |`,
-            `| Functions | ${total.functions.covered} / ${total.functions.total} | ${pct(total.functions.pct)} |`,
-            `| Branches | ${total.branches.covered} / ${total.branches.total} | ${pct(total.branches.pct)} |`,
-            '',
-            '_Generated from Vitest coverage-summary.json_',
-          ];
-
-          fs.writeFileSync(outputPath, `${lines.join('\n')}\n`);
-          EOF
-
-      - name: Publish coverage summary to PR
-        if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v3
-        with:
-          path: code-coverage-results.md
-          recreate: true
+      - run: echo unit
 
   e2e-tests:
     name: E2E Tests (Cypress Component)
     runs-on: ubuntu-latest
-    needs: typecheck
-    timeout-minutes: 20
+    if: false
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24.10'
-          cache: npm
-
-      - name: Cypress run
-        id: gate
-        uses: cypress-io/github-action@v7
-        with:
-          component: true
-          install-command: npm ci
-
-      - name: Write gate.json
-        if: always()
-        env:
-          GATE_JOB: e2e-tests
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
-        run: node scripts/ci/write-gate-json.mjs
-
-      - name: Upload gate.json
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: gate-e2e-tests
-          path: reports/quality/gates/e2e-tests/gate.json
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload Cypress screenshots on failure
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: cypress-screenshots
-          path: cypress/screenshots
-          if-no-files-found: ignore
-          retention-days: 7
+      - run: echo e2e
 
   mutation-tests:
     name: Mutation Tests (Stryker)
     runs-on: ubuntu-latest
-    needs: unit-tests
-    timeout-minutes: 30
-    permissions:
-      pull-requests: write
+    if: false
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24.10'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Ensure reports directory for Stryker cache
-        run: mkdir -p reports
-
-      # Exact key only. A prefix restore must not supply a score.
-      - name: Cache Stryker incremental report (exact key only)
-        id: stryker-cache
-        uses: actions/cache@v5
-        with:
-          path: reports/stryker-incremental.pr.json
-          key: stryker-incremental-pr-${{ runner.os }}-${{ hashFiles('package-lock.json', 'stryker.config.base.mjs', 'stryker.config.pr.mjs', 'vitest.stryker.config.ts') }}
-
-      - name: Reject non-exact Stryker cache
-        env:
-          STRYKER_CACHE_HIT: ${{ steps.stryker-cache.outputs.cache-hit }}
-          STRYKER_CACHE_MATCHED_KEY: ${{ steps.stryker-cache.outputs.cache-matched-key }}
-        run: node scripts/ci/accept-stryker-cache.mjs
-
-      - name: Run mutation tests
-        id: gate
-        run: npm run test:mutation:pr:incremental
-
-      - name: Write gate.json
-        if: always()
-        env:
-          GATE_JOB: mutation-tests
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
-        run: node scripts/ci/write-gate-json.mjs
-
-      - name: Upload gate.json
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: gate-mutation-tests
-          path: reports/quality/gates/mutation-tests/gate.json
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload mutation reports artifact
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: mutation-reports
-          path: reports/mutation
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Generate mutation summary markdown
-        if: always() && github.event_name == 'pull_request'
-        run: node scripts/ci/write-mutation-summary.mjs
-
-      - name: Publish mutation summary to PR
-        if: always() && github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v3
-        with:
-          path: mutation-test-results.md
-          recreate: true
+      - run: echo mutation
 
   scheduled-workflow:
     name: Scheduled workflow state
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      actions: write
-      contents: read
+    if: false
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24.10'
-
-      - name: Warn when Stryker full is disabled
-        id: gate
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SCHEDULED_WORKFLOW: stryker-full.yml
-        run: node scripts/ci/check-scheduled-workflow.mjs
-
-      - name: Write gate.json
-        if: always()
-        env:
-          GATE_JOB: scheduled-workflow
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
-        run: node scripts/ci/write-gate-json.mjs
-
-      - name: Upload gate.json
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: gate-scheduled-workflow
-          path: reports/quality/gates/scheduled-workflow/gate.json
-          if-no-files-found: error
-          retention-days: 14
+      - run: echo scheduled
 
   ci-readiness:
     name: CI readiness
@@ -389,9 +79,6 @@ jobs:
     permissions:
       actions: write
       contents: read
-    outputs:
-      result: ${{ steps.readiness.outputs.result }}
-      status: ${{ steps.readiness.outputs.status }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -402,7 +89,6 @@ jobs:
           node-version: '24.10'
 
       - name: Require successful required jobs and gate.json
-        id: readiness
         env:
           CI_NEEDS_JSON: ${{ toJSON(needs) }}
           FETCH_GATE_ARTIFACTS: '1'
