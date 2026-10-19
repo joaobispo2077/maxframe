@@ -27,7 +27,10 @@ describe('probeYtdlpVersion', () => {
         _exe: string,
         _args: string[],
         _opts: unknown,
-        callback: (error: Error | null, result: { stdout: string; stderr: string }) => void,
+        callback: (
+          error: Error | null,
+          result: { stdout: string; stderr: string },
+        ) => void,
       ) => {
         callback(null, { stdout: '2026.03.17\n', stderr: '' });
       },

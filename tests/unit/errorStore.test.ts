@@ -49,11 +49,8 @@ describe('errorStore', () => {
   });
 
   it('stores submitted URL until clearError', async () => {
-    const {
-      recordSubmittedUrl,
-      getLastSubmittedUrl,
-      clearError,
-    } = await import('@src/interface/ipc/errorStore.js');
+    const { recordSubmittedUrl, getLastSubmittedUrl, clearError } =
+      await import('@src/interface/ipc/errorStore.js');
     recordSubmittedUrl(
       'https://www.youtube.com/watch?v=Zt62nsFLqA0&list=RDZt62nsFLqA0&start_radio=1',
     );

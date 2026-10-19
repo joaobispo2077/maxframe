@@ -1,5 +1,6 @@
-import type { ReactElement } from 'react';
 import type { SummaryCounts } from '@src/domain/download-queue/model.js';
+
+import type { ReactElement } from 'react';
 
 import { Badge, HStack, Text } from '@chakra-ui/react';
 
@@ -29,9 +30,7 @@ export function QueueSummaryBar({ counts }: QueueSummaryBarProps) {
     counts.downloading +
     counts.postProcessing;
   const totalHistory =
-    counts.historyComplete +
-    counts.historyFailed +
-    counts.historyCancelled;
+    counts.historyComplete + counts.historyFailed + counts.historyCancelled;
 
   return (
     <HStack gap={2} flexWrap="wrap" align="center">

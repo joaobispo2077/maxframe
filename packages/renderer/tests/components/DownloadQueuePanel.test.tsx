@@ -1,11 +1,11 @@
 import { type ReactElement } from 'react';
 
+import { ChakraProvider } from '@chakra-ui/react';
 import {
   createEmptyQueueModel,
   enqueueJobs,
   summarizeQueue,
 } from '@src/domain/download-queue/model.js';
-import { ChakraProvider } from '@chakra-ui/react';
 import {
   fireEvent,
   render as rtlRender,
@@ -39,7 +39,9 @@ describe('DownloadQueuePanel', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { name: /download queue/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /download queue/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/No active queue items/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /start queue/i })).toBeDisabled();
   });
@@ -63,12 +65,16 @@ describe('DownloadQueuePanel', () => {
       />,
     );
 
-    expect(screen.queryByText(/No active queue items/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/No active queue items/i),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /start queue/i })).toBeEnabled();
     expect(
       screen.getAllByText('https://www.youtube.com/watch?v=aaa').length,
     ).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('https://youtu.be/bbb').length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText('https://youtu.be/bbb').length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('disables move up on the first row only', () => {

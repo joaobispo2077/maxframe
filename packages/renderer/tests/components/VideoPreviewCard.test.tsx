@@ -25,7 +25,9 @@ describe('VideoPreviewCard', () => {
   it('shows title, channel, and thumbnail region after analyze', () => {
     render(<VideoPreviewCard result={RESULT} />);
 
-    expect(screen.getByRole('region', { name: 'video-preview' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'video-preview' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Never Gonna Give You Up')).toBeInTheDocument();
     expect(screen.getByText('Rick Astley')).toBeInTheDocument();
     expect(screen.getByText('dQw4w9WgXcQ')).toBeInTheDocument();

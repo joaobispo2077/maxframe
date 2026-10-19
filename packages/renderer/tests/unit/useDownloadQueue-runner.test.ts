@@ -1,3 +1,5 @@
+import type { YtdlpProgressEvent } from '@src/domain/progress/parseYtdlpProgressLine.js';
+
 import {
   applyParsedProgress,
   createEmptyQueueModel,
@@ -10,11 +12,13 @@ import {
   setJobAnalysis,
   setJobFormatChoice,
 } from '@src/domain/download-queue/model.js';
-import type { YtdlpProgressEvent } from '@src/domain/progress/parseYtdlpProgressLine.js';
 import { queueReducer, type QueueAction } from '@ui/hooks/useDownloadQueue';
 import { describe, expect, it } from 'vitest';
 
-function run(state: ReturnType<typeof createEmptyQueueModel>, action: QueueAction) {
+function run(
+  state: ReturnType<typeof createEmptyQueueModel>,
+  action: QueueAction,
+) {
   return queueReducer(state, action);
 }
 
@@ -50,7 +54,11 @@ describe('useDownloadQueue runner actions', () => {
 
   it('setDownloadStarted marks downloadStarted', () => {
     const m0 = enqueueJobs(createEmptyQueueModel(), [{ id: 'j1', url: 'a' }]);
-    const m1 = run(m0, { type: 'setDownloadStarted', jobId: 'j1', started: true });
+    const m1 = run(m0, {
+      type: 'setDownloadStarted',
+      jobId: 'j1',
+      started: true,
+    });
     expect(m1.jobs[0]?.downloadStarted).toBe(true);
   });
 

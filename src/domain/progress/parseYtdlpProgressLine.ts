@@ -38,7 +38,10 @@ function postprocessStatusEvent(
   stage: Exclude<DownloadStage, 'waiting' | 'downloading' | 'done'>,
   detail: string,
   overrides: Partial<
-    Pick<YtdlpProgressEvent, 'percent' | 'speedLabel' | 'etaLabel' | 'sizeLabel'>
+    Pick<
+      YtdlpProgressEvent,
+      'percent' | 'speedLabel' | 'etaLabel' | 'sizeLabel'
+    >
   > = {},
 ): YtdlpProgressEvent {
   return {

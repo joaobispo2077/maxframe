@@ -54,9 +54,7 @@ describe('App', () => {
     render(<App />);
 
     expect(
-      screen.getByText(
-        'Pick a video, compare quality options, then download.',
-      ),
+      screen.getByText('Pick a video, compare quality options, then download.'),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -72,9 +70,7 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          'Download multiple videos you added from Analyze.',
-        ),
+        screen.getByText('Download multiple videos you added from Analyze.'),
       ).toBeInTheDocument();
     });
   });
@@ -147,16 +143,17 @@ describe('App', () => {
     render(<App />);
     fireEvent.change(screen.getByLabelText('Video URLs'), {
       target: {
-        value:
-          'https://www.youtube.com/watch?v=aaa\nhttps://youtu.be/bbb',
+        value: 'https://www.youtube.com/watch?v=aaa\nhttps://youtu.be/bbb',
       },
     });
     fireEvent.click(screen.getByRole('button', { name: /add to queue/i }));
-    expect((screen.getByLabelText('Video URLs') as HTMLTextAreaElement).value).toBe(
-      '',
-    );
+    expect(
+      (screen.getByLabelText('Video URLs') as HTMLTextAreaElement).value,
+    ).toBe('');
     fireEvent.click(screen.getByRole('tab', { name: 'Queue' }));
-    expect(screen.queryByText(/No active queue items/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/No active queue items/i),
+    ).not.toBeInTheDocument();
   });
 
   it('shows Portable badge when isPortable is true', async () => {

@@ -123,9 +123,7 @@ class IpcBridge implements AppModule {
 
     ipcMain.handle(CHANNEL_GET_DIAGNOSTICS, () => getDiagnosticsHandler());
 
-    ipcMain.handle(CHANNEL_PICK_OUTPUT_FOLDER, () =>
-      pickOutputFolderHandler(),
-    );
+    ipcMain.handle(CHANNEL_PICK_OUTPUT_FOLDER, () => pickOutputFolderHandler());
 
     ipcMain.handle('app:get-log-path', () =>
       join(app.getPath('userData'), 'maxframe-debug.log'),

@@ -126,12 +126,9 @@ describe('runYtdlpDownload', () => {
       onProgressLine: (line) => lines.push(line),
     });
 
-    const p10 =
-      '[download]  10.0% of  100.00MiB at    5.00MiB/s ETA 00:18';
-    const p50 =
-      '[download]  50.0% of  100.00MiB at    5.00MiB/s ETA 00:10';
-    const p90 =
-      '[download]  90.0% of  100.00MiB at    5.00MiB/s ETA 00:02';
+    const p10 = '[download]  10.0% of  100.00MiB at    5.00MiB/s ETA 00:18';
+    const p50 = '[download]  50.0% of  100.00MiB at    5.00MiB/s ETA 00:10';
+    const p90 = '[download]  90.0% of  100.00MiB at    5.00MiB/s ETA 00:02';
     child.stderr?.emit('data', `${p10}\r${p50}\r${p90}`);
     child.stderr?.emit('end');
     child.emit('close', 0);

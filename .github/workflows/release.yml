@@ -54,7 +54,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --force
+        run: npm ci
 
       - name: Dry-run semantic-release to extract next version
         id: version
@@ -101,7 +101,7 @@ jobs:
             ${{ runner.os }}-electron-
 
       - name: Install dependencies
-        run: npm ci --force
+        run: npm ci
 
       - name: Download yt-dlp and ffmpeg binaries
         shell: powershell
@@ -169,7 +169,7 @@ jobs:
             ${{ runner.os }}-electron-
 
       - name: Install dependencies
-        run: npm ci --force
+        run: npm ci
 
       - name: Download yt-dlp and ffmpeg binaries
         shell: powershell
@@ -323,7 +323,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --force
+        run: npm ci
 
       - name: Release
         run: npm run release

@@ -1,6 +1,7 @@
+import type { QueueJob } from '@src/domain/download-queue/model.js';
+
 import { type ReactElement } from 'react';
 
-import type { QueueJob } from '@src/domain/download-queue/model.js';
 import { ChakraProvider } from '@chakra-ui/react';
 import { render as rtlRender, screen } from '@testing-library/react';
 import { QueueJobRow } from '@ui/components/QueueJobRow';

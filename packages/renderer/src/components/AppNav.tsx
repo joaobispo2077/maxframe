@@ -1,7 +1,8 @@
+import type { AppTab } from '../hooks/useAppNavigation.js';
+
 import { Button, HStack, Image } from '@chakra-ui/react';
 
 import maxframeLogoIcon from '../../../../.github/assets/maxframe-logo-icon.png';
-import type { AppTab } from '../hooks/useAppNavigation.js';
 
 const TABS: { id: AppTab; label: string }[] = [
   { id: 'analyze', label: 'Analyze' },

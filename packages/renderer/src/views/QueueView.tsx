@@ -1,7 +1,8 @@
+import type { useDownloadQueue } from '../hooks/useDownloadQueue.js';
+
 import { Text, VStack } from '@chakra-ui/react';
 
 import { DownloadQueuePanel } from '../components/DownloadQueuePanel.js';
-import type { useDownloadQueue } from '../hooks/useDownloadQueue.js';
 
 type QueueState = ReturnType<typeof useDownloadQueue>;
 
