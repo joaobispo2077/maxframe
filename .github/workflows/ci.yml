@@ -4,28 +4,18 @@ on:
   push:
     branches:
       - release
-      - dev
+      - develop
       - 'feature/**'
   pull_request:
     branches:
       - release
       - main
+      - develop
 
 jobs:
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
-    if: >-
-      ${{
-        github.event_name == 'push' ||
-        (
-          github.event_name == 'pull_request' &&
-          (
-            (github.base_ref == 'release' && startsWith(github.head_ref, 'dev')) ||
-            (github.base_ref == 'main' && startsWith(github.head_ref, 'release'))
-          )
-        )
-      }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -38,26 +28,106 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --force
+        run: npm ci
 
       - name: Run typecheck
+        id: gate
         run: npm run typecheck
+
+      - name: Write gate.json
+        if: always()
+        env:
+          GATE_JOB: typecheck
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+        run: node scripts/ci/write-gate-json.mjs
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-typecheck
+          path: reports/quality/gates/typecheck/gate.json
+          if-no-files-found: error
+          retention-days: 14
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.10'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        id: gate
+        run: npm run lint
+
+      - name: Write gate.json
+        if: always()
+        env:
+          GATE_JOB: lint
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+        run: node scripts/ci/write-gate-json.mjs
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-lint
+          path: reports/quality/gates/lint/gate.json
+          if-no-files-found: error
+          retention-days: 14
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.10'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run format check
+        id: gate
+        run: npm run format:check
+
+      - name: Write gate.json
+        if: always()
+        env:
+          GATE_JOB: format
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+        run: node scripts/ci/write-gate-json.mjs
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-format
+          path: reports/quality/gates/format/gate.json
+          if-no-files-found: error
+          retention-days: 14
 
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
     needs: typecheck
-    if: >-
-      ${{
-        github.event_name == 'push' ||
-        (
-          github.event_name == 'pull_request' &&
-          (
-            (github.base_ref == 'release' && startsWith(github.head_ref, 'dev')) ||
-            (github.base_ref == 'main' && startsWith(github.head_ref, 'release'))
-          )
-        )
-      }}
     timeout-minutes: 15
     permissions:
       pull-requests: write
@@ -72,13 +142,30 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --force
+        run: npm ci
 
       - name: Run unit tests
+        id: gate
         env:
           MAXFRAME_FAKE_VIDEO_METADATA: '1'
         # Coverage flags are baked into the root script to ensure Vitest always writes summary JSON.
         run: npm run test:unit:coverage
+
+      - name: Write gate.json
+        if: always()
+        env:
+          GATE_JOB: unit-tests
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+        run: node scripts/ci/write-gate-json.mjs
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-unit-tests
+          path: reports/quality/gates/unit-tests/gate.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload unit coverage artifact
         uses: actions/upload-artifact@v7
@@ -127,14 +214,6 @@ jobs:
     name: E2E Tests (Cypress Component)
     runs-on: ubuntu-latest
     needs: typecheck
-    if: >-
-      ${{
-        github.event_name == 'pull_request' &&
-        (
-          (github.base_ref == 'release' && startsWith(github.head_ref, 'dev')) ||
-          (github.base_ref == 'main' && startsWith(github.head_ref, 'release'))
-        )
-      }}
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -147,10 +226,27 @@ jobs:
           cache: npm
 
       - name: Cypress run
+        id: gate
         uses: cypress-io/github-action@v7
         with:
           component: true
-          install-command: npm ci --force
+          install-command: npm ci
+
+      - name: Write gate.json
+        if: always()
+        env:
+          GATE_JOB: e2e-tests
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+        run: node scripts/ci/write-gate-json.mjs
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-e2e-tests
+          path: reports/quality/gates/e2e-tests/gate.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload Cypress screenshots on failure
         if: failure()
@@ -165,14 +261,6 @@ jobs:
     name: Mutation Tests (Stryker)
     runs-on: ubuntu-latest
     needs: unit-tests
-    if: >-
-      ${{
-        github.event_name == 'pull_request' &&
-        (
-          (github.base_ref == 'release' && startsWith(github.head_ref, 'dev')) ||
-          (github.base_ref == 'main' && startsWith(github.head_ref, 'release'))
-        )
-      }}
     timeout-minutes: 30
     permissions:
       pull-requests: write
@@ -187,22 +275,44 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --force
+        run: npm ci
 
       - name: Ensure reports directory for Stryker cache
         run: mkdir -p reports
 
-      - name: Cache Stryker incremental report (PR fast profile)
+      # Exact key only. A prefix restore must not supply a score.
+      - name: Cache Stryker incremental report (exact key only)
+        id: stryker-cache
         uses: actions/cache@v5
         with:
           path: reports/stryker-incremental.pr.json
           key: stryker-incremental-pr-${{ runner.os }}-${{ hashFiles('package-lock.json', 'stryker.config.base.mjs', 'stryker.config.pr.mjs', 'vitest.stryker.config.ts') }}
-          restore-keys: |
-            stryker-incremental-pr-${{ runner.os }}-
+
+      - name: Reject non-exact Stryker cache
+        env:
+          STRYKER_CACHE_HIT: ${{ steps.stryker-cache.outputs.cache-hit }}
+          STRYKER_CACHE_MATCHED_KEY: ${{ steps.stryker-cache.outputs.cache-matched-key }}
+        run: node scripts/ci/accept-stryker-cache.mjs
 
       - name: Run mutation tests
-        id: run-mutation-tests
+        id: gate
         run: npm run test:mutation:pr:incremental
+
+      - name: Write gate.json
+        if: always()
+        env:
+          GATE_JOB: mutation-tests
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+        run: node scripts/ci/write-gate-json.mjs
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-mutation-tests
+          path: reports/quality/gates/mutation-tests/gate.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload mutation reports artifact
         if: always()
@@ -210,104 +320,12 @@ jobs:
         with:
           name: mutation-reports
           path: reports/mutation
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
 
       - name: Generate mutation summary markdown
         if: always() && github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          node <<'EOF'
-          const fs = require('node:fs');
-          const path = require('node:path');
-
-          const outputPath = 'mutation-test-results.md';
-          const mutationJsonPath = path.join('reports', 'mutation', 'mutation.json');
-          const fallback = [
-            '## Mutation Tests (Stryker)',
-            '',
-            'Mutation report JSON was not found. Check the job logs and the uploaded `mutation-reports` artifact.',
-            '',
-            '_Generated by CI mutation job_',
-          ];
-
-          if (!fs.existsSync(mutationJsonPath)) {
-            fs.writeFileSync(outputPath, `${fallback.join('\n')}\n`);
-            process.exit(0);
-          }
-
-          const report = JSON.parse(fs.readFileSync(mutationJsonPath, 'utf8'));
-          const threshold = report.thresholds?.break;
-          const counts = {
-            Killed: 0,
-            Survived: 0,
-            Timeout: 0,
-            NoCoverage: 0,
-            RuntimeError: 0,
-            CompileError: 0,
-            Ignored: 0,
-            Pending: 0,
-          };
-
-          for (const file of Object.values(report.files ?? {})) {
-            for (const mutant of file.mutants ?? []) {
-              const status = mutant.status ?? 'Pending';
-              if (status in counts) {
-                counts[status] += 1;
-              } else {
-                counts.Pending += 1;
-              }
-            }
-          }
-
-          const totalRelevant =
-            counts.Killed +
-            counts.Survived +
-            counts.Timeout +
-            counts.NoCoverage +
-            counts.RuntimeError +
-            counts.CompileError;
-          const score =
-            totalRelevant > 0
-              ? ((counts.Killed + counts.Timeout) / totalRelevant) * 100
-              : 0;
-          const scoreText = Number.isFinite(score) ? score.toFixed(2) : 'n/a';
-
-          const status =
-            threshold == null
-              ? 'No break threshold configured'
-              : score >= Number(threshold)
-                ? `Passing (>= ${threshold})`
-                : `Failing (< ${threshold})`;
-
-          const lines = [
-            '## Mutation Tests (Stryker)',
-            '',
-            '- **Profile:** fast (PR)',
-            '- **ignoreStatic:** true',
-            '- **Excluded files:** `src/infrastructure/youtube/InMemoryVideoMetadataGateway.ts`',
-            '- **Strict weekly backstop:** `stryker-full.yml` (full `src/**`, static mutants run)',
-            '',
-            `- Mutation score: **${scoreText}%**`,
-            `- Threshold: **${threshold ?? 'not set'}**`,
-            `- Status: **${status}**`,
-            '',
-            '| Metric | Count |',
-            '|---|---:|',
-            `| Killed | ${counts.Killed} |`,
-            `| Survived | ${counts.Survived} |`,
-            `| Timeout | ${counts.Timeout} |`,
-            `| No coverage | ${counts.NoCoverage} |`,
-            `| Runtime errors | ${counts.RuntimeError} |`,
-            `| Compile errors | ${counts.CompileError} |`,
-            `| Ignored | ${counts.Ignored} |`,
-            `| Pending/Unknown | ${counts.Pending} |`,
-            '',
-            '_Generated from `reports/mutation/mutation.json`_',
-          ];
-
-          fs.writeFileSync(outputPath, `${lines.join('\n')}\n`);
-          EOF
+        run: node scripts/ci/write-mutation-summary.mjs
 
       - name: Publish mutation summary to PR
         if: always() && github.event_name == 'pull_request'
@@ -315,3 +333,89 @@ jobs:
         with:
           path: mutation-test-results.md
           recreate: true
+
+  scheduled-workflow:
+    name: Scheduled workflow state
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.10'
+
+      - name: Warn when Stryker full is disabled
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCHEDULED_WORKFLOW: stryker-full.yml
+        run: node scripts/ci/check-scheduled-workflow.mjs
+
+      - name: Write gate.json
+        if: always()
+        env:
+          GATE_JOB: scheduled-workflow
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+        run: node scripts/ci/write-gate-json.mjs
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-scheduled-workflow
+          path: reports/quality/gates/scheduled-workflow/gate.json
+          if-no-files-found: error
+          retention-days: 14
+
+  ci-readiness:
+    name: CI readiness
+    if: always()
+    needs:
+      - typecheck
+      - lint
+      - format
+      - unit-tests
+      - e2e-tests
+      - mutation-tests
+      - scheduled-workflow
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    outputs:
+      result: ${{ steps.readiness.outputs.result }}
+      status: ${{ steps.readiness.outputs.status }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.10'
+
+      - name: Require successful required jobs and gate.json
+        id: readiness
+        env:
+          CI_NEEDS_JSON: ${{ toJSON(needs) }}
+          FETCH_GATE_ARTIFACTS: '1'
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/check-ci-readiness.mjs
+
+      - name: Upload CI readiness artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-readiness
+          path: |
+            reports/quality/ci-readiness.json
+            reports/quality/gates/ci-readiness/gate.json
+          if-no-files-found: error
+          retention-days: 14

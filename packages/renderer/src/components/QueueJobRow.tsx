@@ -68,13 +68,7 @@ function rowChrome(isActive: boolean): {
   };
 }
 
-function JobProgress({
-  job,
-  isActive,
-}: {
-  job: QueueJob;
-  isActive: boolean;
-}) {
+function JobProgress({ job, isActive }: { job: QueueJob; isActive: boolean }) {
   if (!showsJobProgress(job)) return null;
   return (
     <VStack gap={1} align="stretch">

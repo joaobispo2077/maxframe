@@ -37,14 +37,19 @@ For real analyze/download on your machine you still need:
 GitHub Actions workflows include:
 
 - `CI` (`.github/workflows/ci.yml`)
-  - Runs on `push` for lower environments: `feature/**`, `dev`, `release`
-  - Runs on `pull_request` targeting `release`, `main`
+  - Runs on `push` for `feature/**`, `develop`, and `release`
+  - Runs on `pull_request` targeting `develop`, `release`, and `main`
+  - Required jobs are not filtered by head or base branch. `ci-readiness` fails unless every required job is `success` and uploaded a passing `gate.json`. Skipped, cancelled, failed, and missing `gate.json` are red.
   - Jobs:
     - `typecheck`
+    - `lint` (`npm run lint`)
+    - `format` (`npm run format:check`)
     - `unit-tests` (coverage summary generated and posted as sticky PR comment)
-    - `e2e-tests` (Cypress component mode via `cypress-io/github-action@v7`; only for `dev -> release` and `release -> main` PRs)
-    - `mutation-tests` (Stryker **PR fast profile** on promotion PRs; `ignoreStatic` + InMemory gateway excluded; **incremental** + Actions cache on `reports/stryker-incremental.pr.json`. Strict local/weekly: `npm run test:mutation` or `stryker-full.yml`. [Incremental docs](https://stryker-mutator.io/docs/stryker-js/incremental/).)
-- `Stryker full` (`.github/workflows/stryker-full.yml`) — weekly and manual **non-incremental** mutation run on `ubuntu-latest` (mitigates incremental drift after dependency-only changes).
+    - `e2e-tests` (Cypress component mode via `cypress-io/github-action@v7`)
+    - `mutation-tests` (Stryker **PR fast profile**; `ignoreStatic` + InMemory gateway excluded; incremental cache restores only on an exact key, with no prefix `restore-keys`. A non-exact restore does not count as a score. Strict local/weekly: `npm run test:mutation` or `stryker-full.yml`. [Incremental docs](https://stryker-mutator.io/docs/stryker-js/incremental/).)
+    - `scheduled-workflow` (warns when the Stryker full workflow is not active)
+    - `ci-readiness` (writes `reports/quality/ci-readiness.json` and uploads the `ci-readiness` artifact)
+- `Stryker full` (`.github/workflows/stryker-full.yml`): weekly cron and `workflow_dispatch`. Non-incremental mutation run on `ubuntu-latest` (mitigates incremental drift after dependency-only changes).
 - `Release` (`.github/workflows/release.yml`)
   - **Windows (phase 1):** the pipeline is **gated** — `build-windows` (NSIS on `windows-latest`) → `smoke-windows` (silent install + launch) → `release` (semantic-release on `ubuntu-latest`). A push to `release` (or `workflow_dispatch`) will **not** publish a GitHub release if the Windows build or smoke job fails. macOS and Linux packaged builds are not part of this workflow yet.
   - The **Windows** `*-win-x64.exe` from the build is downloaded on the `release` job and attached to the same GitHub Release as the changelog; see [docs/releasing-windows.md](docs/releasing-windows.md) for artifacts, NSIS flags, and **unsigned** binary notes.
@@ -55,11 +60,11 @@ GitHub Actions workflows include:
 
 Promotion flow:
 
-`feature/* -> dev -> release -> main`
+`feature/* -> develop -> release -> main`
 
 - `main`: production branch
 - `release`: UAT branch and release tag source
-- `dev`: stable integration branch
+- `develop`: stable integration branch
 - `feature/*`: feature development branches
 
 ### Required checks (recommended branch protection)
@@ -67,10 +72,13 @@ Promotion flow:
 Recommended required checks:
 
 - `Typecheck`
+- `Lint`
+- `Format`
 - `Unit Tests`
-- `E2E Tests (Cypress Component)` for:
-  - `dev -> release`
-  - `release -> main`
+- `E2E Tests (Cypress Component)`
+- `Mutation Tests (Stryker)`
+- `Scheduled workflow state`
+- `CI readiness` on `release` and `main` after merge (branch protection is a manual step)
 
 ## Local Commands (same as CI)
 
