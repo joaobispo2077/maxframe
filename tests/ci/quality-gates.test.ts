@@ -84,6 +84,11 @@ describe('ci workflow contract', () => {
     expect(readiness).toContain('node scripts/ci/check-ci-readiness.mjs');
   });
 
+  it('records job status so an earlier step failure is not a skipped receipt', () => {
+    expect(workflow).toContain('GATE_OUTCOME: ${{ job.status }}');
+    expect(workflow).not.toContain('steps.gate.outcome');
+  });
+
   it('restores the Stryker PR cache only on an exact key', () => {
     const cacheStart = workflow.indexOf(
       'Cache Stryker incremental report (exact key only)',

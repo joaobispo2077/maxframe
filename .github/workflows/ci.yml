@@ -28,7 +28,8 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # One retry: a truncated Cypress binary fails npm ci on a checksum mismatch.
+        run: npm ci || { rm -rf node_modules && npm ci; }
 
       - name: Run typecheck
         id: gate
@@ -38,7 +39,7 @@ jobs:
         if: always()
         env:
           GATE_JOB: typecheck
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_OUTCOME: ${{ job.status }}
         run: node scripts/ci/write-gate-json.mjs
 
       - name: Upload gate.json
@@ -65,7 +66,8 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # One retry: a truncated Cypress binary fails npm ci on a checksum mismatch.
+        run: npm ci || { rm -rf node_modules && npm ci; }
 
       - name: Run lint
         id: gate
@@ -75,7 +77,7 @@ jobs:
         if: always()
         env:
           GATE_JOB: lint
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_OUTCOME: ${{ job.status }}
         run: node scripts/ci/write-gate-json.mjs
 
       - name: Upload gate.json
@@ -102,7 +104,8 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # One retry: a truncated Cypress binary fails npm ci on a checksum mismatch.
+        run: npm ci || { rm -rf node_modules && npm ci; }
 
       - name: Run format check
         id: gate
@@ -112,7 +115,7 @@ jobs:
         if: always()
         env:
           GATE_JOB: format
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_OUTCOME: ${{ job.status }}
         run: node scripts/ci/write-gate-json.mjs
 
       - name: Upload gate.json
@@ -142,7 +145,8 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # One retry: a truncated Cypress binary fails npm ci on a checksum mismatch.
+        run: npm ci || { rm -rf node_modules && npm ci; }
 
       - name: Run unit tests
         id: gate
@@ -155,7 +159,7 @@ jobs:
         if: always()
         env:
           GATE_JOB: unit-tests
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_OUTCOME: ${{ job.status }}
         run: node scripts/ci/write-gate-json.mjs
 
       - name: Upload gate.json
@@ -230,13 +234,13 @@ jobs:
         uses: cypress-io/github-action@v7
         with:
           component: true
-          install-command: npm ci
+          install-command: npm ci || { rm -rf node_modules && npm ci; }
 
       - name: Write gate.json
         if: always()
         env:
           GATE_JOB: e2e-tests
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_OUTCOME: ${{ job.status }}
         run: node scripts/ci/write-gate-json.mjs
 
       - name: Upload gate.json
@@ -275,7 +279,8 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # One retry: a truncated Cypress binary fails npm ci on a checksum mismatch.
+        run: npm ci || { rm -rf node_modules && npm ci; }
 
       - name: Ensure reports directory for Stryker cache
         run: mkdir -p reports
@@ -302,7 +307,7 @@ jobs:
         if: always()
         env:
           GATE_JOB: mutation-tests
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_OUTCOME: ${{ job.status }}
         run: node scripts/ci/write-gate-json.mjs
 
       - name: Upload gate.json
@@ -361,7 +366,7 @@ jobs:
         if: always()
         env:
           GATE_JOB: scheduled-workflow
-          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_OUTCOME: ${{ job.status }}
         run: node scripts/ci/write-gate-json.mjs
 
       - name: Upload gate.json
