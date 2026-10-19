@@ -16,18 +16,12 @@ jobs:
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      actions: write
-      contents: read
+    # A job timeout is reported as cancelled in needs.*.result, and it does
+    # not cancel the rest of the run, so ci-readiness can still observe it.
+    timeout-minutes: 1
     steps:
-      - name: Cancel this run so the job result is cancelled
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          sleep 15
-          gh run cancel "$GITHUB_RUN_ID"
-          sleep 60
+      - name: Exceed the job timeout so the result is cancelled
+        run: sleep 180
 
   lint:
     name: Lint
