@@ -17,9 +17,17 @@ jobs:
     name: Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
     steps:
-      - name: Stay in progress so this run can be cancelled
-        run: sleep 180
+      - name: Cancel this run so the job result is cancelled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 15
+          gh run cancel "$GITHUB_RUN_ID"
+          sleep 60
 
   lint:
     name: Lint
