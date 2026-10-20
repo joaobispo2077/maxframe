@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useAnalyzeFlow } from '@ui/hooks/useAnalyzeFlow';
+import { ANALYZE_FAILURE_MESSAGE } from '@ui/lib/userFacingErrors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('useAnalyzeFlow', () => {
@@ -77,7 +78,7 @@ describe('useAnalyzeFlow', () => {
     await act(async () => {
       await result.current.analyzeUrl();
     });
-    expect(result.current.error).toBe('fail');
+    expect(result.current.error).toBe(ANALYZE_FAILURE_MESSAGE);
 
     await act(async () => {
       await result.current.analyzeUrl();

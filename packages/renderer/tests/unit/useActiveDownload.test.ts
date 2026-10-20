@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useActiveDownload } from '@ui/hooks/useActiveDownload';
 import { getLastOutputFolder } from '@ui/lib/appPreferences';
+import { MISSING_OUTPUT_FILE_MESSAGE } from '@ui/lib/userFacingErrors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const BASE_RESULT = {
@@ -148,5 +149,34 @@ describe('useActiveDownload', () => {
 
     expect(setError).not.toHaveBeenCalledWith('Download canceled.');
     expect(result.current.downloadNote).toBeUndefined();
+  });
+
+  it('shows the missing-file message when the download file is gone', async () => {
+    window.maxframeApi.downloadVideo = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          'Download finished but no output file was found next to the path you chose. Check the folder for a new .mp4 or .mkv file, or inspect the yt-dlp error output above.',
+        ),
+      );
+
+    const setError = vi.fn();
+
+    const { result } = renderHook(() =>
+      useActiveDownload({
+        result: BASE_RESULT,
+        outputMode: 'mp4',
+        debugMode: false,
+        setError,
+        setDiagnosticsReport: vi.fn(),
+        setReportCopied: vi.fn(),
+      }),
+    );
+
+    await act(async () => {
+      await result.current.downloadQuality('137', false);
+    });
+
+    expect(setError).toHaveBeenCalledWith(MISSING_OUTPUT_FILE_MESSAGE);
   });
 });
