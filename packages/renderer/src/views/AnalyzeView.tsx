@@ -34,7 +34,7 @@ export function AnalyzeView({
   return (
     <Stack gap={4} align="stretch" minW={0}>
       <Field.Root>
-        <Field.Label htmlFor="unified-queue-urls">Video URLs</Field.Label>
+        <Field.Label htmlFor="unified-queue-urls">YouTube links</Field.Label>
         <Field.HelperText fontSize="sm" color="fg.muted">
           {ANALYZE_URLS_HELPER}
         </Field.HelperText>
@@ -42,9 +42,7 @@ export function AnalyzeView({
           id="unified-queue-urls"
           value={analyze.urlsText}
           onChange={(e) => analyze.setUrlsText(e.target.value)}
-          placeholder={
-            'https://www.youtube.com/watch?v=...\nhttps://youtu.be/...'
-          }
+          placeholder={'https://www.youtube.com/watch?v=…\nhttps://youtu.be/…'}
           rows={4}
           resize="vertical"
           w="100%"
@@ -75,9 +73,9 @@ export function AnalyzeView({
             download.downloadBusy
           }
           loading={analyze.loading}
-          loadingText="Analyzing..."
+          loadingText="Checking…"
         >
-          Analyze quality
+          {analyze.linkCount >= 2 ? 'Check first link' : 'Check quality'}
         </Button>
         <Button
           flex={{ base: '1', sm: 'initial' }}
@@ -87,7 +85,7 @@ export function AnalyzeView({
           onClick={analyze.handleAddToQueue}
           disabled={!analyze.canAddToQueue}
         >
-          Add to queue
+          Add {analyze.linkCount} to queue
         </Button>
       </HStack>
       <AnalyzingIndicator visible={analyze.loading} />
