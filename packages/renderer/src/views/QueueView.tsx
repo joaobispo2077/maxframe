@@ -1,6 +1,6 @@
 import type { useDownloadQueue } from '../hooks/useDownloadQueue.js';
 
-import { Text, VStack } from '@chakra-ui/react';
+import { VStack } from '@chakra-ui/react';
 
 import { DownloadQueuePanel } from '../components/DownloadQueuePanel.js';
 
@@ -22,16 +22,8 @@ type QueueViewProps = {
 };
 
 export function QueueView({ queue, runner }: QueueViewProps) {
-  const hasJobs = queue.model.jobs.length > 0;
-
   return (
     <VStack gap={4} align="stretch">
-      {!hasJobs ? (
-        <Text fontSize="sm" color="fg.muted">
-          No URLs in the queue yet. Paste links on the Analyze tab and choose
-          Add to queue.
-        </Text>
-      ) : null}
       <DownloadQueuePanel
         model={queue.model}
         summary={queue.summary}
