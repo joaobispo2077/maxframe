@@ -226,6 +226,7 @@ jobs:
         env:
           GATE_JOB: e2e-tests
           GATE_OUTCOME: ${{ job.status }}
+          GATE_CYPRESS_JSON: reports/quality/missing-cypress-results.json
         run: node scripts/ci/write-gate-json.mjs
 
       - name: Upload gate.json
