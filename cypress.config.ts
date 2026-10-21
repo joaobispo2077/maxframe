@@ -6,6 +6,14 @@ import { defineConfig as defineViteConfig } from 'vite';
 
 export default defineConfig({
   component: {
+    setupNodeEvents(on) {
+      on('after:run', async (results) => {
+        const { writeCypressResults } = await import(
+          './scripts/ci/write-cypress-results.mjs'
+        );
+        writeCypressResults(results);
+      });
+    },
     devServer: {
       framework: 'react',
       bundler: 'vite',

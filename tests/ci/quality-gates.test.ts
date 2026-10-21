@@ -1,5 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -47,6 +53,7 @@ function passingGates(sha = 'abc') {
         sha,
         runId: '1',
         runAttempt: '1',
+        extra: { value: `${job} ok` },
       }),
     ]),
   );
@@ -98,6 +105,21 @@ describe('ci workflow contract', () => {
     expect(cache).not.toContain('restore-keys');
     expect(cache).toContain('stryker-incremental-pr-');
     expect(workflow).toContain('node scripts/ci/accept-stryker-cache.mjs');
+  });
+
+  it('posts one maxframe quality sticky and leaves size-limit on its own header', () => {
+    expect(workflow).toContain('header: maxframe-quality');
+    expect(workflow).toContain('node scripts/ci/render-quality-report.mjs');
+    expect(workflow).toContain(
+      "github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository",
+    );
+    expect(workflow).not.toContain('code-coverage-results.md');
+    expect(workflow).not.toContain('mutation-test-results.md');
+    const sizeLimit = readFileSync(
+      resolve(root, '.github/workflows/size-limit.yml'),
+      'utf8',
+    );
+    expect(sizeLimit).toContain('header: size-limit-report');
   });
 
   it('removes npm ci --force from every workflow', () => {
@@ -209,6 +231,61 @@ describe('ci readiness', () => {
     expect(passed.runUrl).toBe(
       'https://github.com/joaobispo2077/maxframe/actions/runs/9',
     );
+    expect(passed.rows.find((row) => row.job === 'lint').status).toBe('PASS');
+  });
+
+  it('exits non-zero when a BLOCK row has no counts', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'readiness-unknown-'));
+    const reportPath = join(dir, 'ci-readiness.json');
+    const outputPath = join(dir, 'github-output.txt');
+    writeFileSync(outputPath, '');
+    const gates = passingGates('abc');
+    gates['e2e-tests'] = buildGateReceipt({
+      job: 'e2e-tests',
+      outcome: 'success',
+      sha: 'abc',
+      runId: '1',
+      runAttempt: '1',
+      extra: { value: 'passed, failed, skipped unavailable' },
+    });
+    for (const job of REQUIRED_JOBS) {
+      const gateDir = join(dir, `gate-${job}`);
+      mkdirSync(gateDir, { recursive: true });
+      writeFileSync(
+        join(gateDir, 'gate.json'),
+        `${JSON.stringify(gates[job], null, 2)}\n`,
+      );
+    }
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/ci/check-ci-readiness.mjs'],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          CI_NEEDS_JSON: JSON.stringify(successfulNeeds()),
+          CI_READINESS_REPORT: reportPath,
+          GITHUB_OUTPUT: outputPath,
+          GATE_INCOMING_DIR: dir,
+          GATE_ROOT: join(dir, 'gates'),
+          GITHUB_SHA: 'abc',
+          GITHUB_REPOSITORY: '',
+          GITHUB_RUN_ID: '',
+          GH_TOKEN: '',
+          GITHUB_TOKEN: '',
+        },
+        encoding: 'utf8',
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('CI readiness: UNKNOWN');
+    const report = JSON.parse(readFileSync(reportPath, 'utf8'));
+    const e2e = report.rows.find((row) => row.job === 'e2e-tests');
+    expect(report.status).toBe('UNKNOWN');
+    expect(report.result).not.toBe('success');
+    expect(e2e.status).toBe('UNKNOWN');
+    expect(e2e.value).not.toContain('PASS');
+    expect(readFileSync(outputPath, 'utf8')).toContain('status=UNKNOWN');
   });
 });
 
