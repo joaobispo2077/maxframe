@@ -105,6 +105,8 @@ jobs:
 
   format:
     name: Format
+    # Throwaway proof: a skipped required job must fail CI readiness.
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
