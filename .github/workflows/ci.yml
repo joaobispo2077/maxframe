@@ -392,6 +392,8 @@ jobs:
 
       - name: Render maxframe quality report
         if: always()
+        env:
+          CI_READINESS_REPORT: reports/quality/missing-on-purpose.json
         run: node scripts/ci/render-quality-report.mjs
 
       - name: Publish maxframe quality comment
