@@ -46,13 +46,16 @@ vi.mock('@src/infrastructure/youtube/resolveYtdlpExecutable', () => ({
   resolveYtdlpExecutable: resolveYtdlpExecutableMock,
 }));
 
-vi.mock('@src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg', async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import('@src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg')
-    >();
-  return { ytdlpDownloadNeedsFfmpeg: actual.ytdlpDownloadNeedsFfmpeg };
-});
+vi.mock(
+  '@src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('@src/infrastructure/youtube/ytdlpDownloadNeedsFfmpeg')
+      >();
+    return { ytdlpDownloadNeedsFfmpeg: actual.ytdlpDownloadNeedsFfmpeg };
+  },
+);
 
 const OUTPUT_FILE = 'C:\\Videos\\out.mp4';
 

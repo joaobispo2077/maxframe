@@ -1,6 +1,10 @@
+import type { QueueAction } from './useDownloadQueue.js';
+import type { QueueJob, QueueModel } from '@src/domain/download-queue/model.js';
+
+import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
+
 import { selectNextAction } from '@src/domain/download-queue/model.js';
 import { parseYtdlpProgressLine } from '@src/domain/progress/parseYtdlpProgressLine.js';
-import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
 
 import {
   getLastOutputFolder,
@@ -10,8 +14,6 @@ import {
 } from '../lib/appPreferences.js';
 import { buildSuggestedFileName } from '../lib/buildSuggestedFileName.js';
 import { resolveBestDownload } from '../lib/resolveBestDownload.js';
-import type { QueueJob, QueueModel } from '@src/domain/download-queue/model.js';
-import type { QueueAction } from './useDownloadQueue.js';
 
 type UseQueueRunnerOptions = {
   model: QueueModel;
@@ -31,7 +33,8 @@ export function useQueueRunner({
   stop: () => Promise<void>;
   error: string | undefined;
 } {
-  const [running, setRunning] = useState(false);
+  const [runRequested, setRunRequested] = useState(false);
+  const running = runRequested && model.jobs.length > 0;
   const [error, setError] = useState<string | undefined>();
   const processingRef = useRef(false);
   const stopRequestedRef = useRef(false);
@@ -72,8 +75,7 @@ export function useQueueRunner({
           choice: { formatId: best.formatId, hasAudio: best.hasAudio },
         });
       } catch (caught) {
-        const msg =
-          caught instanceof Error ? caught.message : 'Analyze failed';
+        const msg = caught instanceof Error ? caught.message : 'Analyze failed';
         dispatch({
           type: 'failJob',
           jobId,
@@ -162,12 +164,7 @@ export function useQueueRunner({
     if (!running || processingRef.current) return;
 
     const next = selectNextAction(model);
-    if (!next) {
-      if (model.jobs.length === 0) {
-        setRunning(false);
-      }
-      return;
-    }
+    if (!next) return;
 
     processingRef.current = true;
     void (async () => {
@@ -199,7 +196,7 @@ export function useQueueRunner({
 
     stopRequestedRef.current = false;
     setError(undefined);
-    setRunning(true);
+    setRunRequested(true);
   }, [downloadBusy, model.jobs.length, running]);
 
   const stop = useCallback(async () => {
@@ -218,7 +215,7 @@ export function useQueueRunner({
         dispatch({ type: 'setActiveJob', id: null });
       }
     }
-    setRunning(false);
+    setRunRequested(false);
   }, [dispatch, model.activeJobId, model.jobs]);
 
   return { running, start, stop, error };

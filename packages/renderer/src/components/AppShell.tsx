@@ -1,3 +1,5 @@
+import type { TitleBarInset } from './TitleBar.js';
+
 import type { ReactNode } from 'react';
 
 import { Box, Container, VStack } from '@chakra-ui/react';
@@ -5,8 +7,6 @@ import { Box, Container, VStack } from '@chakra-ui/react';
 import { PageHeader } from './PageHeader.js';
 import { PanelCard } from './PanelCard.js';
 import { TitleBar } from './TitleBar.js';
-
-import type { TitleBarInset } from './TitleBar.js';
 
 type AppShellProps = {
   isPortable: boolean;

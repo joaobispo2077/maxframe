@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { getLastOutputFolder } from '@ui/lib/appPreferences';
 import { useActiveDownload } from '@ui/hooks/useActiveDownload';
+import { getLastOutputFolder } from '@ui/lib/appPreferences';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const BASE_RESULT = {

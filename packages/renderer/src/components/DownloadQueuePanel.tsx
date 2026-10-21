@@ -1,19 +1,12 @@
 import type { ReactElement } from 'react';
 
+import { Box, Heading, Separator, Stack, Text, VStack } from '@chakra-ui/react';
 import {
   canReorderJob,
   type QueueJob,
   type QueueModel,
   type SummaryCounts,
 } from '@src/domain/download-queue/model.js';
-import {
-  Box,
-  Heading,
-  Separator,
-  Stack,
-  Text,
-  VStack,
-} from '@chakra-ui/react';
 
 import { QueueHistorySection } from './QueueHistorySection.js';
 import { QueueJobRow } from './QueueJobRow.js';
@@ -48,17 +41,12 @@ export function DownloadQueuePanel({
   const ordered = sortJobs(model.jobs);
 
   return (
-    <Box
-      mt={6}
-      pt={6}
-      borderTopWidth="1px"
-      borderTopColor="border"
-    >
+    <Box mt={6} pt={6} borderTopWidth="1px" borderTopColor="border">
       <VStack gap={4} align="stretch">
         <Heading size="md">Download queue</Heading>
         <Text fontSize="sm" color="fg.muted">
-          Use <strong>Add to queue</strong> on the Analyze tab for batch URLs (one
-          per line). Reorder and remove jobs before starting.
+          Use <strong>Add to queue</strong> on the Analyze tab for batch URLs
+          (one per line). Reorder and remove jobs before starting.
         </Text>
         <QueueRunnerControls
           running={runnerRunning}

@@ -1,10 +1,7 @@
-import {
-  Button,
-  Field,
-  HStack,
-  Stack,
-  Textarea,
-} from '@chakra-ui/react';
+import type { useActiveDownload } from '../hooks/useActiveDownload.js';
+import type { useAnalyzeFlow } from '../hooks/useAnalyzeFlow.js';
+
+import { Button, Field, HStack, Stack, Textarea } from '@chakra-ui/react';
 
 import { ActiveDownloadPanel } from '../components/ActiveDownloadPanel.js';
 import { AnalyzeErrorBanner } from '../components/AnalyzeErrorBanner.js';
@@ -14,8 +11,6 @@ import { OutputFormatSelect } from '../components/OutputFormatSelect.js';
 import { QualityResultsPanel } from '../components/QualityResultsPanel.js';
 import { SaveMessageBanner } from '../components/SaveMessageBanner.js';
 import { VideoPreviewCard } from '../components/VideoPreviewCard.js';
-import type { useActiveDownload } from '../hooks/useActiveDownload.js';
-import type { useAnalyzeFlow } from '../hooks/useAnalyzeFlow.js';
 import { ANALYZE_URLS_HELPER } from '../lib/pageSubtitles.js';
 
 type AnalyzeFlow = ReturnType<typeof useAnalyzeFlow>;

@@ -3,6 +3,7 @@ import type { DownloadProgressState } from '../hooks/useDownloadProgress.js';
 import { Box } from '@chakra-ui/react';
 
 import { fadeSlideInRevealStyles } from '../theme/motionStyles.js';
+
 import { DownloadProgressCard } from './DownloadProgressCard.js';
 
 type ActiveDownloadPanelProps = {

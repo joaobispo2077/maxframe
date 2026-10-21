@@ -1,3 +1,5 @@
+import type { YtdlpProgressEvent } from '@src/domain/progress/parseYtdlpProgressLine.js';
+
 import {
   applyParsedProgress,
   canReorderJob,
@@ -17,7 +19,6 @@ import {
   trimHistoryJobs,
   type QueueJob,
 } from '@src/domain/download-queue/model.js';
-import type { YtdlpProgressEvent } from '@src/domain/progress/parseYtdlpProgressLine.js';
 
 function sampleProgress(): QueueJob['progress'] {
   return {
@@ -292,9 +293,13 @@ describe('downloadQueueModel', () => {
     ]);
     const idA = m0.jobs[0]!.id;
     const idB = m0.jobs[1]!.id;
-    const analyzedBoth = setJobAnalysis(setJobAnalysis(m0, idA, { url: 'a' }), idB, {
-      url: 'b',
-    });
+    const analyzedBoth = setJobAnalysis(
+      setJobAnalysis(m0, idA, { url: 'a' }),
+      idB,
+      {
+        url: 'b',
+      },
+    );
     expect(selectNextAction(analyzedBoth)).toBe(null);
   });
 
@@ -325,7 +330,7 @@ describe('downloadQueueModel', () => {
   });
 
   it('markComplete trims history past HISTORY_CAP', () => {
-    let i = 0;
+    const i = 0;
     const empty = createEmptyQueueModel();
     let m = empty;
     for (let k = 0; k < 52; k++) {

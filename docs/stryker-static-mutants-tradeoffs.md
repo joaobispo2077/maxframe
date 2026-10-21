@@ -123,9 +123,9 @@ This keeps mutation outcomes visible and reviewable without opening full logs.
 
 Dual profiles are now in place:
 
-| Profile | Config | Used by |
-|---|---|---|
-| **Strict** | `stryker.config.mjs` | `npm run test:mutation`, weekly `stryker-full.yml` |
+| Profile     | Config                  | Used by                                                         |
+| ----------- | ----------------------- | --------------------------------------------------------------- |
+| **Strict**  | `stryker.config.mjs`    | `npm run test:mutation`, weekly `stryker-full.yml`              |
 | **PR fast** | `stryker.config.pr.mjs` | `npm run test:mutation:pr:incremental`, CI `mutation-tests` job |
 
 Shared options live in `stryker.config.base.mjs`. PR fast sets `ignoreStatic: true` and excludes `InMemoryVideoMetadataGateway.ts` (test double). See `specs/active/stryker-172-mutants/`.

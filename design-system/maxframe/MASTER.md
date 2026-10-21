@@ -24,15 +24,15 @@ Skill-generated landing-page patterns (hero video, app-store sections, light pal
 
 **Locked brand palette:**
 
-| Role | Hex | Chakra token |
-|------|-----|--------------|
-| Brand / CTA | `#A855F7` | `purple.500` → `brand.primary` |
-| Secondary accent | `#00f0ff` | `cyan.400` → `brand.secondary` |
-| Canvas | `#070b12` | `surface.canvas` |
-| Panel | `#0f141c` | `surface.panel` |
-| Elevated surface | `#1E1B4B` | `surface.elevated` |
-| Text | `#F8FAFC` | `fg` |
-| Best quality highlight | `#4ADE80` | `green.400` → `accent.best` |
+| Role                   | Hex       | Chakra token                   |
+| ---------------------- | --------- | ------------------------------ |
+| Brand / CTA            | `#A855F7` | `purple.500` → `brand.primary` |
+| Secondary accent       | `#00f0ff` | `cyan.400` → `brand.secondary` |
+| Canvas                 | `#070b12` | `surface.canvas`               |
+| Panel                  | `#0f141c` | `surface.panel`                |
+| Elevated surface       | `#1E1B4B` | `surface.elevated`             |
+| Text                   | `#F8FAFC` | `fg`                           |
+| Best quality highlight | `#4ADE80` | `green.400` → `accent.best`    |
 
 **Rejected from skill auto-output:** `#E11D48` rose CTA, light-mode palettes, landing-page section orders.
 
@@ -40,20 +40,20 @@ Skill-generated landing-page patterns (hero video, app-store sections, light pal
 
 Icon-only mark — wordmark is rendered separately as `Heading` in `PageHeader`.
 
-| Attribute | Value |
-|-----------|-------|
-| Concept | Ascending bars = climbing to maximum video resolution |
-| Primary | `#A855F7` / `#9333EA` (icon variant uses full opacity) |
-| Accent | `#00f0ff` (top bar = peak quality) |
-| Display size | 96×96 in `PageHeader` |
-| Icon size | 16–48px taskbar, title bar, favicon, `AppNav` (28px) |
+| Attribute    | Value                                                  |
+| ------------ | ------------------------------------------------------ |
+| Concept      | Ascending bars = climbing to maximum video resolution  |
+| Primary      | `#A855F7` / `#9333EA` (icon variant uses full opacity) |
+| Accent       | `#00f0ff` (top bar = peak quality)                     |
+| Display size | 96×96 in `PageHeader`                                  |
+| Icon size    | 16–48px taskbar, title bar, favicon, `AppNav` (28px)   |
 
 **Two assets — do not mix:**
 
-| Asset | File | Consumer |
-|-------|------|----------|
-| Display (transparent, airy) | `.github/assets/maxframe-logo.png` | README, `PageHeader` hero |
-| Icon (compact, opaque) | `.github/assets/maxframe-logo-icon.png` | `AppNav`, favicon, Electron window, electron-builder |
+| Asset                       | File                                    | Consumer                                             |
+| --------------------------- | --------------------------------------- | ---------------------------------------------------- |
+| Display (transparent, airy) | `.github/assets/maxframe-logo.png`      | README, `PageHeader` hero                            |
+| Icon (compact, opaque)      | `.github/assets/maxframe-logo-icon.png` | `AppNav`, favicon, Electron window, electron-builder |
 
 **Source SVGs:** `specs/active/maxframe-logo-refresh/maxframe-logo.svg` (display), `maxframe-logo-icon.svg` (compact).
 
@@ -67,14 +67,14 @@ Icon-only mark — wordmark is rendered separately as `Heading` in `PageHeader`.
 
 ### Color Palette
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Brand / CTA | `#A855F7` | `--color-brand` |
-| Secondary accent | `#00f0ff` | `--color-secondary` |
-| Elevated surface | `#1E1B4B` | `--color-elevated` |
-| Background | `#070b12` | `--color-background` |
-| Panel | `#0f141c` | `--color-panel` |
-| Text | `#F8FAFC` | `--color-text` |
+| Role             | Hex       | CSS Variable         |
+| ---------------- | --------- | -------------------- |
+| Brand / CTA      | `#A855F7` | `--color-brand`      |
+| Secondary accent | `#00f0ff` | `--color-secondary`  |
+| Elevated surface | `#1E1B4B` | `--color-elevated`   |
+| Background       | `#070b12` | `--color-background` |
+| Panel            | `#0f141c` | `--color-panel`      |
+| Text             | `#F8FAFC` | `--color-text`       |
 
 **Color Notes:** Purple-led OLED dark + cyan progress accents
 
@@ -86,23 +86,23 @@ Icon-only mark — wordmark is rendered separately as `Heading` in `PageHeader`.
 
 ### Spacing Variables
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--space-xs` | `4px` / `0.25rem` | Tight gaps |
-| `--space-sm` | `8px` / `0.5rem` | Icon gaps, inline spacing |
-| `--space-md` | `16px` / `1rem` | Standard padding |
-| `--space-lg` | `24px` / `1.5rem` | Section padding |
-| `--space-xl` | `32px` / `2rem` | Large gaps |
-| `--space-2xl` | `48px` / `3rem` | Section margins |
-| `--space-3xl` | `64px` / `4rem` | Hero padding |
+| Token         | Value             | Usage                     |
+| ------------- | ----------------- | ------------------------- |
+| `--space-xs`  | `4px` / `0.25rem` | Tight gaps                |
+| `--space-sm`  | `8px` / `0.5rem`  | Icon gaps, inline spacing |
+| `--space-md`  | `16px` / `1rem`   | Standard padding          |
+| `--space-lg`  | `24px` / `1.5rem` | Section padding           |
+| `--space-xl`  | `32px` / `2rem`   | Large gaps                |
+| `--space-2xl` | `48px` / `3rem`   | Section margins           |
+| `--space-3xl` | `64px` / `4rem`   | Hero padding              |
 
 ### Shadow Depths
 
-| Level | Value | Usage |
-|-------|-------|-------|
-| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift |
-| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.1)` | Cards, buttons |
-| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)` | Modals, dropdowns |
+| Level         | Value                          | Usage                       |
+| ------------- | ------------------------------ | --------------------------- |
+| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)`   | Subtle lift                 |
+| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.1)`    | Cards, buttons              |
+| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)`  | Modals, dropdowns           |
 | `--shadow-xl` | `0 20px 25px rgba(0,0,0,0.15)` | Hero images, featured cards |
 
 ---
@@ -114,7 +114,7 @@ Icon-only mark — wordmark is rendered separately as `Heading` in `PageHeader`.
 ```css
 /* Primary Button */
 .btn-primary {
-  background: #E11D48;
+  background: #e11d48;
   color: white;
   padding: 12px 24px;
   border-radius: 8px;
@@ -131,8 +131,8 @@ Icon-only mark — wordmark is rendered separately as `Heading` in `PageHeader`.
 /* Secondary Button */
 .btn-secondary {
   background: transparent;
-  color: #0F0F23;
-  border: 2px solid #0F0F23;
+  color: #0f0f23;
+  border: 2px solid #0f0f23;
   padding: 12px 24px;
   border-radius: 8px;
   font-weight: 600;
@@ -164,16 +164,16 @@ Icon-only mark — wordmark is rendered separately as `Heading` in `PageHeader`.
 ```css
 .input {
   padding: 12px 16px;
-  border: 1px solid #E2E8F0;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-size: 16px;
   transition: border-color 200ms ease;
 }
 
 .input:focus {
-  border-color: #0F0F23;
+  border-color: #0f0f23;
   outline: none;
-  box-shadow: 0 0 0 3px #0F0F2320;
+  box-shadow: 0 0 0 3px #0f0f2320;
 }
 ```
 

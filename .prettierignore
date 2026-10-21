@@ -7,3 +7,4 @@ coverage
 cypress/screenshots
 cypress/videos
 package-lock.json
+CHANGELOG.md

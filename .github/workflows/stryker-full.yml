@@ -1,5 +1,9 @@
 # Full mutation testing without incremental cache (drift mitigation).
 # See README CI section and https://stryker-mutator.io/docs/stryker-js/incremental/
+# Weekly cron plus workflow_dispatch. GitHub disables this schedule after
+# 60 days without a push to the default branch. ci.yml warns when the
+# workflow state is no longer active. A cron run only starts from the
+# default branch, so workflow_dispatch is how a run is proven before merge.
 
 name: Stryker full
 
@@ -24,7 +28,8 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --force
+        # One retry: a truncated Cypress binary fails npm ci on a checksum mismatch.
+        run: npm ci || { rm -rf node_modules && npm ci; }
 
       - name: Run mutation tests (full)
         run: npm run test:mutation

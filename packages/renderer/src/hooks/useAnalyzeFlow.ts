@@ -20,7 +20,9 @@ export function useAnalyzeFlow({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [result, setResult] = useState<AnalyzeVideoResult>();
-  const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>(getDefaultOutputMode);
+  const [outputMode, setOutputMode] = useState<'mp3' | 'mp4'>(
+    getDefaultOutputMode,
+  );
   const [diagnosticsReport, setDiagnosticsReport] = useState<
     DiagnosticsReport | undefined
   >();
