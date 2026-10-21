@@ -14,12 +14,24 @@ function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function blockRowIsUnknown(report) {
+  if (!Array.isArray(report.rows)) return false;
+  return report.rows.some(
+    (row) => row?.mode === 'BLOCK' && row?.status === 'UNKNOWN',
+  );
+}
+
 export function displayOverall(report) {
   if (!isObject(report)) return 'UNKNOWN';
   if (report.status === 'FAIL') return 'FAIL';
+  if (blockRowIsUnknown(report)) return 'UNKNOWN';
   if (report.status !== 'PASS') return 'UNKNOWN';
   if (!passIsComplete(report)) return 'FAIL';
   return 'PASS';
+}
+
+export function qualityReportExitCode(overall) {
+  return overall === 'PASS' ? 0 : 1;
 }
 
 function passIsComplete(report) {
@@ -86,8 +98,10 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
     return unknownQualityMarkdown('ci-readiness.json is unreadable.');
   }
   const lines = ['## maxframe quality', '', overallLine(overall), ''];
+  const hasRows = Array.isArray(report.rows) && report.rows.length > 0;
   if (
     overall === 'UNKNOWN' &&
+    !hasRows &&
     report.status !== 'FAIL' &&
     report.status !== 'PASS'
   ) {
@@ -97,6 +111,8 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
       'This is not a pass.',
       '',
     );
+  } else if (overall === 'UNKNOWN') {
+    lines.push('This is not a pass.', '');
   }
   if (Array.isArray(report.rows) && report.rows.length > 0) {
     lines.push(
@@ -185,4 +201,5 @@ if (isDirectRun()) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n${markdown}\n`);
   }
   console.log(`Wrote ${outPath} (overall ${overall})`);
+  process.exit(qualityReportExitCode(overall));
 }

@@ -129,7 +129,6 @@ export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
       accepted: !failures.some((failure) => failure.startsWith(`${job}:`)),
     };
   }
-  const passed = failures.length === 0;
   const server = env.GITHUB_SERVER_URL || 'https://github.com';
   const repository = env.GITHUB_REPOSITORY || '';
   const runId = env.GITHUB_RUN_ID || '';
@@ -138,6 +137,12 @@ export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
       ? `${server}/${repository}/actions/runs/${runId}`
       : null;
   const runAttempt = env.GITHUB_RUN_ATTEMPT || null;
+  const rows = buildQualityRows({ needs, gates, jobUrls, runUrl });
+  const blockUnknown = rows.some(
+    (row) => row?.mode === 'BLOCK' && row?.status === 'UNKNOWN',
+  );
+  const status =
+    failures.length > 0 ? 'FAIL' : blockUnknown ? 'UNKNOWN' : 'PASS';
   return {
     schemaVersion: 1,
     gate: 'ci-readiness',
@@ -145,12 +150,12 @@ export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
     runId: runId || null,
     runAttempt,
     runUrl,
-    status: passed ? 'PASS' : 'FAIL',
-    result: passed ? 'success' : 'failure',
+    status,
+    result: status === 'PASS' ? 'success' : 'failure',
     requiredJobs: REQUIRED_JOBS,
     jobs,
     failures,
-    rows: buildQualityRows({ needs, gates, jobUrls, runUrl }),
+    rows,
     attemptLine: attemptLine(runAttempt),
   };
 }
@@ -334,8 +339,8 @@ export async function main(env = process.env) {
   writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
   writeGateReceiptFile(report, env);
   writeOutputs(env, report);
-  if (failures.length > 0) {
-    console.error('CI readiness: FAIL');
+  if (report.status !== 'PASS') {
+    console.error(`CI readiness: ${report.status}`);
     for (const failure of failures) console.error(`  ${failure}`);
     return 1;
   }

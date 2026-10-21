@@ -368,6 +368,13 @@ function needsResult(needs, job) {
   return typeof evidence.result === 'string' ? evidence.result : null;
 }
 
+export function isMissingCountValue(value) {
+  if (value == null) return true;
+  const text = String(value).trim();
+  if (!text) return true;
+  return /unavailable/i.test(text);
+}
+
 function blockRow(spec, needs, receipt, runUrl) {
   const result = needsResult(needs, spec.job);
   const base = {
@@ -408,10 +415,18 @@ function blockRow(spec, needs, receipt, runUrl) {
       : `${spec.gate}: FAIL. Unavailable: no evidence from this run.`;
     return { ...base, status: 'FAIL', value: detail };
   }
+  if (isMissingCountValue(receipt.value)) {
+    return {
+      ...base,
+      status: 'UNKNOWN',
+      value: `${spec.gate}: UNKNOWN. Counts unavailable from this run.`,
+      evidenceSha256: null,
+    };
+  }
   return {
     ...base,
     status: 'PASS',
-    value: receipt.value || 'job succeeded, counts unavailable',
+    value: receipt.value,
   };
 }
 

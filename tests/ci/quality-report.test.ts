@@ -1,6 +1,7 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -23,6 +24,7 @@ import {
 } from '../../scripts/ci/gate-metrics.mjs';
 import {
   displayOverall,
+  qualityReportExitCode,
   renderQualityMarkdown,
   renderQualityReportFile,
   renderQualityReportText,
@@ -31,6 +33,8 @@ import {
   buildGateReceipt,
   publishGateLog,
 } from '../../scripts/ci/write-gate-json.mjs';
+
+const root = resolve(import.meta.dirname, '../..');
 
 function mutants(status, count) {
   return Array.from({ length: count }, () => ({ status }));
@@ -153,6 +157,68 @@ describe('quality report fail closed', () => {
     );
     expect(rendered.markdown).toContain('Commit: `abc`');
     expect(rendered.markdown).toContain('Attempt 2.');
+    expect(qualityReportExitCode(rendered.overall)).toBe(0);
+  });
+
+  it('marks a BLOCK row UNKNOWN when counts are missing and fails the verdict', () => {
+    const gates = passingGates();
+    gates['e2e-tests'] = buildGateReceipt({
+      job: 'e2e-tests',
+      outcome: 'success',
+      sha: 'abc',
+      extra: { value: null },
+    });
+    gates.format = buildGateReceipt({
+      job: 'format',
+      outcome: 'success',
+      sha: 'abc',
+      extra: { value: 'format file count unavailable' },
+    });
+    gates.lint = buildGateReceipt({
+      job: 'lint',
+      outcome: 'success',
+      sha: 'abc',
+      extra: { value: '   ' },
+    });
+    const report = buildReport({
+      needs: successfulNeeds(),
+      gates,
+      failures: [],
+      env: { GITHUB_SHA: 'abc' },
+    });
+    for (const job of ['e2e-tests', 'format', 'lint']) {
+      const row = report.rows.find((item) => item.job === job);
+      expect(row.mode).toBe('BLOCK');
+      expect(row.status).toBe('UNKNOWN');
+      expect(row.value).toContain('UNKNOWN');
+      expect(row.value).not.toContain('PASS');
+    }
+    expect(report.status).toBe('UNKNOWN');
+    expect(report.result).not.toBe('success');
+    expect(displayOverall(report)).toBe('UNKNOWN');
+    expect(qualityReportExitCode(displayOverall(report))).toBe(1);
+    const markdown = renderQualityMarkdown(report);
+    expect(markdown).toContain('Overall: UNKNOWN');
+    expect(markdown).toContain('This is not a pass.');
+    expect(markdown).not.toContain('Overall: PASS');
+    expect(markdown).not.toContain('ci-readiness.json is unreadable');
+  });
+
+  it('keeps PASS and INFO-only rows at exit 0', () => {
+    expect(qualityReportExitCode('PASS')).toBe(0);
+    expect(qualityReportExitCode('UNKNOWN')).toBe(1);
+    expect(qualityReportExitCode('FAIL')).toBe(1);
+    const report = passingReport();
+    const info = report.rows.filter((row) => row.mode === 'INFO');
+    expect(info.some((row) => row.status === 'UNKNOWN')).toBe(true);
+    expect(info.every((row) => row.status !== 'PASS')).toBe(true);
+    expect(
+      report.rows
+        .filter((row) => row.mode === 'BLOCK')
+        .every((row) => row.status === 'PASS'),
+    ).toBe(true);
+    expect(displayOverall(report)).toBe('PASS');
+    expect(qualityReportExitCode(displayOverall(report))).toBe(0);
   });
 
   it('names a skipped BLOCK job as FAIL', () => {
@@ -343,5 +409,83 @@ describe('job numbers', () => {
     expect(readFileSync(summary, 'utf8')).toContain(
       'lines 80.00% (8/10) vs threshold none',
     );
+  });
+});
+
+describe('quality report process exit', () => {
+  it('writes the UNKNOWN sticky and then exits non-zero when the report is missing', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'quality-missing-'));
+    const markdownPath = join(dir, 'maxframe-quality.md');
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/ci/render-quality-report.mjs'],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          CI_READINESS_REPORT: join(dir, 'missing-on-purpose.json'),
+          QUALITY_REPORT: markdownPath,
+        },
+        encoding: 'utf8',
+      },
+    );
+    expect(result.status).toBe(1);
+    const markdown = readFileSync(markdownPath, 'utf8');
+    expect(markdown).toContain('Overall: UNKNOWN');
+    expect(markdown).toContain('ci-readiness.json is missing.');
+    expect(markdown).not.toContain('Overall: PASS');
+    expect(result.stdout).toContain('Overall: UNKNOWN');
+  });
+
+  it('exits 0 after writing a PASS sticky when only INFO rows are non-PASS', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'quality-pass-'));
+    const reportPath = join(dir, 'ci-readiness.json');
+    const markdownPath = join(dir, 'maxframe-quality.md');
+    const report = passingReport();
+    writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/ci/render-quality-report.mjs'],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          CI_READINESS_REPORT: reportPath,
+          QUALITY_REPORT: markdownPath,
+        },
+        encoding: 'utf8',
+      },
+    );
+    expect(result.status).toBe(0);
+    const markdown = readFileSync(markdownPath, 'utf8');
+    expect(markdown).toContain('Overall: PASS');
+    expect(result.stdout).toContain('overall PASS');
+  });
+
+  it('exits non-zero after writing a FAIL sticky', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'quality-fail-'));
+    const reportPath = join(dir, 'ci-readiness.json');
+    const markdownPath = join(dir, 'maxframe-quality.md');
+    const report = passingReport();
+    report.status = 'FAIL';
+    report.failures = ['format: expected success, received "skipped"'];
+    writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/ci/render-quality-report.mjs'],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          CI_READINESS_REPORT: reportPath,
+          QUALITY_REPORT: markdownPath,
+        },
+        encoding: 'utf8',
+      },
+    );
+    expect(result.status).toBe(1);
+    const markdown = readFileSync(markdownPath, 'utf8');
+    expect(markdown).toContain('Overall: FAIL');
+    expect(markdown).not.toContain('Overall: PASS');
   });
 });
