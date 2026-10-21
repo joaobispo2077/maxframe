@@ -121,7 +121,7 @@ jobs:
           Copy-Item $exe.FullName 'buildResources\ffmpeg\ffmpeg.exe'
 
       - name: Bump version to match release (${{ needs.determine-version.outputs.next-version }})
-        run: npm version ${{ needs.determine-version.outputs.next-version }} --no-git-tag-version
+        run: npm version ${{ needs.determine-version.outputs.next-version }} --no-git-tag-version --allow-same-version
 
       - name: Windows installer
         env:
@@ -188,7 +188,7 @@ jobs:
           Copy-Item $exe.FullName 'buildResources\ffmpeg\ffmpeg.exe'
 
       - name: Bump version to match release (${{ needs.determine-version.outputs.next-version }})
-        run: npm version ${{ needs.determine-version.outputs.next-version }} --no-git-tag-version
+        run: npm version ${{ needs.determine-version.outputs.next-version }} --no-git-tag-version --allow-same-version
 
       - name: Windows portable
         env:
