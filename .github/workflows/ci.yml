@@ -392,6 +392,9 @@ jobs:
 
       - name: Render maxframe quality report
         if: always()
+        env:
+          # Throwaway proof: point the renderer at a file this run never writes.
+          CI_READINESS_REPORT: reports/quality/missing-on-purpose.json
         run: node scripts/ci/render-quality-report.mjs
 
       - name: Publish maxframe quality comment
