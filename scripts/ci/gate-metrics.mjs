@@ -1,0 +1,704 @@
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+
+export const LINT_WARNING_BASELINE = 13;
+export const LINT_ERROR_BASELINE = 0;
+
+export const BLOCK_GATES = [
+  { job: 'typecheck', gate: 'Typecheck', floor: '0 errors' },
+  {
+    job: 'lint',
+    gate: 'Lint',
+    floor: `no new violations (0 errors, warnings <= ${LINT_WARNING_BASELINE})`,
+  },
+  { job: 'format', gate: 'Format', floor: '0 files' },
+  { job: 'unit-tests', gate: 'Unit', floor: 'tests pass' },
+  { job: 'e2e-tests', gate: 'E2E', floor: 'tests pass' },
+  {
+    job: 'scheduled-workflow',
+    gate: 'Scheduled workflow',
+    floor: 'workflow state readable',
+  },
+];
+
+export const INFO_GATES = [
+  { job: 'coverage', gate: 'Coverage' },
+  { job: 'crap', gate: 'CRAP' },
+  { job: 'jscpd', gate: 'jscpd' },
+  { job: 'knip', gate: 'knip' },
+  { job: 'dependency-cruiser', gate: 'dependency-cruiser' },
+  { job: 'stryker-floor', gate: 'Stryker floor' },
+];
+
+const INFO_UNAVAILABLE =
+  'Unavailable: no evidence from this run. Informational. Does not change Overall.';
+
+const ANSI = /\u001b\[[0-9;]*m/g;
+
+export function sha256Text(text) {
+  return createHash('sha256').update(text).digest('hex');
+}
+
+export function sha256File(path) {
+  return sha256Text(readFileSync(path));
+}
+
+export function stripAnsi(text) {
+  return String(text).replace(ANSI, '');
+}
+
+function readText(path) {
+  if (!path || !existsSync(path)) return null;
+  return readFileSync(path, 'utf8');
+}
+
+function readJson(path) {
+  const text = readText(path);
+  if (text == null) return null;
+  return JSON.parse(text);
+}
+
+export function lintFloorLabel() {
+  return BLOCK_GATES.find((gate) => gate.job === 'lint').floor;
+}
+
+export function readEslintCounts(report) {
+  const files = Array.isArray(report) ? report : [];
+  return files.reduce(
+    (totals, file) => ({
+      errors: totals.errors + Number(file?.errorCount ?? 0),
+      warnings: totals.warnings + Number(file?.warningCount ?? 0),
+    }),
+    { errors: 0, warnings: 0 },
+  );
+}
+
+export function lintBaselineFailures(counts) {
+  const failures = [];
+  if (counts.errors > LINT_ERROR_BASELINE) {
+    failures.push(
+      `lint baseline: ${counts.errors} errors, floor is ${LINT_ERROR_BASELINE}`,
+    );
+  }
+  if (counts.warnings > LINT_WARNING_BASELINE) {
+    failures.push(
+      `lint baseline: ${counts.warnings} warnings, floor is ${LINT_WARNING_BASELINE}`,
+    );
+  }
+  return failures;
+}
+
+export function formatLintValue(counts) {
+  return `${counts.errors} errors, ${counts.warnings} warnings`;
+}
+
+export function formatEslintMessages(report) {
+  const lines = [];
+  for (const file of Array.isArray(report) ? report : []) {
+    for (const message of file?.messages ?? []) {
+      const level = message.severity === 2 ? 'error' : 'warning';
+      lines.push(
+        `${file.filePath}:${message.line ?? 0} ${level} ${message.message} ${message.ruleId ?? ''}`.trim(),
+      );
+    }
+  }
+  return lines;
+}
+
+export function countTypecheckErrors(logText) {
+  if (logText == null) return null;
+  const matches = stripAnsi(logText).match(/error TS\d+/g);
+  return matches ? matches.length : 0;
+}
+
+export function countFormatFiles(logText) {
+  if (logText == null) return null;
+  const text = stripAnsi(logText);
+  const summary = text.match(/Code style issues found in (\d+) files?/);
+  if (summary) return Number(summary[1]);
+  if (/All matched files use Prettier code style/.test(text)) return 0;
+  return null;
+}
+
+export function readCoverageTotals(summary) {
+  const total = summary?.total;
+  if (!total || typeof total !== 'object') return null;
+  const metric = (key) => {
+    const item = total[key];
+    if (!item || typeof item.pct !== 'number' || Number.isNaN(item.pct)) {
+      return null;
+    }
+    return {
+      pct: item.pct,
+      covered: Number.isFinite(item.covered) ? item.covered : null,
+      total: Number.isFinite(item.total) ? item.total : null,
+    };
+  };
+  const lines = metric('lines');
+  const statements = metric('statements');
+  const branches = metric('branches');
+  const functions = metric('functions');
+  if (!lines || !statements || !branches || !functions) return null;
+  return { lines, statements, branches, functions };
+}
+
+function coveragePart(label, item) {
+  const counts =
+    item.covered != null && item.total != null
+      ? ` (${item.covered}/${item.total})`
+      : '';
+  return `${label} ${item.pct.toFixed(2)}%${counts} vs threshold none`;
+}
+
+export function formatCoverageLines(totals) {
+  return [
+    coveragePart('lines', totals.lines),
+    coveragePart('statements', totals.statements),
+    coveragePart('branches', totals.branches),
+    coveragePart('functions', totals.functions),
+  ];
+}
+
+export function formatCoverageValue(totals) {
+  return formatCoverageLines(totals).join('; ');
+}
+
+export function readVitestCounts(report) {
+  if (!report || typeof report !== 'object') return null;
+  const passed = report.numPassedTests;
+  const failed = report.numFailedTests;
+  const pending = report.numPendingTests;
+  if (![passed, failed, pending].every((value) => Number.isFinite(value))) {
+    return null;
+  }
+  return { passed, failed, skipped: pending };
+}
+
+export function formatTestValue(counts) {
+  return `${counts.passed} passed, ${counts.failed} failed, ${counts.skipped} skipped`;
+}
+
+export function readCypressCounts(report) {
+  if (!report || typeof report !== 'object') return null;
+  if (report.status === 'failed' && !Number.isFinite(report.totalPassed)) {
+    return null;
+  }
+  const passed = report.totalPassed;
+  const failed = report.totalFailed;
+  const skipped =
+    Number(report.totalSkipped ?? 0) + Number(report.totalPending ?? 0);
+  if (![passed, failed].every((value) => Number.isFinite(value))) return null;
+  return { passed, failed, skipped };
+}
+
+export function readScheduledState(report) {
+  if (!report || typeof report !== 'object') return null;
+  if (typeof report.state === 'string' && report.state) {
+    return { state: report.state, warning: report.warning ?? null };
+  }
+  if (typeof report.error === 'string' && report.error) {
+    return { state: null, warning: report.error };
+  }
+  return null;
+}
+
+export function countMutants(report) {
+  const counts = {
+    Killed: 0,
+    Survived: 0,
+    Timeout: 0,
+    NoCoverage: 0,
+    RuntimeError: 0,
+    CompileError: 0,
+    Ignored: 0,
+    Pending: 0,
+  };
+  for (const file of Object.values(report?.files ?? {})) {
+    for (const mutant of file?.mutants ?? []) {
+      const status = mutant?.status ?? 'Pending';
+      if (status in counts) counts[status] += 1;
+      else counts.Pending += 1;
+    }
+  }
+  return counts;
+}
+
+export function scoredMutantTotal(counts) {
+  return (
+    counts.Killed +
+    counts.Survived +
+    counts.Timeout +
+    counts.NoCoverage +
+    counts.RuntimeError +
+    counts.CompileError
+  );
+}
+
+export function parseReuseLine(logText) {
+  if (!logText) return null;
+  const match = stripAnsi(logText).match(
+    /Result:\s+(\d+) of (\d+) mutant result\(s\) are reused/,
+  );
+  if (!match) return null;
+  return { reused: Number(match[1]), universe: Number(match[2]) };
+}
+
+function percent(numerator, denominator) {
+  if (!denominator) return null;
+  return (numerator / denominator) * 100;
+}
+
+export function mutationMetrics({
+  report,
+  logText = '',
+  profile = 'incremental',
+  cacheDecision = null,
+}) {
+  if (!report) return null;
+  const counts = countMutants(report);
+  const scored = scoredMutantTotal(counts);
+  const detectedScore = percent(counts.Killed + counts.Timeout, scored);
+  const killedOnlyScore = percent(counts.Killed, scored);
+  const timeoutPct = percent(counts.Timeout, scored);
+  const base = {
+    profile,
+    killed: counts.Killed,
+    survived: counts.Survived,
+    timeout: counts.Timeout,
+    noCoverage: counts.NoCoverage,
+    runtimeError: counts.RuntimeError,
+    compileError: counts.CompileError,
+    ignored: counts.Ignored,
+    scored,
+    detectedScore,
+    killedOnlyScore,
+    timeoutPct,
+    timeoutAbove2: timeoutPct != null && timeoutPct > 2,
+    zeroMutants: scored === 0,
+    countsUnknown: false,
+    tested: null,
+    cached: null,
+    reusedOf: null,
+  };
+  if (base.zeroMutants) {
+    return { ...base, tested: 0, cached: 0 };
+  }
+  const fresh = profile === 'full' || cacheDecision?.exact === false;
+  if (fresh) {
+    return { ...base, tested: scored, cached: 0, reusedOf: null };
+  }
+  const reuse = parseReuseLine(logText);
+  if (!reuse) {
+    return { ...base, countsUnknown: true };
+  }
+  return {
+    ...base,
+    tested: Math.max(0, scored - reuse.reused),
+    cached: reuse.reused,
+    reusedOf: reuse.universe,
+  };
+}
+
+function formatPct(value) {
+  return value == null ? 'unavailable' : `${value.toFixed(2)}%`;
+}
+
+export function strykerRowValue(metrics) {
+  if (!metrics || metrics.countsUnknown) {
+    return "Reuse counts unavailable. Score is not treated as this run's own result.";
+  }
+  if (metrics.zeroMutants) return 'Zero mutants. Efficacy unavailable.';
+  const timeoutNote = metrics.timeoutAbove2
+    ? ` Timeouts above 2% (${formatPct(metrics.timeoutPct)}).`
+    : '';
+  const scores =
+    metrics.tested === 0
+      ? `Cached score with timeouts as detected: ${formatPct(metrics.detectedScore)}. Killed only: ${formatPct(metrics.killedOnlyScore)}.`
+      : `Score with timeouts as detected: ${formatPct(metrics.detectedScore)}. Killed only: ${formatPct(metrics.killedOnlyScore)}.`;
+  const cacheLabel = metrics.tested === 0 ? 'cached, not a floor sample. ' : '';
+  return `${cacheLabel}Profile: ${metrics.profile}. ${metrics.tested} tested this run, ${metrics.cached} cached. ${scores}${timeoutNote}`.trim();
+}
+
+export function buildStrykerRow({
+  metrics,
+  jobResult,
+  runUrl = null,
+  evidenceSha256 = null,
+}) {
+  const base = {
+    gate: 'Stryker floor',
+    job: 'stryker-floor',
+    mode: 'INFO',
+    floor: 'none',
+    runUrl,
+    evidenceSha256,
+  };
+  if (!metrics || metrics.countsUnknown) {
+    const missing = !metrics;
+    if (
+      missing &&
+      jobResult &&
+      jobResult !== 'success' &&
+      jobResult !== 'skipped' &&
+      jobResult !== 'cancelled'
+    ) {
+      return {
+        ...base,
+        status: 'FAIL',
+        value: 'Stryker floor: FAIL. Unavailable: no evidence from this run.',
+        evidenceSha256: null,
+      };
+    }
+    return {
+      ...base,
+      status: 'UNKNOWN',
+      value: metrics?.countsUnknown
+        ? strykerRowValue(metrics)
+        : INFO_UNAVAILABLE,
+      evidenceSha256: metrics ? evidenceSha256 : null,
+    };
+  }
+  const status = jobResult === 'success' ? 'INFO' : 'FAIL';
+  return { ...base, status, value: strykerRowValue(metrics) };
+}
+
+function needsResult(needs, job) {
+  const evidence = needs?.[job];
+  if (!evidence || typeof evidence !== 'object') return null;
+  return typeof evidence.result === 'string' ? evidence.result : null;
+}
+
+function blockRow(spec, needs, receipt, runUrl) {
+  const result = needsResult(needs, spec.job);
+  const base = {
+    gate: spec.gate,
+    job: spec.job,
+    mode: 'BLOCK',
+    floor: receipt?.floor || spec.floor,
+    runUrl: runUrl || null,
+    evidenceSha256: receipt?.evidenceSha256 || null,
+  };
+  if (result === 'skipped') {
+    return {
+      ...base,
+      status: 'FAIL',
+      value: `${spec.gate}: FAIL. Skipped, no evidence from this run.`,
+      evidenceSha256: null,
+    };
+  }
+  if (result === 'cancelled') {
+    return {
+      ...base,
+      status: 'FAIL',
+      value: `${spec.gate}: FAIL. Cancelled, no evidence from this run.`,
+      evidenceSha256: null,
+    };
+  }
+  if (!receipt) {
+    return {
+      ...base,
+      status: 'FAIL',
+      value: `${spec.gate}: FAIL. No gate.json from this run.`,
+      evidenceSha256: null,
+    };
+  }
+  if (result !== 'success' || receipt.status !== 'PASS') {
+    const detail = receipt.value
+      ? `${spec.gate}: FAIL. ${receipt.value}`
+      : `${spec.gate}: FAIL. Unavailable: no evidence from this run.`;
+    return { ...base, status: 'FAIL', value: detail };
+  }
+  return {
+    ...base,
+    status: 'PASS',
+    value: receipt.value || 'job succeeded, counts unavailable',
+  };
+}
+
+function coverageRow(receipt, runUrl) {
+  const coverage = receipt?.coverage;
+  if (!coverage?.value) {
+    return {
+      gate: 'Coverage',
+      job: 'coverage',
+      mode: 'INFO',
+      status: 'UNKNOWN',
+      value: INFO_UNAVAILABLE,
+      floor: 'none',
+      runUrl: runUrl || null,
+      evidenceSha256: null,
+    };
+  }
+  return {
+    gate: 'Coverage',
+    job: 'coverage',
+    mode: 'INFO',
+    status: 'INFO',
+    value: coverage.value,
+    floor: 'none',
+    runUrl: runUrl || null,
+    evidenceSha256: coverage.evidenceSha256 || null,
+  };
+}
+
+function unknownInfoRow(spec, runUrl) {
+  return {
+    gate: spec.gate,
+    job: spec.job,
+    mode: 'INFO',
+    status: 'UNKNOWN',
+    value: INFO_UNAVAILABLE,
+    floor: 'none',
+    runUrl: runUrl || null,
+    evidenceSha256: null,
+  };
+}
+
+export function buildQualityRows({
+  needs,
+  gates,
+  jobUrls = {},
+  runUrl = null,
+}) {
+  const rows = BLOCK_GATES.map((spec) =>
+    blockRow(
+      spec,
+      needs,
+      gates?.[spec.job] ?? null,
+      jobUrls[spec.job] || runUrl,
+    ),
+  );
+  rows.push(
+    coverageRow(gates?.['unit-tests'] ?? null, jobUrls['unit-tests'] || runUrl),
+  );
+  for (const spec of INFO_GATES) {
+    if (spec.job === 'coverage') continue;
+    if (spec.job === 'stryker-floor') {
+      const receipt = gates?.['mutation-tests'] ?? null;
+      rows.push(
+        buildStrykerRow({
+          metrics: receipt?.stryker ?? null,
+          jobResult: needsResult(needs, 'mutation-tests'),
+          runUrl: jobUrls['mutation-tests'] || runUrl,
+          evidenceSha256:
+            receipt?.stryker?.evidenceSha256 || receipt?.evidenceSha256 || null,
+        }),
+      );
+      continue;
+    }
+    rows.push(unknownInfoRow(spec, runUrl));
+  }
+  return rows;
+}
+
+export function attemptLine(runAttempt) {
+  if (!runAttempt) return null;
+  return `Attempt ${runAttempt}. Passed evidence may come from earlier attempts of the same run.`;
+}
+
+function hashIfPresent(path) {
+  if (!path || !existsSync(path)) return null;
+  return sha256File(path);
+}
+
+export function evidenceForJob(job, env = process.env) {
+  if (job === 'typecheck') {
+    const path = env.GATE_LOG || 'reports/quality/typecheck.log';
+    const errors = countTypecheckErrors(readText(path));
+    return {
+      value: errors == null ? 'error count unavailable' : `${errors} errors`,
+      floor: '0 errors',
+      evidenceSha256: hashIfPresent(path),
+      logLines: [
+        errors == null
+          ? 'Typecheck: error count unavailable'
+          : `Typecheck: ${errors} errors vs threshold 0`,
+      ],
+    };
+  }
+  if (job === 'lint') {
+    const path = env.GATE_ESLINT_JSON || 'reports/quality/eslint.json';
+    const parsed = readJsonSafe(path);
+    if (!parsed) {
+      return {
+        value: 'error and warning counts unavailable',
+        floor: lintFloorLabel(),
+        evidenceSha256: null,
+        logLines: ['Lint: error and warning counts unavailable'],
+      };
+    }
+    const counts = readEslintCounts(parsed);
+    const value = formatLintValue(counts);
+    return {
+      value,
+      floor: lintFloorLabel(),
+      evidenceSha256: hashIfPresent(path),
+      metrics: counts,
+      logLines: [`Lint: ${value} vs threshold ${lintFloorLabel()}`],
+    };
+  }
+  if (job === 'format') {
+    const path = env.GATE_LOG || 'reports/quality/prettier.log';
+    const files = countFormatFiles(readText(path));
+    const value =
+      files == null ? 'format file count unavailable' : `${files} files`;
+    return {
+      value,
+      floor: '0 files',
+      evidenceSha256: hashIfPresent(path),
+      logLines: [`Format: ${value} vs threshold 0 files`],
+    };
+  }
+  if (job === 'unit-tests') {
+    const vitestPath = env.GATE_VITEST_JSON || 'reports/quality/vitest.json';
+    const coveragePath =
+      env.GATE_COVERAGE_SUMMARY || 'coverage/coverage-summary.json';
+    const counts = readVitestCounts(readJsonSafe(vitestPath));
+    const totals = readCoverageTotals(readJsonSafe(coveragePath));
+    const value = counts
+      ? formatTestValue(counts)
+      : 'passed, failed, skipped unavailable';
+    const coverage = totals
+      ? {
+          value: formatCoverageValue(totals),
+          logLines: ['Coverage summary', ...formatCoverageLines(totals)],
+          evidenceSha256: hashIfPresent(coveragePath),
+          totals,
+        }
+      : null;
+    const logLines = [`Unit: ${value}`];
+    if (coverage) logLines.push(...coverage.logLines);
+    else logLines.push('Coverage summary', 'coverage summary unavailable');
+    return {
+      value,
+      floor: 'tests pass',
+      evidenceSha256: hashIfPresent(vitestPath),
+      metrics: counts,
+      coverage,
+      logLines,
+    };
+  }
+  if (job === 'e2e-tests') {
+    const path =
+      env.GATE_CYPRESS_JSON || 'reports/quality/cypress-results.json';
+    const counts = readCypressCounts(readJsonSafe(path));
+    const value = counts
+      ? formatTestValue(counts)
+      : 'passed, failed, skipped unavailable';
+    return {
+      value,
+      floor: 'tests pass',
+      evidenceSha256: hashIfPresent(path),
+      metrics: counts,
+      logLines: [`E2E: ${value}`],
+    };
+  }
+  if (job === 'mutation-tests') {
+    const jsonPath = env.GATE_MUTATION_JSON || 'reports/mutation/mutation.json';
+    const logPath = env.GATE_STRYKER_LOG || 'reports/quality/stryker.log';
+    const decisionPath =
+      env.GATE_STRYKER_CACHE_DECISION || 'reports/quality/stryker-cache.json';
+    const report = readJsonSafe(jsonPath);
+    const decision = readJsonSafe(decisionPath);
+    const metrics = mutationMetrics({
+      report,
+      logText: readText(logPath) ?? '',
+      profile: env.GATE_MUTATION_PROFILE || 'incremental',
+      cacheDecision: decision,
+    });
+    const evidenceSha256 = hashIfPresent(jsonPath);
+    if (metrics) metrics.evidenceSha256 = evidenceSha256;
+    const value = metrics
+      ? strykerRowValue(metrics)
+      : 'mutation counts unavailable';
+    return {
+      value,
+      floor: 'break 42 on the job, row is measurement only',
+      evidenceSha256,
+      stryker: metrics,
+      logLines: [`Stryker floor: ${value}`],
+    };
+  }
+  if (job === 'scheduled-workflow') {
+    const path =
+      env.GATE_SCHEDULED_JSON || 'reports/quality/scheduled-workflow.json';
+    const state = readScheduledState(readJsonSafe(path));
+    const value = !state
+      ? 'workflow state unavailable'
+      : state.warning
+        ? `${state.state || 'unreadable'}: ${state.warning}`
+        : state.state;
+    return {
+      value,
+      floor: 'workflow state readable',
+      evidenceSha256: hashIfPresent(path),
+      logLines: [`Scheduled workflow: ${value}`],
+    };
+  }
+  if (job === 'size-limit') {
+    const path = env.GATE_SIZE_LOG || 'size-limit-raw.txt';
+    const text = readText(path);
+    const parsed = parseSizeLimit(text, env.GATE_SIZE_EXIT);
+    return {
+      value: parsed.value,
+      floor: parsed.floor,
+      evidenceSha256: hashIfPresent(path),
+      informational: true,
+      status: parsed.status,
+      logLines: [`Size limit: ${parsed.value}`, `Floor: ${parsed.floor}`],
+    };
+  }
+  return {
+    value: 'counts unavailable',
+    floor: 'none',
+    evidenceSha256: null,
+    logLines: [`${job}: counts unavailable`],
+  };
+}
+
+function readJsonSafe(path) {
+  try {
+    return readJson(path);
+  } catch {
+    return null;
+  }
+}
+
+export function parseSizeLimit(text, exitCode) {
+  if (!text) {
+    return {
+      status: 'UNKNOWN',
+      value: INFO_UNAVAILABLE,
+      floor: '500 kB (signal only)',
+    };
+  }
+  const limit = text.match(/Size limit:\s*([^\n]+)/i);
+  const size = text.match(/^\s*Size:\s*([^\n]+)/im);
+  const over = String(exitCode ?? '0') !== '0';
+  if (!size) {
+    return {
+      status: 'UNKNOWN',
+      value: 'size measurement unavailable',
+      floor: limit
+        ? `${limit[1].trim()} (signal only)`
+        : '500 kB (signal only)',
+    };
+  }
+  const threshold = limit ? limit[1].trim() : '500 kB';
+  const overNote = over ? ' (over limit, signal only)' : '';
+  return {
+    status: 'INFO',
+    value: `${size[1].trim()} vs threshold ${threshold}${overNote}`,
+    floor: `${threshold} (signal only)`,
+  };
+}
+
+export function logLinesForReceipt(receipt) {
+  if (Array.isArray(receipt.logLines) && receipt.logLines.length > 0) {
+    return receipt.logLines;
+  }
+  const lines = [`${receipt.name || receipt.job}: ${receipt.status}`];
+  if (receipt.value) lines.push(receipt.value);
+  if (receipt.coverage?.logLines) lines.push(...receipt.coverage.logLines);
+  return lines;
+}

@@ -100,6 +100,21 @@ describe('ci workflow contract', () => {
     expect(workflow).toContain('node scripts/ci/accept-stryker-cache.mjs');
   });
 
+  it('posts one maxframe quality sticky and leaves size-limit on its own header', () => {
+    expect(workflow).toContain('header: maxframe-quality');
+    expect(workflow).toContain('node scripts/ci/render-quality-report.mjs');
+    expect(workflow).toContain(
+      "github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository",
+    );
+    expect(workflow).not.toContain('code-coverage-results.md');
+    expect(workflow).not.toContain('mutation-test-results.md');
+    const sizeLimit = readFileSync(
+      resolve(root, '.github/workflows/size-limit.yml'),
+      'utf8',
+    );
+    expect(sizeLimit).toContain('header: size-limit-report');
+  });
+
   it('removes npm ci --force from every workflow', () => {
     const dir = resolve(root, '.github/workflows');
     for (const name of readdirSync(dir)) {
