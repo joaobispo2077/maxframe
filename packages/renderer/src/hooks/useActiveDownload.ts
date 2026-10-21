@@ -8,6 +8,7 @@ import {
   setLastOutputFolder,
 } from '../lib/appPreferences.js';
 import { buildSuggestedFileName } from '../lib/buildSuggestedFileName.js';
+
 import { useDownloadProgress } from './useDownloadProgress.js';
 
 type UseActiveDownloadOptions = {

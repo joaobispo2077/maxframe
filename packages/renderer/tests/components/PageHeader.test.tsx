@@ -31,7 +31,9 @@ describe('PageHeader', () => {
   it('renders logo without a button when onGoHome is omitted', () => {
     render(<PageHeader isPortable={false} subtitle="Test subtitle" />);
 
-    expect(screen.queryByRole('button', { name: /go to homepage/i })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /go to homepage/i }),
+    ).toBeNull();
     expect(screen.getByAltText('Maxframe logo')).toBeInTheDocument();
   });
 });

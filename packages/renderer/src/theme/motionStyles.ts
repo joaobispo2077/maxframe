@@ -1,4 +1,5 @@
 import type { SystemStyleObject } from '@chakra-ui/react';
+
 import { keyframes } from '@emotion/react';
 
 export const slideUpKeyframes = keyframes`

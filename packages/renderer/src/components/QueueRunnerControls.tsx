@@ -26,7 +26,8 @@ function statusLabel(
     summary.postProcessing +
     summary.pendingAnalyze +
     summary.queuedReady;
-  const done = summary.historyComplete + summary.historyFailed + summary.historyCancelled;
+  const done =
+    summary.historyComplete + summary.historyFailed + summary.historyCancelled;
   return `Processing — ${active} active, ${done} finished this session`;
 }
 

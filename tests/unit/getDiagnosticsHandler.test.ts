@@ -136,7 +136,9 @@ describe('getDiagnosticsHandler', () => {
 
     vi.mocked(resolveYtdlpExecutable).mockReturnValue('yt-dlp');
     vi.mocked(resolveFfmpegExecutable).mockReturnValue('ffmpeg');
-    vi.mocked(getLastError).mockReturnValue('Could not analyze this video right now.');
+    vi.mocked(getLastError).mockReturnValue(
+      'Could not analyze this video right now.',
+    );
     vi.mocked(getLastErrorDetail).mockReturnValue('network down');
     vi.mocked(getLastSubmittedUrl).mockReturnValue(
       'https://www.youtube.com/watch?v=Zt62nsFLqA0&list=RDZt62nsFLqA0&start_radio=1',

@@ -10,7 +10,9 @@ export type TitleBarInset = {
   padRight: number;
 };
 
-export function getTitleBarInset(platform: NodeJS.Platform = process.platform): TitleBarInset {
+export function getTitleBarInset(
+  platform: NodeJS.Platform = process.platform,
+): TitleBarInset {
   if (platform === 'win32') {
     return { height: 40, padLeft: 0, padRight: 140 };
   }
@@ -26,7 +28,10 @@ export function getBrowserWindowChromeOptions(
   platform: NodeJS.Platform = process.platform,
 ): Pick<
   BrowserWindowConstructorOptions,
-  'backgroundColor' | 'titleBarStyle' | 'titleBarOverlay' | 'trafficLightPosition'
+  | 'backgroundColor'
+  | 'titleBarStyle'
+  | 'titleBarOverlay'
+  | 'trafficLightPosition'
 > {
   const base = { backgroundColor: WINDOW_CANVAS_COLOR };
 

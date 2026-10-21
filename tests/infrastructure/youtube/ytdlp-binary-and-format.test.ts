@@ -1,6 +1,6 @@
 import { buildYtdlpFormatSelector } from '@src/infrastructure/youtube/buildYtdlpFormatSelector';
-import { buildSocialCompatibleVideoOnlySelector } from '@src/infrastructure/youtube/socialCompatibleMp4Policy';
 import { resolveYtdlpExecutable } from '@src/infrastructure/youtube/resolveYtdlpExecutable';
+import { buildSocialCompatibleVideoOnlySelector } from '@src/infrastructure/youtube/socialCompatibleMp4Policy';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('buildYtdlpFormatSelector', () => {

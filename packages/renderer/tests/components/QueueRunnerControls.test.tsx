@@ -1,7 +1,11 @@
 import { type ReactElement } from 'react';
 
-import { summarizeQueue, createEmptyQueueModel, enqueueJobs } from '@src/domain/download-queue/model.js';
 import { ChakraProvider } from '@chakra-ui/react';
+import {
+  summarizeQueue,
+  createEmptyQueueModel,
+  enqueueJobs,
+} from '@src/domain/download-queue/model.js';
 import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import { QueueRunnerControls } from '@ui/components/QueueRunnerControls';
 import { maxframeSystem } from '@ui/theme/maxframeTheme';
@@ -63,7 +67,11 @@ describe('QueueRunnerControls', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /stop queue/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /start queue/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /stop queue/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /start queue/i }),
+    ).not.toBeInTheDocument();
   });
 });

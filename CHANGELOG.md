@@ -1,3 +1,11 @@
+## [1.7.1](https://github.com/joaobispo2077/maxframe/compare/v1.7.0...v1.7.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **ci:** fail closed on develop with ci-readiness ([fdae415](https://github.com/joaobispo2077/maxframe/commit/fdae415de17fcfe941ef00f5454783afdb11518b))
+* **ci:** record job status and retry a bad npm ci ([96a9d0b](https://github.com/joaobispo2077/maxframe/commit/96a9d0bf269011b5920486cbc25e2359361ac698))
+
 # [1.7.0](https://github.com/joaobispo2077/maxframe/compare/v1.6.0...v1.7.0) (2026-06-09)
 
 

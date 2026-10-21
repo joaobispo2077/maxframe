@@ -160,7 +160,16 @@ export function trimHistoryJobs(jobs: QueueJob[], maxLen: number): QueueJob[] {
   return jobs.slice(jobs.length - maxLen);
 }
 
-export function summarizeQueue(model: QueueModel): SummaryCounts {
+function countOpenJobs(
+  model: QueueModel,
+): Pick<
+  SummaryCounts,
+  | 'pendingAnalyze'
+  | 'awaitingFormat'
+  | 'queuedReady'
+  | 'downloading'
+  | 'postProcessing'
+> {
   let pendingAnalyze = 0;
   let awaitingFormat = 0;
   let queuedReady = 0;
@@ -178,24 +187,36 @@ export function summarizeQueue(model: QueueModel): SummaryCounts {
     }
   }
 
-  let historyComplete = 0;
-  let historyFailed = 0;
-  let historyCancelled = 0;
-  for (const h of model.historyJobs) {
-    if (h.terminal === 'complete') historyComplete += 1;
-    else if (h.terminal === 'failed') historyFailed += 1;
-    else if (h.terminal === 'cancelled') historyCancelled += 1;
-  }
-
   return {
     pendingAnalyze,
     awaitingFormat,
     queuedReady,
     downloading,
     postProcessing,
-    historyComplete,
-    historyFailed,
-    historyCancelled,
+  };
+}
+
+function countHistoryJobs(
+  jobs: QueueJob[],
+): Pick<
+  SummaryCounts,
+  'historyComplete' | 'historyFailed' | 'historyCancelled'
+> {
+  let historyComplete = 0;
+  let historyFailed = 0;
+  let historyCancelled = 0;
+  for (const job of jobs) {
+    if (job.terminal === 'complete') historyComplete += 1;
+    else if (job.terminal === 'failed') historyFailed += 1;
+    else if (job.terminal === 'cancelled') historyCancelled += 1;
+  }
+  return { historyComplete, historyFailed, historyCancelled };
+}
+
+export function summarizeQueue(model: QueueModel): SummaryCounts {
+  return {
+    ...countOpenJobs(model),
+    ...countHistoryJobs(model.historyJobs),
   };
 }
 

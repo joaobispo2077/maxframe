@@ -28,8 +28,6 @@ describe('appPreferences', () => {
   });
 
   it('extracts parent folder from Windows file path', () => {
-    expect(parentFolderFromFilePath('C:\\Videos\\song.mp4')).toBe(
-      'C:\\Videos',
-    );
+    expect(parentFolderFromFilePath('C:\\Videos\\song.mp4')).toBe('C:\\Videos');
   });
 });
