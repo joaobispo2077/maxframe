@@ -106,10 +106,9 @@ jobs:
       - name: Download yt-dlp and ffmpeg binaries
         shell: powershell
         run: |
-          # yt-dlp 2026.03.17 (pinned — update when upgrading yt-dlp)
-          Invoke-WebRequest `
-            -Uri 'https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.17/yt-dlp.exe' `
-            -OutFile 'buildResources\yt-dlp\yt-dlp.exe'
+          # Pinned version and SHA-256: scripts/download-bundled-yt-dlp.mjs
+          # Fails the build when the file hash or SHA2-256SUMS does not match.
+          node scripts/download-bundled-yt-dlp.mjs
 
           # ffmpeg static GPL build from yt-dlp/FFmpeg-Builds (build 2026-04-11, rolling latest tag)
           $zip = Join-Path $env:TEMP 'ffmpeg.zip'
@@ -174,10 +173,9 @@ jobs:
       - name: Download yt-dlp and ffmpeg binaries
         shell: powershell
         run: |
-          # yt-dlp 2026.03.17 (pinned — update when upgrading yt-dlp)
-          Invoke-WebRequest `
-            -Uri 'https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.17/yt-dlp.exe' `
-            -OutFile 'buildResources\yt-dlp\yt-dlp.exe'
+          # Pinned version and SHA-256: scripts/download-bundled-yt-dlp.mjs
+          # Fails the build when the file hash or SHA2-256SUMS does not match.
+          node scripts/download-bundled-yt-dlp.mjs
 
           # ffmpeg static GPL build from yt-dlp/FFmpeg-Builds (build 2026-04-11, rolling latest tag)
           $zip = Join-Path $env:TEMP 'ffmpeg.zip'
