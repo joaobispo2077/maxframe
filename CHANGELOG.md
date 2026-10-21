@@ -1,3 +1,29 @@
+## [1.7.2](https://github.com/joaobispo2077/maxframe/compare/v1.7.1...v1.7.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** bump bundled yt-dlp to 2026.08.19 ([b2acdd3](https://github.com/joaobispo2077/maxframe/commit/b2acdd3294f5371456905304b6062391d9a791b5))
+
+
+## maxframe 1.7.2
+
+Fixes downloads failing with `HTTP Error 403: Forbidden` in 1.7.1.
+
+The yt-dlp bundled with the app was out of date, and YouTube stopped accepting it. This version ships a newer yt-dlp. If your downloads failed in 1.7.1, download 1.7.2 and try the same link again.
+
+### Changed
+
+- Bundled yt-dlp updated from 2026.03.17 to 2026.08.19.
+- yt-dlp SHA-256: `66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a` (checked against the official `SHA2-256SUMS` for that release).
+
+### Downloads
+
+- Installer: `Maxframe-1.7.2-win-x64.exe`
+- Portable: `Maxframe-1.7.2-portable-win-x64.exe`
+
+The Windows .exe is not signed, so SmartScreen may warn you the first time you run it.
+
 ## [1.7.1](https://github.com/joaobispo2077/maxframe/compare/v1.7.0...v1.7.1) (2026-10-21)
 
 
