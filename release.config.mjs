@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const releaseAssetsDir = join(process.cwd(), 'release-assets');
@@ -6,6 +6,31 @@ const releaseAssetsDir = join(process.cwd(), 'release-assets');
 const hasWindowsInstallerInWorkspace =
   existsSync(releaseAssetsDir) &&
   readdirSync(releaseAssetsDir).some((f) => /-win-x64\.exe$/i.test(f));
+
+/**
+ * When docs/patch-notes/<version>.md exists, append it to the generated notes.
+ * semantic-release joins generateNotes results, so the conventional notes stay
+ * and the hotfix patch notes ship in the GitHub release and CHANGELOG.
+ */
+const appendVersionPatchNotes = {
+  async generateNotes(_pluginConfig, context) {
+    const version = context.nextRelease?.version;
+    if (!version) {
+      return undefined;
+    }
+    const patchNotesPath = join(
+      process.cwd(),
+      'docs',
+      'patch-notes',
+      `${version}.md`,
+    );
+    if (!existsSync(patchNotesPath)) {
+      return undefined;
+    }
+    const patchNotes = readFileSync(patchNotesPath, 'utf8').trim();
+    return patchNotes || undefined;
+  },
+};
 
 /** @type {import('semantic-release').Options} */
 export default {
@@ -24,6 +49,7 @@ export default {
         },
       },
     ],
+    appendVersionPatchNotes,
     '@semantic-release/changelog',
     hasWindowsInstallerInWorkspace
       ? [
