@@ -11,6 +11,7 @@ on:
       - release
       - main
       - develop
+      - feature/maxframe-avo-parity-gates
 
 permissions:
   contents: read
