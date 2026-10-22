@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { finishGate } from './write-result.mjs';
@@ -85,6 +85,32 @@ export function evaluateDeadcode(findings, allowlist) {
   return { status: 'PASS', value, floor, metrics };
 }
 
+export function parseKnipStdout(stdout) {
+  const text = String(stdout || '').trim();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start === -1 || end <= start) return null;
+    try {
+      return JSON.parse(text.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+}
+
+function firstLine(text) {
+  const line = String(text || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .find(Boolean);
+  if (!line) return '';
+  return line.slice(0, 180);
+}
+
 function isDirectRun() {
   const entry = process.argv[1];
   return Boolean(entry) && import.meta.url === pathToFileURL(entry).href;
@@ -104,16 +130,24 @@ if (isDirectRun()) {
       }),
     );
   }
-  const run = spawnSync(bin, ['--reporter', 'json'], {
+  const knipJsonPath = process.env.KNIP_JSON_OUT || 'reports/quality/knip.json';
+  rmSync(knipJsonPath, { force: true });
+  mkdirSync(dirname(knipJsonPath), { recursive: true });
+  const reporter = join(process.cwd(), 'scripts/ci/knip-json-reporter.mjs');
+  const run = spawnSync(bin, ['--reporter', reporter], {
     encoding: 'utf8',
     maxBuffer: 20 * 1024 * 1024,
+    env: { ...process.env, KNIP_JSON_OUT: knipJsonPath },
   });
   let report = null;
-  try {
-    report = JSON.parse(run.stdout || '');
-  } catch {
-    report = null;
+  if (existsSync(knipJsonPath)) {
+    try {
+      report = JSON.parse(readFileSync(knipJsonPath, 'utf8'));
+    } catch {
+      report = null;
+    }
   }
+  if (!report) report = parseKnipStdout(run.stdout);
   let allowlist;
   try {
     allowlist = loadAllowlist(JSON.parse(readFileSync(allowPath, 'utf8')));
@@ -129,9 +163,16 @@ if (isDirectRun()) {
   }
   const findings = flattenKnip(report);
   const result = evaluateDeadcode(findings, allowlist);
-  if (run.stdout) {
+  if (!findings) {
+    const detail = firstLine(run.stderr) || firstLine(run.stdout);
+    if (detail) {
+      result.value = `${result.value} ${detail}`;
+    }
+    if (run.stderr) console.error(run.stderr);
+  }
+  if (report) {
     result.evidenceSha256 = createHash('sha256')
-      .update(run.stdout)
+      .update(JSON.stringify(report))
       .digest('hex');
   }
   process.exit(finishGate('deadcode', result));
