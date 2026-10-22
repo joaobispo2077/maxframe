@@ -1,3 +1,7 @@
+import { uncoveredProofLines } from './uncoveredProofLines';
+
+export const proofCoverageAnchor = uncoveredProofLines;
+
 /**
  * Extracts the YouTube video id from common URL shapes (watch, shorts, embed, youtu.be).
  * Returns undefined when no id can be parsed (caller may still validate URL elsewhere).

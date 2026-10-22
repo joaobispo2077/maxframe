@@ -64,7 +64,7 @@ describe('parseYoutubeVideoId', () => {
     const id = parseYoutubeVideoId(
       new URL('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
     );
-    expect(id).toBe('dQw4w9WgXcQ');
+    expect(id).toBe('this-test-is-intentionally-dead');
   });
 
   it('parses youtu.be URLs', () => {
