@@ -44,8 +44,22 @@ export function buildGateReceipt({
     metrics: extra.metrics ?? null,
     coverage: extra.coverage ?? null,
     stryker: extra.stryker ?? null,
+    survivors: extra.survivors ?? null,
+    mutationScope: extra.mutationScope ?? null,
     logLines: extra.logLines ?? null,
   };
+  if (
+    (outcome === 'success' || outcome === 'failure' || outcome === '') &&
+    extra.gateStatus === 'UNKNOWN'
+  ) {
+    receipt.status = 'UNKNOWN';
+    receipt.result = 'failure';
+    receipt.exitCode = 1;
+  } else if (extra.gateStatus === 'FAIL') {
+    receipt.status = 'FAIL';
+    receipt.result = 'failure';
+    receipt.exitCode = 1;
+  }
   if (extra.informational) {
     receipt.status = extra.status === 'UNKNOWN' ? 'UNKNOWN' : 'INFO';
     receipt.result = mapped.result;

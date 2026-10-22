@@ -9,6 +9,11 @@ import { pathToFileURL } from 'node:url';
 
 import { REQUIRED_JOBS } from './check-ci-readiness.mjs';
 import { BLOCK_GATES, INFO_GATES, sha256Text } from './gate-metrics.mjs';
+import {
+  CHART_END,
+  CHART_START,
+  buildChartMarkdown,
+} from './render-kpi-charts.mjs';
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -55,6 +60,15 @@ function passIsComplete(report) {
     if (!row || row.mode !== 'INFO' || !row.status || !row.value) return false;
     if (row.status === 'PASS') return false;
   }
+  const mutation = report.rows.find((item) => item?.job === 'mutation-tests');
+  if (
+    !mutation ||
+    mutation.mode !== 'BLOCK' ||
+    mutation.status !== 'PASS' ||
+    !mutation.value
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -70,20 +84,29 @@ function cell(value) {
     .replace(/\r?\n/g, ' ');
 }
 
-function runCell(row) {
-  if (!row?.runUrl) return 'unavailable';
-  return `[run](${row.runUrl})`;
-}
-
 export function unknownQualityMarkdown(reason) {
   return [
-    '## maxframe quality',
+    '## Software metrics',
     '',
     overallLine('UNKNOWN'),
     '',
     reason,
     '',
     'This is not a pass.',
+    '',
+    CHART_START,
+    '## KPI charts',
+    '',
+    '**Overall: UNKNOWN**',
+    '',
+    'No measurements were available for this run.',
+    '',
+    '### Mutation',
+    '',
+    'Mutation is not part of this chart set. See the Mutation tests sticky (`mutation-report`).',
+    '',
+    '<!-- chart-overall:UNKNOWN -->',
+    CHART_END,
     '',
     'Commit: unavailable',
     'Run: unavailable',
@@ -97,7 +120,7 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
   if (!isObject(report)) {
     return unknownQualityMarkdown('ci-readiness.json is unreadable.');
   }
-  const lines = ['## maxframe quality', '', overallLine(overall), ''];
+  const lines = ['## Software metrics', '', overallLine(overall), ''];
   const hasRows = Array.isArray(report.rows) && report.rows.length > 0;
   if (
     overall === 'UNKNOWN' &&
@@ -115,17 +138,20 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
     lines.push('This is not a pass.', '');
   }
   if (Array.isArray(report.rows) && report.rows.length > 0) {
-    lines.push(
-      '| Gate | Mode | Status | Value | Floor | Run |',
-      '|---|---|---|---|---|---|',
-    );
+    lines.push('| Gate | Value | Floor | Result |', '|---|---|---|---|');
     for (const row of report.rows) {
       lines.push(
-        `| ${cell(row?.gate)} | ${cell(row?.mode)} | ${cell(row?.status)} | ${cell(row?.value)} | ${cell(row?.floor)} | ${runCell(row)} |`,
+        `| ${cell(row?.gate)} | ${cell(row?.value)} | ${cell(row?.floor)} | ${cell(row?.status)} |`,
       );
     }
     lines.push('');
   }
+  lines.push(
+    CHART_START,
+    buildChartMarkdown(report, overall).trimEnd(),
+    CHART_END,
+    '',
+  );
   const evidence = (report.rows ?? []).filter((row) => row?.evidenceSha256);
   if (evidence.length > 0) {
     lines.push('Evidence SHA-256:');
@@ -192,7 +218,7 @@ if (isDirectRun()) {
   const reportPath =
     process.env.CI_READINESS_REPORT || 'reports/quality/ci-readiness.json';
   const outPath =
-    process.env.QUALITY_REPORT || 'reports/quality/maxframe-quality.md';
+    process.env.QUALITY_REPORT || 'reports/quality/software-metrics.md';
   const { markdown, overall } = renderQualityReportFile(reportPath);
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, markdown.endsWith('\n') ? markdown : `${markdown}\n`);

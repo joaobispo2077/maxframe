@@ -71,7 +71,10 @@ function passingGates() {
         sha: 'abc',
         runId: '9',
         runAttempt: '2',
-        extra: { value: `${job} ok`, floor: 'floor' },
+        extra:
+          job === 'mutation-tests'
+            ? { value: 'mutation ok', floor: 'break 68' }
+            : { value: `${job} ok`, floor: 'floor' },
       }),
     ]),
   );
@@ -136,12 +139,13 @@ describe('quality report fail closed', () => {
     expect(markdown).not.toContain('Overall: PASS');
   });
 
-  it('renders FAIL when an INFO row was marked PASS', () => {
+  it('renders FAIL when a blocking row is not PASS', () => {
     const report = passingReport();
     const coverage = report.rows.find((row) => row.job === 'coverage');
-    coverage.status = 'PASS';
+    coverage.status = 'FAIL';
+    coverage.value = 'Coverage: FAIL. lines 10.00%';
     expect(displayOverall(report)).toBe('FAIL');
-    expect(renderQualityMarkdown(report)).not.toContain('Overall: PASS');
+    expect(renderQualityMarkdown(report)).not.toContain('**Overall: PASS**');
   });
 
   it('keeps overall equal to a complete CI readiness conclusion', () => {
@@ -204,19 +208,14 @@ describe('quality report fail closed', () => {
     expect(markdown).not.toContain('ci-readiness.json is unreadable');
   });
 
-  it('keeps PASS and INFO-only rows at exit 0', () => {
+  it('keeps a complete blocking report at exit 0', () => {
     expect(qualityReportExitCode('PASS')).toBe(0);
     expect(qualityReportExitCode('UNKNOWN')).toBe(1);
     expect(qualityReportExitCode('FAIL')).toBe(1);
     const report = passingReport();
-    const info = report.rows.filter((row) => row.mode === 'INFO');
-    expect(info.some((row) => row.status === 'UNKNOWN')).toBe(true);
-    expect(info.every((row) => row.status !== 'PASS')).toBe(true);
-    expect(
-      report.rows
-        .filter((row) => row.mode === 'BLOCK')
-        .every((row) => row.status === 'PASS'),
-    ).toBe(true);
+    expect(report.rows.some((row) => row.mode === 'INFO')).toBe(false);
+    expect(report.rows.every((row) => row.mode === 'BLOCK')).toBe(true);
+    expect(report.rows.every((row) => row.status === 'PASS')).toBe(true);
     expect(displayOverall(report)).toBe('PASS');
     expect(qualityReportExitCode(displayOverall(report))).toBe(0);
   });
@@ -246,7 +245,7 @@ describe('quality report fail closed', () => {
 });
 
 describe('coverage and stryker rows', () => {
-  it('prints every coverage percentage against no threshold', () => {
+  it('prints every coverage percentage against the vitest floors', () => {
     const totals = readCoverageTotals({
       total: {
         lines: { pct: 80, covered: 8, total: 10 },
@@ -256,23 +255,24 @@ describe('coverage and stryker rows', () => {
       },
     });
     const value = formatCoverageValue(totals);
-    expect(value).toContain('lines 80.00% (8/10) vs threshold none');
-    expect(value).toContain('statements 81.20% (81/100) vs threshold none');
-    expect(value).toContain('branches 70.00% (7/10) vs threshold none');
-    expect(value).toContain('functions 75.00% (3/4) vs threshold none');
+    expect(value).toContain('lines 80.00% (8/10) vs threshold 75');
+    expect(value).toContain('statements 81.20% (81/100) vs threshold 74');
+    expect(value).toContain('branches 70.00% (7/10) vs threshold 63');
+    expect(value).toContain('functions 75.00% (3/4) vs threshold 81');
     const rows = buildQualityRows({
       needs: successfulNeeds(),
       gates: {
-        'unit-tests': {
+        coverage: {
           status: 'PASS',
-          coverage: { value, evidenceSha256: 'abc' },
+          value,
+          floor: 'statements 74, branches 63, functions 81, lines 75',
+          evidenceSha256: 'abc',
         },
       },
     });
     const coverage = rows.find((row) => row.job === 'coverage');
-    expect(coverage.mode).toBe('INFO');
-    expect(coverage.status).toBe('INFO');
-    expect(coverage.status).not.toBe('PASS');
+    expect(coverage.mode).toBe('BLOCK');
+    expect(coverage.status).toBe('PASS');
     expect(coverage.value).toBe(value);
   });
 
@@ -295,17 +295,14 @@ describe('coverage and stryker rows', () => {
     expect(metrics.detectedScore.toFixed(2)).toBe('69.86');
     expect(metrics.killedOnlyScore.toFixed(2)).toBe('68.51');
     const row = buildStrykerRow({ metrics, jobResult: 'success' });
-    expect(row.mode).toBe('INFO');
-    expect(row.status).toBe('INFO');
-    expect(row.value).toContain('cached, not a floor sample');
+    expect(row.mode).toBe('BLOCK');
+    expect(row.status).toBe('PASS');
     expect(row.value).toContain('0 tested this run');
     expect(row.value).toContain('1264 cached');
-    expect(row.value).toContain(
-      'Cached score with timeouts as detected: 69.86%',
-    );
-    expect(row.value).toContain('Killed only: 68.51%');
+    expect(row.value).toContain('Score 69.86%');
+    expect(row.value).toContain('Killed only 68.51%');
     expect(row.value).not.toContain('Timeouts above 2%');
-    expect(row.status).not.toBe('PASS');
+    expect(row.floor).toContain('68');
   });
 
   it('does not turn zero mutants into 100 percent', () => {
@@ -315,7 +312,8 @@ describe('coverage and stryker rows', () => {
       cacheDecision: { exact: true },
     });
     const row = buildStrykerRow({ metrics, jobResult: 'success' });
-    expect(row.status).toBe('INFO');
+    expect(row.mode).toBe('BLOCK');
+    expect(row.status).toBe('UNKNOWN');
     expect(row.value).toBe('Zero mutants. Efficacy unavailable.');
     expect(row.value).not.toContain('100');
   });
@@ -329,24 +327,30 @@ describe('coverage and stryker rows', () => {
     expect(metrics.tested).toBe(100);
     expect(metrics.cached).toBe(0);
     const row = buildStrykerRow({ metrics, jobResult: 'success' });
-    expect(row.status).toBe('INFO');
+    expect(row.status).toBe('PASS');
     expect(row.value).toContain('Timeouts above 2%');
     expect(row.value).toContain('100 tested this run');
-    expect(row.value).not.toContain('cached, not a floor sample');
   });
 
-  it('leaves an unmeasured INFO gate as UNKNOWN and not blank', () => {
+  it('leaves a missing blocking summary as UNKNOWN and not PASS', () => {
     const rows = buildQualityRows({
       needs: successfulNeeds(),
-      gates: passingGates(),
+      gates: {
+        coverage: {
+          status: 'UNKNOWN',
+          value: 'Coverage: UNKNOWN. Counts unavailable from this run.',
+        },
+        duplication: null,
+      },
     });
-    for (const job of ['crap', 'jscpd', 'knip', 'dependency-cruiser']) {
-      const row = rows.find((item) => item.job === job);
-      expect(row.mode).toBe('INFO');
-      expect(row.status).toBe('UNKNOWN');
-      expect(row.value.trim().length).toBeGreaterThan(0);
-      expect(row.status).not.toBe('PASS');
-    }
+    const coverage = rows.find((item) => item.job === 'coverage');
+    expect(coverage.mode).toBe('BLOCK');
+    expect(coverage.status).toBe('UNKNOWN');
+    expect(coverage.value).toContain('UNKNOWN');
+    expect(coverage.status).not.toBe('PASS');
+    const duplication = rows.find((item) => item.job === 'duplication');
+    expect(duplication.status).toBe('FAIL');
+    expect(duplication.value).toContain('No gate.json');
   });
 });
 
@@ -396,7 +400,7 @@ describe('job numbers', () => {
           logLines: [
             'Unit: 2 passed, 0 failed, 0 skipped',
             'Coverage summary',
-            'lines 80.00% (8/10) vs threshold none',
+            'lines 80.00% (8/10) vs threshold 75',
           ],
         },
         { GITHUB_STEP_SUMMARY: summary },
@@ -405,9 +409,9 @@ describe('job numbers', () => {
       process.stdout.write = original;
     }
     const logged = lines.join('');
-    expect(logged).toContain('lines 80.00% (8/10) vs threshold none');
+    expect(logged).toContain('lines 80.00% (8/10) vs threshold 75');
     expect(readFileSync(summary, 'utf8')).toContain(
-      'lines 80.00% (8/10) vs threshold none',
+      'lines 80.00% (8/10) vs threshold 75',
     );
   });
 });

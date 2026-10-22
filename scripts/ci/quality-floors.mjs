@@ -1,0 +1,56 @@
+/**
+ * Single source for quality floors.
+ * vitest.config.ts imports the coverage minimums.
+ * stryker.config.base.mjs imports the mutation break.
+ * Raise a minimum only here. Lower a ceiling only here.
+ *
+ * Mutation break is 68. Stryker full run 39808689775 on develop at
+ * 2318f38b tested all 1391 mutants with no cache and scored 69.59%.
+ * The floor is that score rounded down, minus 1 point for timeout noise.
+ */
+
+export const COVERAGE_FLOORS = Object.freeze({
+  statements: 74,
+  branches: 63,
+  functions: 81,
+  lines: 75,
+});
+
+export const MUTATION_BREAK = 68;
+
+/**
+ * Max duplicated lines percent.
+ * Measured 1.95 on develop and rounded up to one decimal.
+ * This ceiling only moves down.
+ */
+export const DUPLICATION_CEILING = 2;
+
+/** Max CRAP for a function that is not on the allowlist. Only moves down. */
+export const CRAP_MAX = 30;
+
+/** ESLint modified cyclomatic complexity max. Do not raise. */
+export const COMPLEXITY_MAX = 12;
+
+/**
+ * Max npm audit findings at high or critical.
+ * develop measures 40 high and 2 critical. A zero ceiling cannot pass.
+ * This ceiling only moves down.
+ */
+export const AUDIT_HIGH_CRITICAL_MAX = 42;
+
+export const MUTATION_SURVIVOR_LIMIT = 10;
+
+export const ELECTRON_SECURITY_FLOOR =
+  'contextIsolation true, nodeIntegration false, sandbox true';
+
+export function coverageFloorLabel(floors = COVERAGE_FLOORS) {
+  return `statements ${floors.statements}, branches ${floors.branches}, functions ${floors.functions}, lines ${floors.lines}`;
+}
+
+export function mutationFloorLabel(floor = MUTATION_BREAK) {
+  return `break ${floor}`;
+}
+
+export function complexityFloorLabel() {
+  return `complexity <= ${COMPLEXITY_MAX}, CRAP <= ${CRAP_MAX}, 0 new over the line`;
+}

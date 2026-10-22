@@ -1,6 +1,18 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 
+import {
+  AUDIT_HIGH_CRITICAL_MAX,
+  COVERAGE_FLOORS,
+  DUPLICATION_CEILING,
+  ELECTRON_SECURITY_FLOOR,
+  MUTATION_BREAK,
+  MUTATION_SURVIVOR_LIMIT,
+  complexityFloorLabel,
+  coverageFloorLabel,
+  mutationFloorLabel,
+} from './quality-floors.mjs';
+
 export const LINT_WARNING_BASELINE = 13;
 export const LINT_ERROR_BASELINE = 0;
 
@@ -14,6 +26,29 @@ export const BLOCK_GATES = [
   { job: 'format', gate: 'Format', floor: '0 files' },
   { job: 'unit-tests', gate: 'Unit', floor: 'tests pass' },
   { job: 'e2e-tests', gate: 'E2E', floor: 'tests pass' },
+  { job: 'coverage', gate: 'Coverage', floor: coverageFloorLabel() },
+  {
+    job: 'complexity',
+    gate: 'CRAP / complexity',
+    floor: complexityFloorLabel(),
+  },
+  {
+    job: 'duplication',
+    gate: 'Duplication',
+    floor: `<= ${DUPLICATION_CEILING}%`,
+  },
+  { job: 'deadcode', gate: 'Dead code', floor: '0 unwaived' },
+  { job: 'architecture', gate: 'Architecture', floor: '0 violations' },
+  {
+    job: 'audit',
+    gate: 'Dependency audit',
+    floor: `<= ${AUDIT_HIGH_CRITICAL_MAX} high or critical`,
+  },
+  {
+    job: 'electron-security',
+    gate: 'Electron security',
+    floor: ELECTRON_SECURITY_FLOOR,
+  },
   {
     job: 'scheduled-workflow',
     gate: 'Scheduled workflow',
@@ -21,14 +56,7 @@ export const BLOCK_GATES = [
   },
 ];
 
-export const INFO_GATES = [
-  { job: 'coverage', gate: 'Coverage' },
-  { job: 'crap', gate: 'CRAP' },
-  { job: 'jscpd', gate: 'jscpd' },
-  { job: 'knip', gate: 'knip' },
-  { job: 'dependency-cruiser', gate: 'dependency-cruiser' },
-  { job: 'stryker-floor', gate: 'Stryker floor' },
-];
+export const INFO_GATES = [];
 
 const INFO_UNAVAILABLE =
   'Unavailable: no evidence from this run. Informational. Does not change Overall.';
@@ -142,25 +170,26 @@ export function readCoverageTotals(summary) {
   return { lines, statements, branches, functions };
 }
 
-function coveragePart(label, item) {
+function coveragePart(label, item, floor) {
   const counts =
     item.covered != null && item.total != null
       ? ` (${item.covered}/${item.total})`
       : '';
-  return `${label} ${item.pct.toFixed(2)}%${counts} vs threshold none`;
+  const threshold = floor == null ? 'none' : String(floor);
+  return `${label} ${item.pct.toFixed(2)}%${counts} vs threshold ${threshold}`;
 }
 
-export function formatCoverageLines(totals) {
+export function formatCoverageLines(totals, floors = COVERAGE_FLOORS) {
   return [
-    coveragePart('lines', totals.lines),
-    coveragePart('statements', totals.statements),
-    coveragePart('branches', totals.branches),
-    coveragePart('functions', totals.functions),
+    coveragePart('lines', totals.lines, floors.lines),
+    coveragePart('statements', totals.statements, floors.statements),
+    coveragePart('branches', totals.branches, floors.branches),
+    coveragePart('functions', totals.functions, floors.functions),
   ];
 }
 
-export function formatCoverageValue(totals) {
-  return formatCoverageLines(totals).join('; ');
+export function formatCoverageValue(totals, floors = COVERAGE_FLOORS) {
+  return formatCoverageLines(totals, floors).join('; ');
 }
 
 export function readVitestCounts(report) {
@@ -311,12 +340,23 @@ export function strykerRowValue(metrics) {
   const timeoutNote = metrics.timeoutAbove2
     ? ` Timeouts above 2% (${formatPct(metrics.timeoutPct)}).`
     : '';
-  const scores =
-    metrics.tested === 0
-      ? `Cached score with timeouts as detected: ${formatPct(metrics.detectedScore)}. Killed only: ${formatPct(metrics.killedOnlyScore)}.`
-      : `Score with timeouts as detected: ${formatPct(metrics.detectedScore)}. Killed only: ${formatPct(metrics.killedOnlyScore)}.`;
-  const cacheLabel = metrics.tested === 0 ? 'cached, not a floor sample. ' : '';
-  return `${cacheLabel}Profile: ${metrics.profile}. ${metrics.tested} tested this run, ${metrics.cached} cached. ${scores}${timeoutNote}`.trim();
+  const scores = `Score ${formatPct(metrics.detectedScore)}. Killed only ${formatPct(metrics.killedOnlyScore)}.`;
+  return `Profile: ${metrics.profile}. ${metrics.tested} tested this run, ${metrics.cached} cached. ${scores}${timeoutNote}`.trim();
+}
+
+export function topSurvivors(report, limit = MUTATION_SURVIVOR_LIMIT) {
+  const rows = [];
+  for (const [file, data] of Object.entries(report?.files ?? {})) {
+    const survived = (data?.mutants ?? []).filter(
+      (mutant) => mutant?.status === 'Survived',
+    ).length;
+    if (survived > 0) rows.push({ file, survived });
+  }
+  rows.sort(
+    (left, right) =>
+      right.survived - left.survived || left.file.localeCompare(right.file),
+  );
+  return rows.slice(0, limit);
 }
 
 export function buildStrykerRow({
@@ -324,42 +364,61 @@ export function buildStrykerRow({
   jobResult,
   runUrl = null,
   evidenceSha256 = null,
+  floor = MUTATION_BREAK,
+  receiptStatus = null,
 }) {
   const base = {
-    gate: 'Stryker floor',
-    job: 'stryker-floor',
-    mode: 'INFO',
-    floor: 'none',
+    gate: 'Mutation',
+    job: 'mutation-tests',
+    mode: 'BLOCK',
+    floor: mutationFloorLabel(floor),
     runUrl,
     evidenceSha256,
   };
-  if (!metrics || metrics.countsUnknown) {
-    const missing = !metrics;
-    if (
-      missing &&
-      jobResult &&
-      jobResult !== 'success' &&
-      jobResult !== 'skipped' &&
-      jobResult !== 'cancelled'
-    ) {
-      return {
-        ...base,
-        status: 'FAIL',
-        value: 'Stryker floor: FAIL. Unavailable: no evidence from this run.',
-        evidenceSha256: null,
-      };
-    }
+  if (jobResult === 'skipped') {
+    return {
+      ...base,
+      status: 'FAIL',
+      value: 'Mutation: FAIL. Skipped, no evidence from this run.',
+      evidenceSha256: null,
+    };
+  }
+  if (jobResult === 'cancelled') {
+    return {
+      ...base,
+      status: 'FAIL',
+      value: 'Mutation: FAIL. Cancelled, no evidence from this run.',
+      evidenceSha256: null,
+    };
+  }
+  if (
+    receiptStatus === 'UNKNOWN' ||
+    !metrics ||
+    metrics.countsUnknown ||
+    metrics.zeroMutants
+  ) {
+    const value = metrics?.zeroMutants
+      ? 'Zero mutants. Efficacy unavailable.'
+      : metrics?.countsUnknown
+        ? `Mutation: UNKNOWN. ${strykerRowValue(metrics)}`
+        : 'Mutation: UNKNOWN. Counts unavailable from this run.';
     return {
       ...base,
       status: 'UNKNOWN',
-      value: metrics?.countsUnknown
-        ? strykerRowValue(metrics)
-        : INFO_UNAVAILABLE,
-      evidenceSha256: metrics ? evidenceSha256 : null,
+      value,
+      evidenceSha256: metrics && !metrics.zeroMutants ? evidenceSha256 : null,
     };
   }
-  const status = jobResult === 'success' ? 'INFO' : 'FAIL';
-  return { ...base, status, value: strykerRowValue(metrics) };
+  const value = strykerRowValue(metrics);
+  const below = metrics.detectedScore == null || metrics.detectedScore < floor;
+  if (below || (jobResult && jobResult !== 'success')) {
+    return {
+      ...base,
+      status: 'FAIL',
+      value: value.startsWith('Mutation:') ? value : `Mutation: FAIL. ${value}`,
+    };
+  }
+  return { ...base, status: 'PASS', value };
 }
 
 function needsResult(needs, job) {
@@ -401,6 +460,19 @@ function blockRow(spec, needs, receipt, runUrl) {
       evidenceSha256: null,
     };
   }
+  if (receipt?.status === 'UNKNOWN') {
+    const value =
+      typeof receipt.value === 'string' && receipt.value.includes('UNKNOWN')
+        ? receipt.value
+        : `${spec.gate}: UNKNOWN. Counts unavailable from this run.`;
+    return {
+      ...base,
+      status: 'UNKNOWN',
+      value,
+      evidenceSha256: null,
+      metrics: receipt.metrics ?? null,
+    };
+  }
   if (!receipt) {
     return {
       ...base,
@@ -410,10 +482,17 @@ function blockRow(spec, needs, receipt, runUrl) {
     };
   }
   if (result !== 'success' || receipt.status !== 'PASS') {
-    const detail = receipt.value
-      ? `${spec.gate}: FAIL. ${receipt.value}`
-      : `${spec.gate}: FAIL. Unavailable: no evidence from this run.`;
-    return { ...base, status: 'FAIL', value: detail };
+    const detail = !receipt.value
+      ? `${spec.gate}: FAIL. Unavailable: no evidence from this run.`
+      : String(receipt.value).includes(': FAIL')
+        ? receipt.value
+        : `${spec.gate}: FAIL. ${receipt.value}`;
+    return {
+      ...base,
+      status: 'FAIL',
+      value: detail,
+      metrics: receipt.metrics ?? null,
+    };
   }
   if (isMissingCountValue(receipt.value)) {
     return {
@@ -427,6 +506,7 @@ function blockRow(spec, needs, receipt, runUrl) {
     ...base,
     status: 'PASS',
     value: receipt.value,
+    metrics: receipt.metrics ?? null,
   };
 }
 
@@ -483,32 +563,49 @@ export function buildQualityRows({
       jobUrls[spec.job] || runUrl,
     ),
   );
+  const mutation = gates?.['mutation-tests'] ?? null;
   rows.push(
-    coverageRow(gates?.['unit-tests'] ?? null, jobUrls['unit-tests'] || runUrl),
+    buildStrykerRow({
+      metrics: mutation?.stryker ?? null,
+      jobResult: needsResult(needs, 'mutation-tests'),
+      runUrl: jobUrls['mutation-tests'] || runUrl,
+      evidenceSha256:
+        mutation?.stryker?.evidenceSha256 || mutation?.evidenceSha256 || null,
+      floor: MUTATION_BREAK,
+      receiptStatus: mutation?.status ?? null,
+    }),
   );
-  for (const spec of INFO_GATES) {
-    if (spec.job === 'coverage') continue;
-    if (spec.job === 'stryker-floor') {
-      const receipt = gates?.['mutation-tests'] ?? null;
-      rows.push(
-        buildStrykerRow({
-          metrics: receipt?.stryker ?? null,
-          jobResult: needsResult(needs, 'mutation-tests'),
-          runUrl: jobUrls['mutation-tests'] || runUrl,
-          evidenceSha256:
-            receipt?.stryker?.evidenceSha256 || receipt?.evidenceSha256 || null,
-        }),
-      );
-      continue;
-    }
-    rows.push(unknownInfoRow(spec, runUrl));
-  }
   return rows;
 }
 
 export function attemptLine(runAttempt) {
   if (!runAttempt) return null;
   return `Attempt ${runAttempt}. Passed evidence may come from earlier attempts of the same run.`;
+}
+
+function resultEvidence(job, env) {
+  const spec = BLOCK_GATES.find((gate) => gate.job === job);
+  const path = env.GATE_RESULT || `reports/quality/results/${job}.json`;
+  const parsed = readJsonSafe(path);
+  const unknown = `${spec?.gate || job}: UNKNOWN. Counts unavailable from this run.`;
+  if (!parsed || typeof parsed.status !== 'string') {
+    return {
+      value: unknown,
+      floor: spec?.floor ?? null,
+      gateStatus: 'UNKNOWN',
+      evidenceSha256: null,
+      metrics: null,
+      logLines: [unknown],
+    };
+  }
+  return {
+    value: parsed.value ?? unknown,
+    floor: parsed.floor || spec?.floor || null,
+    gateStatus: parsed.status,
+    metrics: parsed.metrics ?? null,
+    evidenceSha256: parsed.evidenceSha256 ?? null,
+    logLines: [`${spec?.gate || job}: ${parsed.status}. ${parsed.value ?? ''}`],
+  };
 }
 
 function hashIfPresent(path) {
@@ -628,10 +725,14 @@ export function evidenceForJob(job, env = process.env) {
       : 'mutation counts unavailable';
     return {
       value,
-      floor: 'break 42 on the job, row is measurement only',
+      floor: mutationFloorLabel(),
       evidenceSha256,
       stryker: metrics,
-      logLines: [`Stryker floor: ${value}`],
+      survivors: topSurvivors(report),
+      mutationScope: readJsonSafe(
+        env.GATE_MUTATION_SCOPE || 'reports/quality/mutation-scope.json',
+      ),
+      logLines: [`Mutation: ${value}`],
     };
   }
   if (job === 'scheduled-workflow') {
@@ -649,6 +750,19 @@ export function evidenceForJob(job, env = process.env) {
       evidenceSha256: hashIfPresent(path),
       logLines: [`Scheduled workflow: ${value}`],
     };
+  }
+  if (
+    [
+      'coverage',
+      'complexity',
+      'duplication',
+      'deadcode',
+      'architecture',
+      'audit',
+      'electron-security',
+    ].includes(job)
+  ) {
+    return resultEvidence(job, env);
   }
   if (job === 'size-limit') {
     const path = env.GATE_SIZE_LOG || 'size-limit-raw.txt';
