@@ -43,6 +43,8 @@ Releases are **unsigned** in phase 1. Users should expect to **allow** the app t
 
 Windows release builds use the same **`extraResources`** layout as in [electron-builder.mjs](../electron-builder.mjs): binaries from **`buildResources/yt-dlp/`** and **`buildResources/ffmpeg/`** are copied into **`resources/`** inside the packaged app. **Release maintainers** should place `yt-dlp.exe` and `ffmpeg.exe` in those folders **before** `npm run compile:win` so end users get a self-contained installer (see [buildResources/yt-dlp/README.txt](../buildResources/yt-dlp/README.txt) and [buildResources/ffmpeg/README.txt](../buildResources/ffmpeg/README.txt)).
 
+The Windows release and installer-smoke jobs download `yt-dlp.exe` with `node scripts/download-bundled-yt-dlp.mjs`. That script pins the yt-dlp version and SHA-256, downloads `yt-dlp.exe` and `SHA2-256SUMS` from the official GitHub release, and fails the build if the pinned hash, the `SHA2-256SUMS` line for `yt-dlp.exe`, and the downloaded file disagree.
+
 **End users** of such a build normally do **not** install yt-dlp or ffmpeg separately. That is different from **local `npm start` development**, where developers still need tools on `PATH` or `YT_DLP_PATH` / `FFMPEG_PATH` — see the root [README.md](../README.md) section _yt-dlp and ffmpeg: packaged app vs local development_.
 
 ## NSIS silent install (smoke and automation)
