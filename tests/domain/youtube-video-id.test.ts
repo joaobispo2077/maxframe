@@ -1,3 +1,4 @@
+import { uncoveredProofLines } from '@src/domain/video/uncoveredProofLines';
 import {
   canonicalYoutubeWatchUrl,
   parseYoutubeVideoId,
@@ -60,6 +61,10 @@ describe('canonicalYoutubeWatchUrl', () => {
 });
 
 describe('parseYoutubeVideoId', () => {
+  it('loads the uncovered proof lines without calling them', () => {
+    expect(typeof uncoveredProofLines).toBe('function');
+  });
+
   it('parses watch URLs', () => {
     const id = parseYoutubeVideoId(
       new URL('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
