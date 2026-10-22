@@ -43,7 +43,11 @@ export function renderMutationMarkdown(report, { htmlReportUrl = null } = {}) {
     '',
     `**Overall: ${overall}**`,
     '',
-    '- **Profile:** light, Stryker incremental on changed files',
+    `- **Profile:** ${
+      metrics?.profile === 'fresh'
+        ? 'fresh PR mutate set, no incremental cache'
+        : 'light, Stryker incremental on changed files'
+    }`,
     `- **Scope:** ${scope?.scopeLabel || 'unavailable'}`,
     `- **Tested this run:** ${count(metrics, 'tested')}`,
     `- **Cached:** ${count(metrics, 'cached')}`,

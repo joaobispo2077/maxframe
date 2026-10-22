@@ -579,6 +579,7 @@ jobs:
               });
             '
             echo "Fresh PR mutate set. Incremental cache is not a score for this run."
+            echo "GATE_MUTATION_PROFILE=fresh" >> "$GITHUB_ENV"
             npm run test:mutation:pr 2>&1 | tee reports/quality/stryker.log
           }
           if [ "${{ steps.mutation-scope.outputs.fresh }}" = "true" ]; then
