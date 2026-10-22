@@ -127,20 +127,26 @@ describe('other blocking gates', () => {
     ).toBe('PASS');
   });
 
-  it('fails when high or critical audit findings rise above the measured ceiling', () => {
+  it('fails any critical audit finding and keeps high on its own ceiling', () => {
     expect(evaluateAudit({}).status).toBe('UNKNOWN');
+    const critical = evaluateAudit({
+      metadata: {
+        vulnerabilities: { high: 40, critical: 2, moderate: 1, low: 0 },
+      },
+    });
+    expect(critical.status).toBe('FAIL');
+    expect(critical.floor).toBe('0 critical, <= 40 high');
+    expect(critical.value).toContain('2 critical is above 0');
     expect(
       evaluateAudit({
-        metadata: {
-          vulnerabilities: { high: 40, critical: 2, moderate: 1, low: 0 },
-        },
+        metadata: { vulnerabilities: { high: 40, critical: 0 } },
       }).status,
     ).toBe('PASS');
-    const over = evaluateAudit({
-      metadata: { vulnerabilities: { high: 41, critical: 2 } },
+    const overHigh = evaluateAudit({
+      metadata: { vulnerabilities: { high: 41, critical: 0 } },
     });
-    expect(over.status).toBe('FAIL');
-    expect(over.value).toContain('above');
+    expect(overHigh.status).toBe('FAIL');
+    expect(overHigh.value).toContain('41 high is above 40');
   });
 
   it('fails Electron windows that are not sandboxed', () => {
@@ -215,6 +221,32 @@ describe('mutation sticky and attempt artifacts', () => {
     });
     expect(low.status).toBe('FAIL');
     expect(low.floor).toBe(`break ${MUTATION_BREAK}`);
+    const cached = buildStrykerRow({
+      metrics: {
+        profile: 'incremental',
+        killed: 865,
+        survived: 293,
+        timeout: 18,
+        noCoverage: 88,
+        scored: 1264,
+        detectedScore: 69.86,
+        killedOnlyScore: 68.43,
+        timeoutPct: 1.42,
+        timeoutAbove2: false,
+        zeroMutants: false,
+        countsUnknown: false,
+        tested: 0,
+        cached: 1264,
+      },
+      jobResult: 'success',
+    });
+    expect(cached.status).toBe('UNKNOWN');
+    expect(cached.value).toContain(
+      'Mutation: UNKNOWN. 0 mutants tested this run, score is cache-only.',
+    );
+    expect(cached.value).toContain('0 tested this run');
+    expect(cached.value).toContain('1264 cached');
+    expect(cached.status).not.toBe('PASS');
   });
 
   it('picks the artifact from the current attempt and ignores a stale one', () => {

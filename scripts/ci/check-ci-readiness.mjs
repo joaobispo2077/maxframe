@@ -64,6 +64,8 @@ export function resultFailures(needs, gates = null) {
   for (const job of REQUIRED_JOBS) {
     const result = jobResult(needs, job);
     if (result !== 'success') {
+      // A failed job whose receipt is UNKNOWN is not a second hard failure.
+      // The UNKNOWN BLOCK row still keeps readiness from passing.
       if (result === 'failure' && gates?.[job]?.status === 'UNKNOWN') continue;
       failures.push(
         `${job}: expected success, received ${formatReceived(result)}`,
@@ -172,6 +174,7 @@ export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
     schemaVersion: 1,
     gate: 'ci-readiness',
     sha: env.GITHUB_SHA || null,
+    headSha: env.PR_HEAD_SHA || null,
     runId: runId || null,
     runAttempt,
     runUrl,

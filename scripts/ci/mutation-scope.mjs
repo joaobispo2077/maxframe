@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -35,6 +35,7 @@ export function buildMutationScope({ baseRef, names, diffError = null }) {
       mode: 'pr-profile',
       base: baseRef,
       changedFiles: [],
+      mutableSourceChanged: null,
       scopeLabel: `PR mutate set src/**/*.ts. Changed file list unavailable (${diffError}).`,
     };
   }
@@ -43,16 +44,21 @@ export function buildMutationScope({ baseRef, names, diffError = null }) {
       mode: 'pr-profile',
       base: baseRef,
       changedFiles: [],
-      scopeLabel:
-        'PR mutate set src/**/*.ts (incremental). No changed files in that set.',
+      mutableSourceChanged: false,
+      scopeLabel: 'No mutable source changed.',
     };
   }
   return {
     mode: 'changed-files',
     base: baseRef,
     changedFiles,
+    mutableSourceChanged: true,
     scopeLabel: `changed files: ${changedFiles.join(', ')}`,
   };
+}
+
+export function mutationShouldRunFresh(scope) {
+  return scope?.mutableSourceChanged !== true;
 }
 
 export function writeMutationScope(
@@ -83,6 +89,12 @@ if (isDirectRun()) {
     });
   }
   const path = writeMutationScope(scope, process.env.MUTATION_SCOPE);
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `fresh=${mutationShouldRunFresh(scope)}\n`,
+    );
+  }
   console.log(scope.scopeLabel);
   console.log(`wrote ${path}`);
 }

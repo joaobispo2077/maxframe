@@ -280,7 +280,7 @@ describe('coverage and stryker rows', () => {
     expect(coverage.value).toBe(value);
   });
 
-  it('labels a fully cached Stryker score as cached and INFO', () => {
+  it('returns UNKNOWN when a Stryker score is only from cache', () => {
     const log = 'Result:\u001b[33m\t1264 of 1365 mutant result(s) are reused.';
     expect(parseReuseLine(log)).toEqual({ reused: 1264, universe: 1365 });
     const metrics = mutationMetrics({
@@ -300,12 +300,11 @@ describe('coverage and stryker rows', () => {
     expect(metrics.killedOnlyScore.toFixed(2)).toBe('68.51');
     const row = buildStrykerRow({ metrics, jobResult: 'success' });
     expect(row.mode).toBe('BLOCK');
-    expect(row.status).toBe('PASS');
-    expect(row.value).toContain('0 tested this run');
-    expect(row.value).toContain('1264 cached');
-    expect(row.value).toContain('Score 69.86%');
-    expect(row.value).toContain('Killed only 68.51%');
-    expect(row.value).not.toContain('Timeouts above 2%');
+    expect(row.status).toBe('UNKNOWN');
+    expect(row.status).not.toBe('PASS');
+    expect(row.value).toBe(
+      'Mutation: UNKNOWN. 0 mutants tested this run, score is cache-only. 0 tested this run, 1264 cached.',
+    );
     expect(row.floor).toContain('68');
   });
 

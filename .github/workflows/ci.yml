@@ -540,6 +540,7 @@ jobs:
         run: npm ci || { rm -rf node_modules && npm ci; }
 
       - name: Record mutation scope
+        id: mutation-scope
         env:
           PR_BASE_REF: ${{ github.base_ref || 'develop' }}
         run: node scripts/ci/mutation-scope.mjs
@@ -549,6 +550,7 @@ jobs:
 
       - name: Cache Stryker incremental report (exact key only)
         id: stryker-cache
+        if: steps.mutation-scope.outputs.fresh != 'true'
         uses: actions/cache@v5
         with:
           path: reports/stryker-incremental.pr.json
@@ -565,7 +567,30 @@ jobs:
         run: |
           mkdir -p reports/quality
           set -o pipefail
-          npm run test:mutation:pr:incremental 2>&1 | tee reports/quality/stryker.log
+          fresh_run() {
+            rm -f reports/stryker-incremental.pr.json
+            node --input-type=module -e '
+              import { applyStrykerCacheDecision } from "./scripts/ci/accept-stryker-cache.mjs";
+              applyStrykerCacheDecision({
+                cacheHit: "false",
+                matchedKey: "",
+                incrementalFile: "reports/stryker-incremental.pr.json",
+                decisionFile: "reports/quality/stryker-cache.json",
+              });
+            '
+            echo "Fresh PR mutate set. Incremental cache is not a score for this run."
+            npm run test:mutation:pr 2>&1 | tee reports/quality/stryker.log
+          }
+          if [ "${{ steps.mutation-scope.outputs.fresh }}" = "true" ]; then
+            echo "No mutable source changed, or the changed file list is unavailable."
+            fresh_run
+          else
+            npm run test:mutation:pr:incremental 2>&1 | tee reports/quality/stryker.log
+            if node scripts/ci/mutation-cache-only.mjs; then
+              echo "Incremental reuse tested 0 mutants."
+              fresh_run
+            fi
+          fi
 
       - name: Write gate.json
         if: always()
@@ -672,6 +697,7 @@ jobs:
           CI_NEEDS_JSON: ${{ toJSON(needs) }}
           FETCH_GATE_ARTIFACTS: '1'
           GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
         run: node scripts/ci/check-ci-readiness.mjs
 
       - name: Upload CI readiness artifact

@@ -54,9 +54,18 @@ export function renderMutationMarkdown(report, { htmlReportUrl = null } = {}) {
     `- **Timeout:** ${count(metrics, 'timeout')}`,
     `- **No coverage:** ${count(metrics, 'noCoverage')}`,
     '',
-    '### Survivors per file',
-    '',
   ];
+  if (
+    metrics &&
+    metrics.zeroMutants !== true &&
+    (metrics.tested == null || metrics.tested === 0)
+  ) {
+    lines.push('0 mutants tested this run, score is cache-only.', '');
+  }
+  if (scope?.mutableSourceChanged === false) {
+    lines.push('No mutable source changed.', '');
+  }
+  lines.push('### Survivors per file', '');
   if (survivors.length === 0) {
     lines.push('No survived mutants were listed for this run.', '');
   } else {

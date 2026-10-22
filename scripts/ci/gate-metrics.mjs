@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 
 import {
-  AUDIT_HIGH_CRITICAL_MAX,
+  AUDIT_HIGH_MAX,
   COVERAGE_FLOORS,
   DUPLICATION_CEILING,
   ELECTRON_SECURITY_FLOOR,
@@ -42,7 +42,7 @@ export const BLOCK_GATES = [
   {
     job: 'audit',
     gate: 'Dependency audit',
-    floor: `<= ${AUDIT_HIGH_CRITICAL_MAX} high or critical`,
+    floor: `0 critical, <= ${AUDIT_HIGH_MAX} high`,
   },
   {
     job: 'electron-security',
@@ -366,6 +366,7 @@ export function buildStrykerRow({
   evidenceSha256 = null,
   floor = MUTATION_BREAK,
   receiptStatus = null,
+  mutationScope = null,
 }) {
   const base = {
     gate: 'Mutation',
@@ -409,16 +410,36 @@ export function buildStrykerRow({
       evidenceSha256: metrics && !metrics.zeroMutants ? evidenceSha256 : null,
     };
   }
+  if (metrics.tested == null || metrics.tested === 0) {
+    const cached = Number.isFinite(metrics.cached) ? metrics.cached : 0;
+    const scopeNote =
+      mutationScope?.mutableSourceChanged === false
+        ? ' No mutable source changed.'
+        : mutationScope?.mutableSourceChanged === true
+          ? ' Mutable source changed, but this run tested 0 mutants.'
+          : '';
+    return {
+      ...base,
+      status: 'UNKNOWN',
+      value: `Mutation: UNKNOWN. 0 mutants tested this run, score is cache-only.${scopeNote} ${metrics.tested ?? 0} tested this run, ${cached} cached.`,
+    };
+  }
   const value = strykerRowValue(metrics);
+  const noSource =
+    mutationScope?.mutableSourceChanged === false
+      ? ' No mutable source changed.'
+      : '';
   const below = metrics.detectedScore == null || metrics.detectedScore < floor;
   if (below || (jobResult && jobResult !== 'success')) {
     return {
       ...base,
       status: 'FAIL',
-      value: value.startsWith('Mutation:') ? value : `Mutation: FAIL. ${value}`,
+      value: value.startsWith('Mutation:')
+        ? `${value}${noSource}`
+        : `Mutation: FAIL. ${value}${noSource}`,
     };
   }
-  return { ...base, status: 'PASS', value };
+  return { ...base, status: 'PASS', value: `${value}${noSource}` };
 }
 
 function needsResult(needs, job) {
@@ -573,6 +594,7 @@ export function buildQualityRows({
         mutation?.stryker?.evidenceSha256 || mutation?.evidenceSha256 || null,
       floor: MUTATION_BREAK,
       receiptStatus: mutation?.status ?? null,
+      mutationScope: mutation?.mutationScope ?? null,
     }),
   );
   return rows;
@@ -712,6 +734,9 @@ export function evidenceForJob(job, env = process.env) {
       env.GATE_STRYKER_CACHE_DECISION || 'reports/quality/stryker-cache.json';
     const report = readJsonSafe(jsonPath);
     const decision = readJsonSafe(decisionPath);
+    const mutationScope = readJsonSafe(
+      env.GATE_MUTATION_SCOPE || 'reports/quality/mutation-scope.json',
+    );
     const metrics = mutationMetrics({
       report,
       logText: readText(logPath) ?? '',
@@ -720,19 +745,21 @@ export function evidenceForJob(job, env = process.env) {
     });
     const evidenceSha256 = hashIfPresent(jsonPath);
     if (metrics) metrics.evidenceSha256 = evidenceSha256;
-    const value = metrics
-      ? strykerRowValue(metrics)
-      : 'mutation counts unavailable';
+    const row = buildStrykerRow({
+      metrics,
+      jobResult: 'success',
+      evidenceSha256,
+      mutationScope,
+    });
     return {
-      value,
-      floor: mutationFloorLabel(),
+      value: row.value,
+      floor: row.floor,
+      gateStatus: row.status === 'PASS' ? undefined : row.status,
       evidenceSha256,
       stryker: metrics,
       survivors: topSurvivors(report),
-      mutationScope: readJsonSafe(
-        env.GATE_MUTATION_SCOPE || 'reports/quality/mutation-scope.json',
-      ),
-      logLines: [`Mutation: ${value}`],
+      mutationScope,
+      logLines: [`Mutation: ${row.value}`],
     };
   }
   if (job === 'scheduled-workflow') {

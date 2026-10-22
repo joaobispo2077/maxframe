@@ -32,11 +32,11 @@ export const CRAP_MAX = 30;
 export const COMPLEXITY_MAX = 12;
 
 /**
- * Max npm audit findings at high or critical.
- * develop measures 40 high and 2 critical. A zero ceiling cannot pass.
- * This ceiling only moves down.
+ * High findings ceiling. The review measured 40 high on this tree.
+ * The ceiling is 40 and only moves down. Any critical finding fails
+ * on its own. There is no waiver for criticals.
  */
-export const AUDIT_HIGH_CRITICAL_MAX = 42;
+export const AUDIT_HIGH_MAX = 40;
 
 export const MUTATION_SURVIVOR_LIMIT = 10;
 

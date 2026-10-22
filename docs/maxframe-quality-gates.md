@@ -18,7 +18,7 @@ Floors live in `scripts/ci/quality-floors.mjs`. Vitest imports the coverage mini
 | Duplication              | jscpd on `src` and the package `src` trees                                                                                                                      | at most 2% duplicated lines                                                                                                    |
 | Dead code                | knip                                                                                                                                                            | 0 findings that are not on `scripts/ci/deadcode-allowlist.json`                                                                |
 | Architecture             | dependency-cruiser                                                                                                                                              | 0 violations. Domain does not import infrastructure. Renderer does not import main. Renderer source does not import Node core. |
-| Dependency audit         | `npm audit --json`                                                                                                                                              | at most 42 findings at high or critical                                                                                        |
+| Dependency audit         | `npm audit --json`                                                                                                                                              | 0 critical, and at most 40 high                                                                                                |
 | Electron security        | `webPreferences` on every `BrowserWindow` under main, preload, and renderer source                                                                              | `contextIsolation` true, `nodeIntegration` false, `sandbox` true                                                               |
 | Mutation tests           | Stryker incremental on changed files under `src/**/*.ts` (the full PR mutate set when that diff is empty). Weekly `stryker-full.yml` still runs the full set.   | break 68                                                                                                                       |
 | Scheduled workflow state | `stryker-full.yml` is readable and active                                                                                                                       | workflow state is readable and not disabled                                                                                    |
@@ -33,7 +33,7 @@ Floors live in `scripts/ci/quality-floors.mjs`. Vitest imports the coverage mini
 
 The Software metrics sticky (`quality-gates-report`) has one row per gate: value, floor, and `PASS`, `FAIL`, or `UNKNOWN`. Its overall matches `CI readiness`, and the chart overall token matches that same overall. The gate status chart counts those same rows. PNG files are uploaded as the `quality-charts` artifact and are not embedded in the comment, because a relative `charts/*.png` path does not render on GitHub.
 
-The Mutation tests sticky (`mutation-report`) shows the score, killed, survived, timeout, no coverage, tested this run, cached, the floor, and a link to the HTML report artifact from the same run attempt. Its overall is the mutation row only.
+The Mutation tests sticky (`mutation-report`) shows the score, killed, survived, timeout, no coverage, tested this run, cached, the floor, and a link to the HTML report artifact from the same run attempt. Its overall is the mutation row only. A score with 0 mutants tested this run is UNKNOWN, because that score is cache-only. When no mutable source changed, the job runs the PR mutate set without the incremental cache, and the sticky says that no mutable source changed.
 
 ## Mutation floor
 
@@ -50,7 +50,7 @@ Thresholds apply to application source that the unit tests load (`src` and `pack
 These are frozen measurements, not relaxed minimums:
 
 - Duplication ceiling is 2. The measured share on this change was 1.95%, rounded up to one decimal. The ceiling only moves down.
-- Audit ceiling is 42 because `develop` reports 40 high and 2 critical. A zero ceiling cannot pass. The ceiling only moves down. Do not use `npm audit fix --force` to chase it.
+- Any critical audit finding fails. There is no waiver. The high ceiling is 40, the count measured before the handlebars and tar bumps, and it only moves down. Moderate and low are reported and do not block. Do not use `npm audit fix --force`.
 - CRAP stays at 30. The measured max was 156, and 26 functions were already over 30. Those 26 are listed in `scripts/ci/crap-allowlist.json` as `file:name`. New functions over 30 fail. Do not raise 30.
 - Dead code floor stays "0 unwaived". `scripts/ci/deadcode-allowlist.json` freezes the knip findings measured with this config (32 rows). New findings fail. The knip semantic-release plugin is off: `release.config.mjs` registers a function plugin, and knip crashes on that (`input.specifier.startsWith is not a function`). `@semantic-release/changelog` and `@semantic-release/git` stay on the allowlist because that config names them as strings.
 

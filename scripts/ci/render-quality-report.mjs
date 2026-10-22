@@ -171,12 +171,9 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
   const sha = report.sha || 'unavailable';
   const run = report.runUrl ? `[run](${report.runUrl})` : 'unavailable';
   const digest = artifactSha256 || 'unavailable';
-  lines.push(
-    `Commit: \`${sha}\``,
-    `Run: ${run}`,
-    `ci-readiness.json SHA-256: \`${digest}\``,
-    '',
-  );
+  lines.push(`Commit: \`${sha}\``);
+  if (report.headSha) lines.push(`Head: \`${report.headSha}\``);
+  lines.push(`Run: ${run}`, `ci-readiness.json SHA-256: \`${digest}\``, '');
   return `${lines.join('\n')}`;
 }
 

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-import { AUDIT_HIGH_CRITICAL_MAX } from './quality-floors.mjs';
+import { AUDIT_HIGH_MAX } from './quality-floors.mjs';
 import { finishGate } from './write-result.mjs';
 
 export function auditCounts(report) {
@@ -20,11 +20,8 @@ export function auditCounts(report) {
   };
 }
 
-export function evaluateAudit(
-  report,
-  maxHighCritical = AUDIT_HIGH_CRITICAL_MAX,
-) {
-  const floor = `<= ${maxHighCritical} high or critical`;
+export function evaluateAudit(report, maxHigh = AUDIT_HIGH_MAX) {
+  const floor = `0 critical, <= ${maxHigh} high`;
   const counts = auditCounts(report);
   if (!counts) {
     return {
@@ -38,10 +35,17 @@ export function evaluateAudit(
     counts.moderate == null ? '' : `, ${counts.moderate} moderate reported`;
   const low = counts.low == null ? '' : `, ${counts.low} low reported`;
   const value = `${counts.critical} critical, ${counts.high} high${moderate}${low}`;
-  if (counts.total > maxHighCritical) {
+  const reasons = [];
+  if (counts.critical > 0) {
+    reasons.push(`${counts.critical} critical is above 0`);
+  }
+  if (counts.high > maxHigh) {
+    reasons.push(`${counts.high} high is above ${maxHigh}`);
+  }
+  if (reasons.length > 0) {
     return {
       status: 'FAIL',
-      value: `Dependency audit: FAIL. ${value} is above ${maxHighCritical}`,
+      value: `Dependency audit: FAIL. ${value}. ${reasons.join('. ')}`,
       floor,
       metrics: counts,
     };
