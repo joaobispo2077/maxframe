@@ -31,7 +31,7 @@ Floors live in `scripts/ci/quality-floors.mjs`. Vitest imports the coverage mini
 - `FAIL`: the report exists and the measured value misses the floor, or the job was skipped or cancelled.
 - `UNKNOWN`: the report or the counts are missing. This is not a pass.
 
-The Software metrics sticky (`quality-gates-report`) has one row per gate: value, floor, and `PASS`, `FAIL`, or `UNKNOWN`. Its overall matches `CI readiness`, and the chart overall token matches that same overall.
+The Software metrics sticky (`quality-gates-report`) has one row per gate: value, floor, and `PASS`, `FAIL`, or `UNKNOWN`. Its overall matches `CI readiness`, and the chart overall token matches that same overall. The gate status chart counts those same rows. PNG files are uploaded as the `quality-charts` artifact and are not embedded in the comment, because a relative `charts/*.png` path does not render on GitHub.
 
 The Mutation tests sticky (`mutation-report`) shows the score, killed, survived, timeout, no coverage, tested this run, cached, the floor, and a link to the HTML report artifact from the same run attempt. Its overall is the mutation row only.
 

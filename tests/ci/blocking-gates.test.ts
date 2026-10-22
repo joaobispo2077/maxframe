@@ -301,6 +301,19 @@ describe('mutation sticky and attempt artifacts', () => {
     expect(
       markdown.match(/<!-- chart-overall:(PASS|FAIL|UNKNOWN) -->/)[1],
     ).toBe(displayOverall(report));
+    expect(markdown).not.toContain('](charts/');
+    expect(markdown).not.toContain('flowchart');
+    const gateStatus = markdown
+      .split('### Gate status')[1]
+      .split('### Coverage')[0];
+    expect(gateStatus).toContain('pie showData');
+    expect(gateStatus).toContain(
+      `PASS ${report.rows.length}, FAIL 0, UNKNOWN 0`,
+    );
+    for (const row of report.rows) {
+      expect(gateStatus).toContain(row.gate);
+      expect(gateStatus).toContain(row.status);
+    }
     const mutation = renderMutationMarkdown(report, {
       htmlReportUrl: 'https://github.com/example/actions/runs/1/artifacts/2',
     });

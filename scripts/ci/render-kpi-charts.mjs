@@ -64,15 +64,28 @@ function cell(value) {
     .replace(/\r?\n/g, ' ');
 }
 
+function statusCounts(series) {
+  const counts = { PASS: 0, FAIL: 0, UNKNOWN: 0 };
+  for (const row of series) {
+    const status = Object.hasOwn(counts, row.status) ? row.status : 'UNKNOWN';
+    counts[status] += 1;
+  }
+  return counts;
+}
+
 function mermaidStatus(series) {
-  const lines = ['```mermaid', 'flowchart LR'];
-  series.forEach((row, index) => {
-    const id = `g${index}`;
-    const label = `${row.gate} ${row.status}`.replace(/"/g, "'");
-    lines.push(`  ${id}["${label}"]`);
-  });
+  const counts = statusCounts(series);
+  const summary = `PASS ${counts.PASS}, FAIL ${counts.FAIL}, UNKNOWN ${counts.UNKNOWN}`;
+  const slices = ['PASS', 'FAIL', 'UNKNOWN'].filter(
+    (status) => counts[status] > 0,
+  );
+  if (slices.length === 0) return summary;
+  const lines = ['```mermaid', 'pie showData', '    title Gate status'];
+  for (const status of slices) {
+    lines.push(`    "${status}" : ${counts[status]}`);
+  }
   lines.push('```');
-  return lines.join('\n');
+  return `${summary}\n\n${lines.join('\n')}`;
 }
 
 function table(headers, rows) {
@@ -116,8 +129,6 @@ export function buildChartMarkdown(report, overall) {
     '',
     '### Gate status',
     '',
-    '![Gate status](charts/status.png)',
-    '',
     mermaidStatus(series),
     '',
     table(
@@ -133,8 +144,6 @@ export function buildChartMarkdown(report, overall) {
     '',
     '### Coverage',
     '',
-    '![Coverage](charts/coverage.png)',
-    '',
     table(
       ['Field', 'Value'],
       [
@@ -146,8 +155,6 @@ export function buildChartMarkdown(report, overall) {
     ),
     '',
     '### Complexity',
-    '',
-    '![Complexity](charts/complexity.png)',
     '',
     table(
       ['Field', 'Value'],
@@ -163,8 +170,6 @@ export function buildChartMarkdown(report, overall) {
     '',
     '### Dead code',
     '',
-    '![Dead code](charts/deadcode.png)',
-    '',
     table(
       ['Field', 'Value'],
       [
@@ -179,8 +184,6 @@ export function buildChartMarkdown(report, overall) {
     '',
     '### Dependency audit',
     '',
-    '![Dependency audit](charts/deps.png)',
-    '',
     table(
       ['Field', 'Value'],
       [
@@ -191,8 +194,6 @@ export function buildChartMarkdown(report, overall) {
     ),
     '',
     '### Duplication',
-    '',
-    '![Duplication](charts/duplication.png)',
     '',
     table(
       ['Field', 'Value'],
@@ -207,8 +208,6 @@ export function buildChartMarkdown(report, overall) {
     ),
     '',
     '### Architecture',
-    '',
-    '![Architecture](charts/architecture.png)',
     '',
     table(
       ['Field', 'Value'],

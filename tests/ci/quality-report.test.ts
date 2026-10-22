@@ -145,7 +145,11 @@ describe('quality report fail closed', () => {
     coverage.status = 'FAIL';
     coverage.value = 'Coverage: FAIL. lines 10.00%';
     expect(displayOverall(report)).toBe('FAIL');
-    expect(renderQualityMarkdown(report)).not.toContain('**Overall: PASS**');
+    const failed = renderQualityMarkdown(report);
+    expect(failed).not.toContain('**Overall: PASS**');
+    expect(failed).toContain('pie showData');
+    expect(failed).toContain('"FAIL" : 1');
+    expect(failed).not.toContain('](charts/');
   });
 
   it('keeps overall equal to a complete CI readiness conclusion', () => {
