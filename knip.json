@@ -8,6 +8,7 @@
     "cypress/videos/**"
   ],
   "ignoreDependencies": ["@stryker-mutator/api"],
+  "semantic-release": false,
   "ignoreUnresolved": ["vite"],
   "workspaces": {
     ".": {
