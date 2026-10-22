@@ -33,7 +33,13 @@ jobs:
 
       - name: Run typecheck
         id: gate
-        run: npm run typecheck
+        run: |
+          mkdir -p reports/quality
+          set +e
+          npm run typecheck > reports/quality/typecheck.log 2>&1
+          code=$?
+          cat reports/quality/typecheck.log
+          exit "$code"
 
       - name: Write gate.json
         if: always()
@@ -71,7 +77,15 @@ jobs:
 
       - name: Run lint
         id: gate
-        run: npm run lint
+        run: |
+          mkdir -p reports/quality
+          set +e
+          npm run lint -- -f json -o reports/quality/eslint.json
+          lint_code=$?
+          node scripts/ci/check-lint-baseline.mjs
+          base_code=$?
+          if [ "$lint_code" -ne 0 ]; then exit "$lint_code"; fi
+          exit "$base_code"
 
       - name: Write gate.json
         if: always()
@@ -109,7 +123,13 @@ jobs:
 
       - name: Run format check
         id: gate
-        run: npm run format:check
+        run: |
+          mkdir -p reports/quality
+          set +e
+          npm run format:check > reports/quality/prettier.log 2>&1
+          code=$?
+          cat reports/quality/prettier.log
+          exit "$code"
 
       - name: Write gate.json
         if: always()
@@ -132,8 +152,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: typecheck
     timeout-minutes: 15
-    permissions:
-      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -153,7 +171,9 @@ jobs:
         env:
           MAXFRAME_FAKE_VIDEO_METADATA: '1'
         # Coverage flags are baked into the root script to ensure Vitest always writes summary JSON.
-        run: npm run test:unit:coverage
+        run: |
+          mkdir -p reports/quality
+          npm run test:unit:coverage -- --reporter=default --reporter=json --outputFile.json=reports/quality/vitest.json
 
       - name: Write gate.json
         if: always()
@@ -178,41 +198,6 @@ jobs:
           path: coverage/coverage-summary.json
           if-no-files-found: error
           retention-days: 7
-
-      - name: Generate coverage summary markdown
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          node <<'EOF'
-          const fs = require('node:fs');
-          const summaryPath = 'coverage/coverage-summary.json';
-          const outputPath = 'code-coverage-results.md';
-          const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
-          const total = summary.total;
-          const pct = (value) => `${Number(value).toFixed(2)}%`;
-
-          const lines = [
-            '## Unit Test Coverage',
-            '',
-            '| Metric | Covered / Total | % |',
-            '|---|---:|---:|',
-            `| Lines | ${total.lines.covered} / ${total.lines.total} | ${pct(total.lines.pct)} |`,
-            `| Statements | ${total.statements.covered} / ${total.statements.total} | ${pct(total.statements.pct)} |`,
-            `| Functions | ${total.functions.covered} / ${total.functions.total} | ${pct(total.functions.pct)} |`,
-            `| Branches | ${total.branches.covered} / ${total.branches.total} | ${pct(total.branches.pct)} |`,
-            '',
-            '_Generated from Vitest coverage-summary.json_',
-          ];
-
-          fs.writeFileSync(outputPath, `${lines.join('\n')}\n`);
-          EOF
-
-      - name: Publish coverage summary to PR
-        if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v3
-        with:
-          path: code-coverage-results.md
-          recreate: true
 
   e2e-tests:
     name: E2E Tests (Cypress Component)
@@ -266,8 +251,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: unit-tests
     timeout-minutes: 30
-    permissions:
-      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -301,7 +284,10 @@ jobs:
 
       - name: Run mutation tests
         id: gate
-        run: npm run test:mutation:pr:incremental
+        run: |
+          mkdir -p reports/quality
+          set -o pipefail
+          npm run test:mutation:pr:incremental 2>&1 | tee reports/quality/stryker.log
 
       - name: Write gate.json
         if: always()
@@ -327,17 +313,6 @@ jobs:
           path: reports/mutation
           if-no-files-found: error
           retention-days: 7
-
-      - name: Generate mutation summary markdown
-        if: always() && github.event_name == 'pull_request'
-        run: node scripts/ci/write-mutation-summary.mjs
-
-      - name: Publish mutation summary to PR
-        if: always() && github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v3
-        with:
-          path: mutation-test-results.md
-          recreate: true
 
   scheduled-workflow:
     name: Scheduled workflow state
@@ -394,6 +369,7 @@ jobs:
     permissions:
       actions: write
       contents: read
+      pull-requests: write
     outputs:
       result: ${{ steps.readiness.outputs.result }}
       status: ${{ steps.readiness.outputs.status }}
@@ -414,6 +390,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/ci/check-ci-readiness.mjs
 
+      - name: Render maxframe quality report
+        if: always()
+        run: node scripts/ci/render-quality-report.mjs
+
+      - name: Publish maxframe quality comment
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: maxframe-quality
+          path: reports/quality/maxframe-quality.md
+          recreate: true
+
       - name: Upload CI readiness artifact
         if: always()
         uses: actions/upload-artifact@v7
@@ -422,5 +410,6 @@ jobs:
           path: |
             reports/quality/ci-readiness.json
             reports/quality/gates/ci-readiness/gate.json
+            reports/quality/maxframe-quality.md
           if-no-files-found: error
           retention-days: 14

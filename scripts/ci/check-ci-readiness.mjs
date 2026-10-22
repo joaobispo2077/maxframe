@@ -3,6 +3,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { attemptLine, buildQualityRows } from './gate-metrics.mjs';
+
 export const REQUIRED_JOBS = [
   'typecheck',
   'lint',
@@ -12,6 +14,17 @@ export const REQUIRED_JOBS = [
   'mutation-tests',
   'scheduled-workflow',
 ];
+
+export const JOB_DISPLAY_NAMES = {
+  typecheck: 'Typecheck',
+  lint: 'Lint',
+  format: 'Format',
+  'unit-tests': 'Unit Tests',
+  'e2e-tests': 'E2E Tests (Cypress Component)',
+  'mutation-tests': 'Mutation Tests (Stryker)',
+  'scheduled-workflow': 'Scheduled workflow state',
+  'ci-readiness': 'CI readiness',
+};
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -87,7 +100,17 @@ export function evaluateReadiness({ needs, gates, sha = '' }) {
   return failures;
 }
 
-export function buildReport({ needs, gates, failures, env }) {
+export function jobUrlsFromList(jobs) {
+  const urls = {};
+  if (!Array.isArray(jobs)) return urls;
+  for (const [id, name] of Object.entries(JOB_DISPLAY_NAMES)) {
+    const match = jobs.find((job) => job?.name === name && job.html_url);
+    if (match) urls[id] = match.html_url;
+  }
+  return urls;
+}
+
+export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
   const jobs = {};
   for (const job of REQUIRED_JOBS) {
     const receipt = gates?.[job] ?? null;
@@ -99,30 +122,41 @@ export function buildReport({ needs, gates, failures, env }) {
             result: receipt.result ?? null,
             exitCode: receipt.exitCode ?? null,
             sha: receipt.sha ?? null,
+            value: receipt.value ?? null,
+            evidenceSha256: receipt.evidenceSha256 ?? null,
           }
         : null,
       accepted: !failures.some((failure) => failure.startsWith(`${job}:`)),
     };
   }
-  const passed = failures.length === 0;
   const server = env.GITHUB_SERVER_URL || 'https://github.com';
   const repository = env.GITHUB_REPOSITORY || '';
   const runId = env.GITHUB_RUN_ID || '';
+  const runUrl =
+    repository && runId
+      ? `${server}/${repository}/actions/runs/${runId}`
+      : null;
+  const runAttempt = env.GITHUB_RUN_ATTEMPT || null;
+  const rows = buildQualityRows({ needs, gates, jobUrls, runUrl });
+  const blockUnknown = rows.some(
+    (row) => row?.mode === 'BLOCK' && row?.status === 'UNKNOWN',
+  );
+  const status =
+    failures.length > 0 ? 'FAIL' : blockUnknown ? 'UNKNOWN' : 'PASS';
   return {
     schemaVersion: 1,
     gate: 'ci-readiness',
     sha: env.GITHUB_SHA || null,
     runId: runId || null,
-    runAttempt: env.GITHUB_RUN_ATTEMPT || null,
-    runUrl:
-      repository && runId
-        ? `${server}/${repository}/actions/runs/${runId}`
-        : null,
-    status: passed ? 'PASS' : 'FAIL',
-    result: passed ? 'success' : 'failure',
+    runAttempt,
+    runUrl,
+    status,
+    result: status === 'PASS' ? 'success' : 'failure',
     requiredJobs: REQUIRED_JOBS,
     jobs,
     failures,
+    rows,
+    attemptLine: attemptLine(runAttempt),
   };
 }
 
@@ -222,6 +256,21 @@ export function readGatesFromDir(dir, jobs = REQUIRED_JOBS) {
   return gates;
 }
 
+export async function fetchJobUrls({
+  fetchImpl = globalThis.fetch,
+  repo,
+  token,
+  runId,
+}) {
+  const url = `https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs?per_page=100`;
+  const response = await fetchImpl(url, { headers: authHeaders(token) });
+  if (!response.ok) {
+    throw new Error(`job list failed: ${response.status}`);
+  }
+  const body = await response.json();
+  return jobUrlsFromList(body.jobs);
+}
+
 function writeOutputs(env, report) {
   if (!env.GITHUB_OUTPUT) return;
   writeFileSync(
@@ -268,14 +317,30 @@ export async function main(env = process.env) {
         })
       : []),
   ];
-  const report = buildReport({ needs, gates, failures, env });
+  let jobUrls = {};
+  if (
+    env.GITHUB_REPOSITORY &&
+    env.GITHUB_RUN_ID &&
+    (env.GH_TOKEN || env.GITHUB_TOKEN)
+  ) {
+    try {
+      jobUrls = await fetchJobUrls({
+        repo: env.GITHUB_REPOSITORY,
+        token: env.GH_TOKEN || env.GITHUB_TOKEN,
+        runId: env.GITHUB_RUN_ID,
+      });
+    } catch (error) {
+      console.error(`job url lookup failed: ${error.message}`);
+    }
+  }
+  const report = buildReport({ needs, gates, failures, env, jobUrls });
   const out = env.CI_READINESS_REPORT || 'reports/quality/ci-readiness.json';
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
   writeGateReceiptFile(report, env);
   writeOutputs(env, report);
-  if (failures.length > 0) {
-    console.error('CI readiness: FAIL');
+  if (report.status !== 'PASS') {
+    console.error(`CI readiness: ${report.status}`);
     for (const failure of failures) console.error(`  ${failure}`);
     return 1;
   }
