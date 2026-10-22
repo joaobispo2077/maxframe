@@ -52,7 +52,7 @@ These are frozen measurements, not relaxed minimums:
 - Duplication ceiling is 2. The measured share on this change was 1.95%, rounded up to one decimal. The ceiling only moves down.
 - Audit ceiling is 42 because `develop` reports 40 high and 2 critical. A zero ceiling cannot pass. The ceiling only moves down. Do not use `npm audit fix --force` to chase it.
 - CRAP stays at 30. The measured max was 156, and 26 functions were already over 30. Those 26 are listed in `scripts/ci/crap-allowlist.json` as `file:name`. New functions over 30 fail. Do not raise 30.
-- Dead code floor stays "0 unwaived". `scripts/ci/deadcode-allowlist.json` freezes the knip findings measured with this config (30 rows). New findings fail.
+- Dead code floor stays "0 unwaived". `scripts/ci/deadcode-allowlist.json` freezes the knip findings measured with this config (32 rows). New findings fail. The knip semantic-release plugin is off: `release.config.mjs` registers a function plugin, and knip crashes on that (`input.specifier.startsWith is not a function`). `@semantic-release/changelog` and `@semantic-release/git` stay on the allowlist because that config names them as strings.
 
 ## How to raise a floor
 
