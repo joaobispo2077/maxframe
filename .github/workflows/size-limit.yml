@@ -79,6 +79,25 @@ jobs:
             echo "</details>"
           } > size-limit-report.md
 
+      - name: Write gate.json
+        if: always()
+        env:
+          GATE_JOB: size-limit
+          GATE_NAME: Size limit
+          GATE_OUTCOME: success
+          GATE_SIZE_LOG: size-limit-raw.txt
+          GATE_SIZE_EXIT: ${{ steps.run-size-limit.outputs.exit_code }}
+        run: node scripts/ci/write-gate-json.mjs
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-size-limit
+          path: reports/quality/gates/size-limit/gate.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Publish size report to PR (sticky)
         uses: marocchino/sticky-pull-request-comment@v3
         with:

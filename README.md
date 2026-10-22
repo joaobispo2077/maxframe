@@ -44,11 +44,11 @@ GitHub Actions workflows include:
     - `typecheck`
     - `lint` (`npm run lint`)
     - `format` (`npm run format:check`)
-    - `unit-tests` (coverage summary generated and posted as sticky PR comment)
+    - `unit-tests` (Vitest coverage summary is printed in the job log and copied into `gate.json`. The old coverage sticky is folded into `maxframe quality`.)
     - `e2e-tests` (Cypress component mode via `cypress-io/github-action@v7`)
     - `mutation-tests` (Stryker **PR fast profile**; `ignoreStatic` + InMemory gateway excluded; incremental cache restores only on an exact key, with no prefix `restore-keys`. A non-exact restore does not count as a score. Strict local/weekly: `npm run test:mutation` or `stryker-full.yml`. [Incremental docs](https://stryker-mutator.io/docs/stryker-js/incremental/).)
     - `scheduled-workflow` (warns when the Stryker full workflow is not active)
-    - `ci-readiness` (writes `reports/quality/ci-readiness.json` and uploads the `ci-readiness` artifact)
+    - `ci-readiness` (writes `reports/quality/ci-readiness.json`, renders the `maxframe quality` sticky from that file with header `maxframe-quality`, and uploads the `ci-readiness` artifact. Push events and fork PRs still write the JSON and the job summary. The comment is posted only for pull requests from this repository.)
 - `Stryker full` (`.github/workflows/stryker-full.yml`): weekly cron and `workflow_dispatch`. Non-incremental mutation run on `ubuntu-latest` (mitigates incremental drift after dependency-only changes).
 - `Release` (`.github/workflows/release.yml`)
   - **Windows (phase 1):** the pipeline is **gated** — `build-windows` (NSIS on `windows-latest`) → `smoke-windows` (silent install + launch) → `release` (semantic-release on `ubuntu-latest`). A push to `release` (or `workflow_dispatch`) will **not** publish a GitHub release if the Windows build or smoke job fails. macOS and Linux packaged builds are not part of this workflow yet.
