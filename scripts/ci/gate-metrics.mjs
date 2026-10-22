@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 
+import { mutationDiffState } from './mutation-scope.mjs';
 import {
   AUDIT_HIGH_MAX,
   COVERAGE_FLOORS,
@@ -392,6 +393,30 @@ export function buildStrykerRow({
       evidenceSha256: null,
     };
   }
+  const diff = mutationDiffState(mutationScope);
+  if (diff === 'unchanged') {
+    if (jobResult && jobResult !== 'success') {
+      return {
+        ...base,
+        status: 'FAIL',
+        value: 'Mutation: FAIL. The mutation job did not succeed.',
+      };
+    }
+    return {
+      ...base,
+      mode: 'INFO',
+      status: 'INFO',
+      value: 'Mutation: INFO. no mutable source changed.',
+    };
+  }
+  if (diff !== 'changed') {
+    return {
+      ...base,
+      status: 'FAIL',
+      value: 'Mutation: FAIL. Diff against the mutate set is unavailable.',
+      evidenceSha256: null,
+    };
+  }
   if (
     receiptStatus === 'UNKNOWN' ||
     !metrics ||
@@ -412,34 +437,23 @@ export function buildStrykerRow({
   }
   if (metrics.tested == null || metrics.tested === 0) {
     const cached = Number.isFinite(metrics.cached) ? metrics.cached : 0;
-    const scopeNote =
-      mutationScope?.mutableSourceChanged === false
-        ? ' No mutable source changed.'
-        : mutationScope?.mutableSourceChanged === true
-          ? ' Mutable source changed, but this run tested 0 mutants.'
-          : '';
+    const tested = metrics.tested ?? 0;
     return {
       ...base,
-      status: 'UNKNOWN',
-      value: `Mutation: UNKNOWN. 0 mutants tested this run, score is cache-only.${scopeNote} ${metrics.tested ?? 0} tested this run, ${cached} cached.`,
+      status: 'FAIL',
+      value: `Mutation: FAIL. Mutable source changed, but 0 mutants tested this run. Score is cache-only. ${tested} tested this run, ${cached} cached.`,
     };
   }
   const value = strykerRowValue(metrics);
-  const noSource =
-    mutationScope?.mutableSourceChanged === false
-      ? ' No mutable source changed.'
-      : '';
   const below = metrics.detectedScore == null || metrics.detectedScore < floor;
   if (below || (jobResult && jobResult !== 'success')) {
     return {
       ...base,
       status: 'FAIL',
-      value: value.startsWith('Mutation:')
-        ? `${value}${noSource}`
-        : `Mutation: FAIL. ${value}${noSource}`,
+      value: value.startsWith('Mutation:') ? value : `Mutation: FAIL. ${value}`,
     };
   }
-  return { ...base, status: 'PASS', value: `${value}${noSource}` };
+  return { ...base, status: 'PASS', value };
 }
 
 function needsResult(needs, job) {

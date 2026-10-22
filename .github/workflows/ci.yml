@@ -550,13 +550,14 @@ jobs:
 
       - name: Cache Stryker incremental report (exact key only)
         id: stryker-cache
-        if: steps.mutation-scope.outputs.fresh != 'true'
+        if: steps.mutation-scope.outputs.mutable == 'true'
         uses: actions/cache@v5
         with:
           path: reports/stryker-incremental.pr.json
           key: stryker-incremental-pr-${{ runner.os }}-${{ hashFiles('package-lock.json', 'stryker.config.base.mjs', 'stryker.config.pr.mjs', 'vitest.stryker.config.ts', 'scripts/ci/quality-floors.mjs') }}
 
       - name: Reject non-exact Stryker cache
+        if: steps.mutation-scope.outputs.mutable == 'true'
         env:
           STRYKER_CACHE_HIT: ${{ steps.stryker-cache.outputs.cache-hit }}
           STRYKER_CACHE_MATCHED_KEY: ${{ steps.stryker-cache.outputs.cache-matched-key }}
@@ -565,33 +566,20 @@ jobs:
       - name: Run mutation tests
         id: gate
         run: |
-          mkdir -p reports/quality
-          set -o pipefail
-          fresh_run() {
-            rm -f reports/stryker-incremental.pr.json
-            node --input-type=module -e '
-              import { applyStrykerCacheDecision } from "./scripts/ci/accept-stryker-cache.mjs";
-              applyStrykerCacheDecision({
-                cacheHit: "false",
-                matchedKey: "",
-                incrementalFile: "reports/stryker-incremental.pr.json",
-                decisionFile: "reports/quality/stryker-cache.json",
-              });
-            '
-            echo "Fresh PR mutate set. Incremental cache is not a score for this run."
-            echo "GATE_MUTATION_PROFILE=fresh" >> "$GITHUB_ENV"
-            npm run test:mutation:pr 2>&1 | tee reports/quality/stryker.log
-          }
-          if [ "${{ steps.mutation-scope.outputs.fresh }}" = "true" ]; then
-            echo "No mutable source changed, or the changed file list is unavailable."
-            fresh_run
-          else
-            npm run test:mutation:pr:incremental 2>&1 | tee reports/quality/stryker.log
-            if node scripts/ci/mutation-cache-only.mjs; then
-              echo "Incremental reuse tested 0 mutants."
-              fresh_run
-            fi
+          mkdir -p reports/quality reports/mutation
+          mutable="${{ steps.mutation-scope.outputs.mutable }}"
+          if [ "$mutable" = "false" ]; then
+            echo "No mutable source changed."
+            printf '%s\n' 'no mutable source changed' > reports/mutation/not-run.txt
+            exit 0
           fi
+          if [ "$mutable" != "true" ]; then
+            echo "Diff against the mutate set is unavailable."
+            printf '%s\n' 'diff unavailable' > reports/mutation/not-run.txt
+            exit 1
+          fi
+          set -o pipefail
+          npm run test:mutation:pr:incremental 2>&1 | tee reports/quality/stryker.log
 
       - name: Write gate.json
         if: always()
@@ -795,7 +783,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Fail when a sticky overall is not PASS
+      - name: Fail when a sticky overall blocks
         if: always() && !cancelled()
         run: |
           if [ "${{ steps.render.outcome }}" != "success" ]; then

@@ -65,7 +65,7 @@ function cell(value) {
 }
 
 function statusCounts(series) {
-  const counts = { PASS: 0, FAIL: 0, UNKNOWN: 0 };
+  const counts = { PASS: 0, FAIL: 0, UNKNOWN: 0, INFO: 0 };
   for (const row of series) {
     const status = Object.hasOwn(counts, row.status) ? row.status : 'UNKNOWN';
     counts[status] += 1;
@@ -75,8 +75,11 @@ function statusCounts(series) {
 
 function mermaidStatus(series) {
   const counts = statusCounts(series);
-  const summary = `PASS ${counts.PASS}, FAIL ${counts.FAIL}, UNKNOWN ${counts.UNKNOWN}`;
-  const slices = ['PASS', 'FAIL', 'UNKNOWN'].filter(
+  const summary = ['PASS', 'FAIL', 'UNKNOWN', 'INFO']
+    .filter((status) => status !== 'INFO' || counts[status] > 0)
+    .map((status) => `${status} ${counts[status]}`)
+    .join(', ');
+  const slices = ['PASS', 'FAIL', 'UNKNOWN', 'INFO'].filter(
     (status) => counts[status] > 0,
   );
   if (slices.length === 0) return summary;

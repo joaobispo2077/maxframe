@@ -57,8 +57,18 @@ export function buildMutationScope({ baseRef, names, diffError = null }) {
   };
 }
 
-export function mutationShouldRunFresh(scope) {
-  return scope?.mutableSourceChanged !== true;
+export function mutationDiffState(scope) {
+  if (!scope || typeof scope !== 'object') return 'unavailable';
+  if (scope.mutableSourceChanged === true) return 'changed';
+  if (scope.mutableSourceChanged === false) return 'unchanged';
+  return 'unavailable';
+}
+
+export function mutationMutableOutput(scope) {
+  const state = mutationDiffState(scope);
+  if (state === 'changed') return 'true';
+  if (state === 'unchanged') return 'false';
+  return 'unavailable';
 }
 
 export function writeMutationScope(
@@ -92,7 +102,7 @@ if (isDirectRun()) {
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `fresh=${mutationShouldRunFresh(scope)}\n`,
+      `mutable=${mutationMutableOutput(scope)}\n`,
     );
   }
   console.log(scope.scopeLabel);

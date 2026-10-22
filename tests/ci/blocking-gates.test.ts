@@ -196,34 +196,73 @@ describe('other blocking gates', () => {
 });
 
 describe('mutation sticky and attempt artifacts', () => {
-  it('returns UNKNOWN when the mutation summary is missing and FAIL below the floor', () => {
-    const missing = buildStrykerRow({ metrics: null, jobResult: 'success' });
-    expect(missing.status).toBe('UNKNOWN');
-    expect(missing.mode).toBe('BLOCK');
+  it('covers INFO, cache-only FAIL, a missing diff, and the score floor', () => {
+    const changed = {
+      mutableSourceChanged: true,
+      scopeLabel: 'changed files: src/a.ts',
+    };
+    const measured = {
+      profile: 'incremental',
+      killed: 8,
+      survived: 2,
+      timeout: 0,
+      noCoverage: 0,
+      scored: 10,
+      detectedScore: 80,
+      killedOnlyScore: 80,
+      timeoutPct: 0,
+      timeoutAbove2: false,
+      zeroMutants: false,
+      countsUnknown: false,
+      tested: 10,
+      cached: 0,
+    };
+    const info = buildStrykerRow({
+      metrics: null,
+      jobResult: 'success',
+      mutationScope: {
+        mutableSourceChanged: false,
+        scopeLabel: 'No mutable source changed.',
+      },
+    });
+    expect(info.mode).toBe('INFO');
+    expect(info.status).toBe('INFO');
+    expect(info.value).toBe('Mutation: INFO. no mutable source changed.');
+
+    const missingCounts = buildStrykerRow({
+      metrics: null,
+      jobResult: 'success',
+      mutationScope: changed,
+    });
+    expect(missingCounts.status).toBe('UNKNOWN');
+    expect(missingCounts.mode).toBe('BLOCK');
+
     const low = buildStrykerRow({
       metrics: {
-        profile: 'incremental',
+        ...measured,
         killed: 1,
         survived: 9,
-        timeout: 0,
-        noCoverage: 0,
-        scored: 10,
         detectedScore: MUTATION_BREAK - 1,
         killedOnlyScore: MUTATION_BREAK - 1,
-        timeoutPct: 0,
-        timeoutAbove2: false,
-        zeroMutants: false,
-        countsUnknown: false,
-        tested: 10,
-        cached: 0,
       },
-      jobResult: 'failure',
+      jobResult: 'success',
+      mutationScope: changed,
     });
     expect(low.status).toBe('FAIL');
+    expect(low.mode).toBe('BLOCK');
     expect(low.floor).toBe(`break ${MUTATION_BREAK}`);
+
+    const high = buildStrykerRow({
+      metrics: measured,
+      jobResult: 'success',
+      mutationScope: changed,
+    });
+    expect(high.status).toBe('PASS');
+    expect(high.value).not.toContain('no mutable source changed');
+
     const cached = buildStrykerRow({
       metrics: {
-        profile: 'incremental',
+        ...measured,
         killed: 865,
         survived: 293,
         timeout: 18,
@@ -232,21 +271,31 @@ describe('mutation sticky and attempt artifacts', () => {
         detectedScore: 69.86,
         killedOnlyScore: 68.43,
         timeoutPct: 1.42,
-        timeoutAbove2: false,
-        zeroMutants: false,
-        countsUnknown: false,
         tested: 0,
         cached: 1264,
       },
       jobResult: 'success',
+      mutationScope: changed,
     });
-    expect(cached.status).toBe('UNKNOWN');
+    expect(cached.status).toBe('FAIL');
     expect(cached.value).toContain(
-      'Mutation: UNKNOWN. 0 mutants tested this run, score is cache-only.',
+      'Mutation: FAIL. Mutable source changed, but 0 mutants tested this run. Score is cache-only.',
     );
     expect(cached.value).toContain('0 tested this run');
     expect(cached.value).toContain('1264 cached');
     expect(cached.status).not.toBe('PASS');
+    expect(cached.status).not.toBe('INFO');
+
+    const unavailable = buildStrykerRow({
+      metrics: measured,
+      jobResult: 'success',
+      mutationScope: { mutableSourceChanged: null },
+    });
+    expect(unavailable.status).toBe('FAIL');
+    expect(unavailable.status).not.toBe('INFO');
+    expect(unavailable.value).toBe(
+      'Mutation: FAIL. Diff against the mutate set is unavailable.',
+    );
   });
 
   it('picks the artifact from the current attempt and ignores a stale one', () => {
@@ -312,6 +361,7 @@ describe('mutation sticky and attempt artifacts', () => {
                   },
                   survivors: [{ file: 'src/a.ts', survived: 2 }],
                   mutationScope: {
+                    mutableSourceChanged: true,
                     scopeLabel: 'changed files: src/a.ts',
                   },
                 }

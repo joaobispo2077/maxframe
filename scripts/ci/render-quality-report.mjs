@@ -8,6 +8,7 @@ import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { REQUIRED_JOBS } from './check-ci-readiness.mjs';
+import { withQualityGateHeader } from './comment-header.mjs';
 import { BLOCK_GATES, INFO_GATES, sha256Text } from './gate-metrics.mjs';
 import {
   CHART_END,
@@ -47,7 +48,16 @@ function passIsComplete(report) {
     if (!report.requiredJobs.includes(job)) return false;
     const entry = report.jobs[job];
     if (!isObject(entry) || entry.result !== 'success') return false;
-    if (!isObject(entry.gate) || entry.gate.status !== 'PASS') return false;
+    if (!isObject(entry.gate)) return false;
+    if (job === 'mutation-tests' && entry.gate.status === 'INFO') {
+      const unchanged = report.mutationScope?.mutableSourceChanged === false;
+      const text = String(entry.gate.value || '').includes(
+        'no mutable source changed',
+      );
+      if (!unchanged || !text) return false;
+      continue;
+    }
+    if (entry.gate.status !== 'PASS') return false;
   }
   for (const spec of BLOCK_GATES) {
     const row = report.rows.find(
@@ -61,6 +71,14 @@ function passIsComplete(report) {
     if (row.status === 'PASS') return false;
   }
   const mutation = report.rows.find((item) => item?.job === 'mutation-tests');
+  if (
+    mutation?.mode === 'INFO' &&
+    mutation.status === 'INFO' &&
+    String(mutation.value || '').includes('no mutable source changed') &&
+    report.mutationScope?.mutableSourceChanged === false
+  ) {
+    return true;
+  }
   if (
     !mutation ||
     mutation.mode !== 'BLOCK' ||
@@ -85,7 +103,7 @@ function cell(value) {
 }
 
 export function unknownQualityMarkdown(reason) {
-  return [
+  const markdown = [
     '## Software metrics',
     '',
     overallLine('UNKNOWN'),
@@ -113,6 +131,7 @@ export function unknownQualityMarkdown(reason) {
     'ci-readiness.json SHA-256: unavailable',
     '',
   ].join('\n');
+  return withQualityGateHeader(markdown);
 }
 
 export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
@@ -174,7 +193,7 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
   lines.push(`Commit: \`${sha}\``);
   if (report.headSha) lines.push(`Head: \`${report.headSha}\``);
   lines.push(`Run: ${run}`, `ci-readiness.json SHA-256: \`${digest}\``, '');
-  return `${lines.join('\n')}`;
+  return withQualityGateHeader(lines.join('\n'));
 }
 
 export function renderQualityReportText(text) {

@@ -92,6 +92,32 @@ export function gateFailures(job, receipt, sha) {
     }
     return failures;
   }
+  if (receipt.status === 'INFO') {
+    const unchanged = receipt.mutationScope?.mutableSourceChanged === false;
+    const text = String(receipt.value || '').includes(
+      'no mutable source changed',
+    );
+    if (job !== 'mutation-tests' || !unchanged || !text) {
+      failures.push(
+        `${job}: gate.json status is ${formatReceived(receipt.status ?? null)}`,
+      );
+      return failures;
+    }
+    if (receipt.result !== 'success') {
+      failures.push(
+        `${job}: gate.json result is ${formatReceived(receipt.result ?? null)}`,
+      );
+    }
+    if (receipt.exitCode !== 0) {
+      failures.push(
+        `${job}: gate.json exitCode is ${formatReceived(receipt.exitCode ?? null)}`,
+      );
+    }
+    if (sha && receipt.sha !== sha) {
+      failures.push(`${job}: gate.json sha does not match this run`);
+    }
+    return failures;
+  }
   if (receipt.status !== 'PASS') {
     failures.push(
       `${job}: gate.json status is ${formatReceived(receipt.status ?? null)}`,

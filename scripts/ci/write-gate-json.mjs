@@ -59,6 +59,10 @@ export function buildGateReceipt({
     receipt.status = 'FAIL';
     receipt.result = 'failure';
     receipt.exitCode = 1;
+  } else if (extra.gateStatus === 'INFO') {
+    receipt.status = 'INFO';
+    receipt.result = 'success';
+    receipt.exitCode = 0;
   }
   if (extra.informational) {
     receipt.status = extra.status === 'UNKNOWN' ? 'UNKNOWN' : 'INFO';
@@ -130,4 +134,7 @@ if (isDirectRun()) {
   const path = writeGateReceipt(receipt, process.env.GATE_ROOT);
   publishGateLog(receipt, process.env);
   console.log(`Wrote ${path} (${receipt.status})`);
+  if (receipt.status === 'FAIL' || receipt.status === 'UNKNOWN') {
+    process.exit(1);
+  }
 }

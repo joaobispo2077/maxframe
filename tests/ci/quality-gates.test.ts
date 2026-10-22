@@ -63,6 +63,12 @@ function passingMutation() {
       tested: 10,
       cached: 0,
     },
+    mutationScope: {
+      mode: 'changed-files',
+      mutableSourceChanged: true,
+      changedFiles: ['src/a.ts'],
+      scopeLabel: 'changed files: src/a.ts',
+    },
   };
 }
 
@@ -134,7 +140,9 @@ describe('ci workflow contract', () => {
     const cache = workflow.slice(cacheStart, cacheEnd);
     expect(cache).not.toContain('restore-keys');
     expect(cache).toContain('stryker-incremental-pr-');
+    expect(cache).toContain("outputs.mutable == 'true'");
     expect(workflow).toContain('node scripts/ci/accept-stryker-cache.mjs');
+    expect(workflow).not.toContain('mutation-cache-only.mjs');
   });
 
   it('posts two stickies and deletes the old maxframe quality header', () => {
@@ -208,6 +216,52 @@ describe('ci readiness', () => {
       sha: 'abc',
     });
     expect(failures).toContain('unit-tests: missing gate.json');
+  });
+
+  it('accepts mutation INFO only when the diff shows no mutable source changed', () => {
+    const sha = 'abc';
+    const gates = passingGates(sha);
+    gates['mutation-tests'] = buildGateReceipt({
+      job: 'mutation-tests',
+      outcome: 'success',
+      sha,
+      extra: {
+        gateStatus: 'INFO',
+        value: 'Mutation: INFO. no mutable source changed.',
+        floor: 'break 68',
+        mutationScope: {
+          mutableSourceChanged: false,
+          scopeLabel: 'No mutable source changed.',
+        },
+      },
+    });
+    expect(
+      evaluateReadiness({
+        needs: successfulNeeds(),
+        gates,
+        sha,
+      }),
+    ).toEqual([]);
+    const closed = passingGates(sha);
+    closed['mutation-tests'] = buildGateReceipt({
+      job: 'mutation-tests',
+      outcome: 'success',
+      sha,
+      extra: {
+        gateStatus: 'INFO',
+        value: 'Mutation: INFO. no mutable source changed.',
+        floor: 'break 68',
+        mutationScope: { mutableSourceChanged: null },
+      },
+    });
+    const failures = evaluateReadiness({
+      needs: successfulNeeds(),
+      gates: closed,
+      sha,
+    });
+    expect(failures.some((line) => line.includes('gate.json status'))).toBe(
+      true,
+    );
   });
 
   it('fails when gate.json does not pass', () => {

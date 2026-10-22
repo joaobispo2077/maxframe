@@ -2,8 +2,9 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { mutationFloorLabel } from './quality-floors.mjs';
 import { selectNamedArtifact } from './check-ci-readiness.mjs';
+import { withQualityGateHeader } from './comment-header.mjs';
+import { mutationFloorLabel } from './quality-floors.mjs';
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -20,7 +21,8 @@ export function mutationOverall(report) {
   if (
     row.status === 'PASS' ||
     row.status === 'FAIL' ||
-    row.status === 'UNKNOWN'
+    row.status === 'UNKNOWN' ||
+    row.status === 'INFO'
   ) {
     return row.status;
   }
@@ -44,9 +46,11 @@ export function renderMutationMarkdown(report, { htmlReportUrl = null } = {}) {
     `**Overall: ${overall}**`,
     '',
     `- **Profile:** ${
-      metrics?.profile === 'fresh'
-        ? 'fresh PR mutate set, no incremental cache'
-        : 'light, Stryker incremental on changed files'
+      row?.status === 'INFO'
+        ? 'not run, no mutable source changed'
+        : metrics?.profile === 'fresh'
+          ? 'fresh PR mutate set, no incremental cache'
+          : 'light, Stryker incremental on changed files'
     }`,
     `- **Scope:** ${scope?.scopeLabel || 'unavailable'}`,
     `- **Tested this run:** ${count(metrics, 'tested')}`,
@@ -60,14 +64,15 @@ export function renderMutationMarkdown(report, { htmlReportUrl = null } = {}) {
     '',
   ];
   if (
+    row?.status !== 'INFO' &&
     metrics &&
     metrics.zeroMutants !== true &&
     (metrics.tested == null || metrics.tested === 0)
   ) {
     lines.push('0 mutants tested this run, score is cache-only.', '');
   }
-  if (scope?.mutableSourceChanged === false) {
-    lines.push('No mutable source changed.', '');
+  if (row?.status === 'INFO') {
+    lines.push('no mutable source changed.', '');
   }
   lines.push('### Survivors per file', '');
   if (survivors.length === 0) {
@@ -88,14 +93,14 @@ export function renderMutationMarkdown(report, { htmlReportUrl = null } = {}) {
     `<!-- chart-overall:${overall} -->`,
     '',
   );
-  if (overall !== 'PASS') {
+  if (overall !== 'PASS' && overall !== 'INFO') {
     lines.push('This is not a pass.', '');
   }
-  return lines.join('\n');
+  return withQualityGateHeader(lines.join('\n'));
 }
 
 export function mutationReportExitCode(overall) {
-  return overall === 'PASS' ? 0 : 1;
+  return overall === 'PASS' || overall === 'INFO' ? 0 : 1;
 }
 
 export async function lookupHtmlReportUrl({
