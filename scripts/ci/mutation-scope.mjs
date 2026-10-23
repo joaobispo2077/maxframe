@@ -11,6 +11,9 @@ const FLOOR_AND_GATE_SCRIPTS = new Set([
   'scripts/ci/gate-metrics.mjs',
   'scripts/ci/check-ci-readiness.mjs',
   'scripts/ci/write-gate-json.mjs',
+  'scripts/ci/accept-stryker-cache.mjs',
+  'package.json',
+  'package-lock.json',
 ]);
 
 function normalizePath(file) {
@@ -46,12 +49,13 @@ export function isMutationRelevant(file) {
   return isMutationConfig(path);
 }
 
-export function diffNames(baseRef) {
-  const out = execFileSync(
-    'git',
-    ['diff', '--name-only', `origin/${baseRef}...HEAD`],
-    { encoding: 'utf8' },
-  );
+export function diffNames(baseRef, options = {}) {
+  const exec = options.exec ?? execFileSync;
+  const range = options.range ?? `origin/${baseRef}...HEAD`;
+  const out = exec('git', ['diff', '--name-only', '--no-renames', range], {
+    encoding: 'utf8',
+    cwd: options.cwd,
+  });
   return out
     .split('\n')
     .map((line) => line.trim())

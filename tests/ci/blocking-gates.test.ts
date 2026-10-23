@@ -1,4 +1,5 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,7 +29,10 @@ import {
   evaluateComplexity,
 } from '../../scripts/ci/crap.mjs';
 import { buildStrykerRow } from '../../scripts/ci/gate-metrics.mjs';
-import { buildMutationScope } from '../../scripts/ci/mutation-scope.mjs';
+import {
+  buildMutationScope,
+  diffNames,
+} from '../../scripts/ci/mutation-scope.mjs';
 import {
   COVERAGE_FLOORS,
   MUTATION_BREAK,
@@ -242,6 +246,9 @@ describe('mutation scope', () => {
       'scripts/ci/quality-floors.mjs',
       'scripts/ci/mutation-scope.mjs',
       'scripts/ci/gate-metrics.mjs',
+      'scripts/ci/accept-stryker-cache.mjs',
+      'package.json',
+      'package-lock.json',
     ]) {
       const scope = buildMutationScope({ baseRef: 'develop', names: [name] });
       expect(scope.mutableSourceChanged, name).toBe(true);
@@ -254,6 +261,40 @@ describe('mutation scope', () => {
       expect(row.status, name).toBe('FAIL');
       expect(row.status, name).not.toBe('INFO');
     }
+  });
+
+  it('does not read INFO when a relevant test file is renamed out of tests', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mutation-rename-'));
+    const git = (args) =>
+      execFileSync(
+        'git',
+        ['-c', 'user.email=test@example.com', '-c', 'user.name=test', ...args],
+        { cwd: dir, encoding: 'utf8' },
+      );
+    git(['init', '-b', 'main']);
+    mkdirSync(join(dir, 'tests', 'domain'), { recursive: true });
+    writeFileSync(
+      join(dir, 'tests', 'domain', 'x.test.ts'),
+      'export const value = 1;\n',
+    );
+    git(['add', '.']);
+    git(['commit', '-m', 'add test']);
+    mkdirSync(join(dir, 'archive'), { recursive: true });
+    git(['mv', 'tests/domain/x.test.ts', 'archive/x.test.ts']);
+    git(['commit', '-m', 'move test out of tests']);
+    const names = diffNames('main', { cwd: dir, range: 'HEAD~1...HEAD' });
+    expect(names).toContain('tests/domain/x.test.ts');
+    expect(names).toContain('archive/x.test.ts');
+    const scope = buildMutationScope({ baseRef: 'main', names });
+    expect(scope.mutableSourceChanged).toBe(true);
+    expect(scope.runProfile).toBe('fresh');
+    const row = buildStrykerRow({
+      metrics: measuredMutation(80),
+      jobResult: 'success',
+      mutationScope: scope,
+    });
+    expect(row.status).not.toBe('INFO');
+    expect(row.mode).toBe('BLOCK');
   });
 
   it('returns FAIL when buildMutationScope is given a diff error', () => {
