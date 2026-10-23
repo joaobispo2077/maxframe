@@ -1,8 +1,38 @@
+import { existsSync, readFileSync } from 'node:fs';
+
 import { strykerBaseConfig } from './stryker.config.base.mjs';
 
+const defaultMutate = [
+  'src/**/*.ts',
+  '!tests/**',
+  '!src/infrastructure/youtube/InMemoryVideoMetadataGateway.ts',
+];
+
+function mutatePatterns() {
+  const path = 'reports/quality/mutation-scope.json';
+  if (!existsSync(path)) return defaultMutate;
+  try {
+    const scope = JSON.parse(readFileSync(path, 'utf8'));
+    if (
+      scope?.mode === 'changed-files' &&
+      Array.isArray(scope.changedFiles) &&
+      scope.changedFiles.length > 0
+    ) {
+      return [
+        ...scope.changedFiles,
+        '!src/infrastructure/youtube/InMemoryVideoMetadataGateway.ts',
+      ];
+    }
+  } catch {
+    return defaultMutate;
+  }
+  return defaultMutate;
+}
+
 /**
- * PR fast mutation profile — promotion PR CI (`develop` → `release`).
- * Ignores static mutants and excludes the InMemory metadata test double.
+ * PR light mutation profile.
+ * Incremental on changed source files when the scope lists them.
+ * Tests or mutation config use the whole PR mutate set, without incremental.
  *
  * @type {import('@stryker-mutator/api/core').PartialStrykerOptions}
  */
@@ -10,11 +40,7 @@ const config = {
   ...strykerBaseConfig,
   ignoreStatic: true,
   incrementalFile: 'reports/stryker-incremental.pr.json',
-  mutate: [
-    'src/**/*.ts',
-    '!tests/**',
-    '!src/infrastructure/youtube/InMemoryVideoMetadataGateway.ts',
-  ],
+  mutate: mutatePatterns(),
 };
 
 export default config;

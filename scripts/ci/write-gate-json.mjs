@@ -44,8 +44,26 @@ export function buildGateReceipt({
     metrics: extra.metrics ?? null,
     coverage: extra.coverage ?? null,
     stryker: extra.stryker ?? null,
+    survivors: extra.survivors ?? null,
+    mutationScope: extra.mutationScope ?? null,
     logLines: extra.logLines ?? null,
   };
+  if (
+    (outcome === 'success' || outcome === 'failure' || outcome === '') &&
+    extra.gateStatus === 'UNKNOWN'
+  ) {
+    receipt.status = 'UNKNOWN';
+    receipt.result = 'failure';
+    receipt.exitCode = 1;
+  } else if (extra.gateStatus === 'FAIL') {
+    receipt.status = 'FAIL';
+    receipt.result = 'failure';
+    receipt.exitCode = 1;
+  } else if (extra.gateStatus === 'INFO') {
+    receipt.status = 'INFO';
+    receipt.result = 'success';
+    receipt.exitCode = 0;
+  }
   if (extra.informational) {
     receipt.status = extra.status === 'UNKNOWN' ? 'UNKNOWN' : 'INFO';
     receipt.result = mapped.result;
@@ -116,4 +134,7 @@ if (isDirectRun()) {
   const path = writeGateReceipt(receipt, process.env.GATE_ROOT);
   publishGateLog(receipt, process.env);
   console.log(`Wrote ${path} (${receipt.status})`);
+  if (receipt.status === 'FAIL' || receipt.status === 'UNKNOWN') {
+    process.exit(1);
+  }
 }
