@@ -5,9 +5,21 @@ import { pathToFileURL } from 'node:url';
 
 const EXCLUDED = 'src/infrastructure/youtube/InMemoryVideoMetadataGateway.ts';
 
+const FLOOR_AND_GATE_SCRIPTS = new Set([
+  'scripts/ci/quality-floors.mjs',
+  'scripts/ci/mutation-scope.mjs',
+  'scripts/ci/gate-metrics.mjs',
+  'scripts/ci/check-ci-readiness.mjs',
+  'scripts/ci/write-gate-json.mjs',
+]);
+
+function normalizePath(file) {
+  return String(file).replaceAll('\\', '/').replace(/^\.\//, '');
+}
+
 export function selectChangedMutants(files) {
   return (Array.isArray(files) ? files : []).filter((file) => {
-    const path = String(file).replaceAll('\\', '/').replace(/^\.\//, '');
+    const path = normalizePath(file);
     if (!path.startsWith('src/')) return false;
     if (!path.endsWith('.ts')) return false;
     if (path.includes('.test.')) return false;
@@ -16,10 +28,28 @@ export function selectChangedMutants(files) {
   });
 }
 
+export function isMutationConfig(file) {
+  const path = normalizePath(file);
+  const base = path.split('/').pop();
+  if (base.startsWith('stryker.config.') && base.endsWith('.mjs')) return true;
+  if (base === 'vitest.config.ts' || base === 'vitest.stryker.config.ts') {
+    return true;
+  }
+  return FLOOR_AND_GATE_SCRIPTS.has(path);
+}
+
+export function isMutationRelevant(file) {
+  const path = normalizePath(file);
+  if (selectChangedMutants([path]).length > 0) return true;
+  if (path === 'tests' || path.startsWith('tests/')) return true;
+  if (path.includes('/tests/')) return true;
+  return isMutationConfig(path);
+}
+
 export function diffNames(baseRef) {
   const out = execFileSync(
     'git',
-    ['diff', '--name-only', `origin/${baseRef}...HEAD`, '--', 'src'],
+    ['diff', '--name-only', `origin/${baseRef}...HEAD`],
     { encoding: 'utf8' },
   );
   return out
@@ -36,16 +66,35 @@ export function buildMutationScope({ baseRef, names, diffError = null }) {
       base: baseRef,
       changedFiles: [],
       mutableSourceChanged: null,
+      runProfile: 'unavailable',
       scopeLabel: `PR mutate set src/**/*.ts. Changed file list unavailable (${diffError}).`,
     };
   }
-  if (changedFiles.length === 0) {
+  const relevant = (Array.isArray(names) ? names : []).filter((file) =>
+    isMutationRelevant(file),
+  );
+  if (relevant.length === 0) {
     return {
       mode: 'pr-profile',
       base: baseRef,
       changedFiles: [],
       mutableSourceChanged: false,
+      runProfile: 'skip',
       scopeLabel: 'No mutable source changed.',
+    };
+  }
+  const testsOrConfig = relevant.some(
+    (file) => selectChangedMutants([file]).length === 0,
+  );
+  if (testsOrConfig) {
+    return {
+      mode: 'pr-profile',
+      base: baseRef,
+      changedFiles: [],
+      mutableSourceChanged: true,
+      runProfile: 'fresh',
+      scopeLabel:
+        'Tests or mutation config changed. PR mutate set src/**/*.ts.',
     };
   }
   return {
@@ -53,6 +102,7 @@ export function buildMutationScope({ baseRef, names, diffError = null }) {
     base: baseRef,
     changedFiles,
     mutableSourceChanged: true,
+    runProfile: 'incremental',
     scopeLabel: `changed files: ${changedFiles.join(', ')}`,
   };
 }
@@ -102,7 +152,7 @@ if (isDirectRun()) {
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `mutable=${mutationMutableOutput(scope)}\n`,
+      `mutable=${mutationMutableOutput(scope)}\nprofile=${scope.runProfile}\n`,
     );
   }
   console.log(scope.scopeLabel);

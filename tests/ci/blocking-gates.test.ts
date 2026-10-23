@@ -28,6 +28,7 @@ import {
   evaluateComplexity,
 } from '../../scripts/ci/crap.mjs';
 import { buildStrykerRow } from '../../scripts/ci/gate-metrics.mjs';
+import { buildMutationScope } from '../../scripts/ci/mutation-scope.mjs';
 import {
   COVERAGE_FLOORS,
   MUTATION_BREAK,
@@ -192,6 +193,107 @@ describe('other blocking gates', () => {
         new Set(),
       ).status,
     ).toBe('UNKNOWN');
+  });
+});
+
+function measuredMutation(score) {
+  return {
+    profile: 'fresh',
+    killed: 8,
+    survived: 2,
+    timeout: 0,
+    noCoverage: 0,
+    scored: 10,
+    detectedScore: score,
+    killedOnlyScore: score,
+    timeoutPct: 0,
+    timeoutAbove2: false,
+    zeroMutants: false,
+    countsUnknown: false,
+    tested: 10,
+    cached: 0,
+  };
+}
+
+describe('mutation scope', () => {
+  it('does not read INFO for a tests-only diff', () => {
+    const scope = buildMutationScope({
+      baseRef: 'develop',
+      names: ['tests/domain/video-url.test.ts'],
+    });
+    expect(scope.mutableSourceChanged).toBe(true);
+    expect(scope.runProfile).toBe('fresh');
+    expect(scope.mode).toBe('pr-profile');
+    const row = buildStrykerRow({
+      metrics: measuredMutation(80),
+      jobResult: 'success',
+      mutationScope: scope,
+    });
+    expect(row.status).toBe('PASS');
+    expect(row.status).not.toBe('INFO');
+    expect(row.mode).toBe('BLOCK');
+  });
+
+  it('does not read INFO for a config-only diff', () => {
+    for (const name of [
+      'vitest.config.ts',
+      'vitest.stryker.config.ts',
+      'stryker.config.pr.mjs',
+      'scripts/ci/quality-floors.mjs',
+      'scripts/ci/mutation-scope.mjs',
+      'scripts/ci/gate-metrics.mjs',
+    ]) {
+      const scope = buildMutationScope({ baseRef: 'develop', names: [name] });
+      expect(scope.mutableSourceChanged, name).toBe(true);
+      expect(scope.runProfile, name).toBe('fresh');
+      const row = buildStrykerRow({
+        metrics: measuredMutation(MUTATION_BREAK - 1),
+        jobResult: 'success',
+        mutationScope: scope,
+      });
+      expect(row.status, name).toBe('FAIL');
+      expect(row.status, name).not.toBe('INFO');
+    }
+  });
+
+  it('returns FAIL when buildMutationScope is given a diff error', () => {
+    const scope = buildMutationScope({
+      baseRef: 'develop',
+      names: ['src/domain/video/youtubeVideoId.ts'],
+      diffError: 'missing base',
+    });
+    expect(scope.mutableSourceChanged).toBeNull();
+    expect(scope.runProfile).toBe('unavailable');
+    const row = buildStrykerRow({
+      metrics: measuredMutation(80),
+      jobResult: 'success',
+      mutationScope: scope,
+    });
+    expect(row.status).toBe('FAIL');
+    expect(row.status).not.toBe('INFO');
+    expect(row.value).toBe(
+      'Mutation: FAIL. Diff against the mutate set is unavailable.',
+    );
+  });
+
+  it('stays INFO when the diff touches no mutation-relevant path', () => {
+    const scope = buildMutationScope({
+      baseRef: 'develop',
+      names: [
+        'docs/maxframe-quality-gates.md',
+        'packages/main/src/modules/WindowManager.ts',
+        'src/infrastructure/youtube/InMemoryVideoMetadataGateway.ts',
+      ],
+    });
+    expect(scope.mutableSourceChanged).toBe(false);
+    expect(scope.runProfile).toBe('skip');
+    const row = buildStrykerRow({
+      metrics: null,
+      jobResult: 'success',
+      mutationScope: scope,
+    });
+    expect(row.status).toBe('INFO');
+    expect(row.value).toBe('Mutation: INFO. no mutable source changed.');
   });
 });
 

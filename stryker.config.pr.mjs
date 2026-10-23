@@ -31,8 +31,8 @@ function mutatePatterns() {
 
 /**
  * PR light mutation profile.
- * Incremental on changed files when the scope file lists any.
- * Otherwise the whole PR mutate set, still incremental.
+ * Incremental on changed source files when the scope lists them.
+ * Tests or mutation config use the whole PR mutate set, without incremental.
  *
  * @type {import('@stryker-mutator/api/core').PartialStrykerOptions}
  */

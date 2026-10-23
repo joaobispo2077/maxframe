@@ -140,7 +140,7 @@ describe('ci workflow contract', () => {
     const cache = workflow.slice(cacheStart, cacheEnd);
     expect(cache).not.toContain('restore-keys');
     expect(cache).toContain('stryker-incremental-pr-');
-    expect(cache).toContain("outputs.mutable == 'true'");
+    expect(cache).toContain("outputs.profile == 'incremental'");
     expect(workflow).toContain('node scripts/ci/accept-stryker-cache.mjs');
     expect(workflow).not.toContain('mutation-cache-only.mjs');
   });
