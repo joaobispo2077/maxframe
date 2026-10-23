@@ -8,7 +8,13 @@ import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { REQUIRED_JOBS } from './check-ci-readiness.mjs';
+import { withQualityGateHeader } from './comment-header.mjs';
 import { BLOCK_GATES, INFO_GATES, sha256Text } from './gate-metrics.mjs';
+import {
+  CHART_END,
+  CHART_START,
+  buildChartMarkdown,
+} from './render-kpi-charts.mjs';
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -42,7 +48,16 @@ function passIsComplete(report) {
     if (!report.requiredJobs.includes(job)) return false;
     const entry = report.jobs[job];
     if (!isObject(entry) || entry.result !== 'success') return false;
-    if (!isObject(entry.gate) || entry.gate.status !== 'PASS') return false;
+    if (!isObject(entry.gate)) return false;
+    if (job === 'mutation-tests' && entry.gate.status === 'INFO') {
+      const unchanged = report.mutationScope?.mutableSourceChanged === false;
+      const text = String(entry.gate.value || '').includes(
+        'no mutable source changed',
+      );
+      if (!unchanged || !text) return false;
+      continue;
+    }
+    if (entry.gate.status !== 'PASS') return false;
   }
   for (const spec of BLOCK_GATES) {
     const row = report.rows.find(
@@ -54,6 +69,23 @@ function passIsComplete(report) {
     const row = report.rows.find((item) => item?.job === spec.job);
     if (!row || row.mode !== 'INFO' || !row.status || !row.value) return false;
     if (row.status === 'PASS') return false;
+  }
+  const mutation = report.rows.find((item) => item?.job === 'mutation-tests');
+  if (
+    mutation?.mode === 'INFO' &&
+    mutation.status === 'INFO' &&
+    String(mutation.value || '').includes('no mutable source changed') &&
+    report.mutationScope?.mutableSourceChanged === false
+  ) {
+    return true;
+  }
+  if (
+    !mutation ||
+    mutation.mode !== 'BLOCK' ||
+    mutation.status !== 'PASS' ||
+    !mutation.value
+  ) {
+    return false;
   }
   return true;
 }
@@ -70,14 +102,9 @@ function cell(value) {
     .replace(/\r?\n/g, ' ');
 }
 
-function runCell(row) {
-  if (!row?.runUrl) return 'unavailable';
-  return `[run](${row.runUrl})`;
-}
-
 export function unknownQualityMarkdown(reason) {
-  return [
-    '## maxframe quality',
+  const markdown = [
+    '## Software metrics',
     '',
     overallLine('UNKNOWN'),
     '',
@@ -85,11 +112,26 @@ export function unknownQualityMarkdown(reason) {
     '',
     'This is not a pass.',
     '',
+    CHART_START,
+    '## KPI charts',
+    '',
+    '**Overall: UNKNOWN**',
+    '',
+    'No measurements were available for this run.',
+    '',
+    '### Mutation',
+    '',
+    'Mutation is not part of this chart set. See the Mutation tests sticky (`mutation-report`).',
+    '',
+    '<!-- chart-overall:UNKNOWN -->',
+    CHART_END,
+    '',
     'Commit: unavailable',
     'Run: unavailable',
     'ci-readiness.json SHA-256: unavailable',
     '',
   ].join('\n');
+  return withQualityGateHeader(markdown);
 }
 
 export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
@@ -97,7 +139,7 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
   if (!isObject(report)) {
     return unknownQualityMarkdown('ci-readiness.json is unreadable.');
   }
-  const lines = ['## maxframe quality', '', overallLine(overall), ''];
+  const lines = ['## Software metrics', '', overallLine(overall), ''];
   const hasRows = Array.isArray(report.rows) && report.rows.length > 0;
   if (
     overall === 'UNKNOWN' &&
@@ -115,17 +157,20 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
     lines.push('This is not a pass.', '');
   }
   if (Array.isArray(report.rows) && report.rows.length > 0) {
-    lines.push(
-      '| Gate | Mode | Status | Value | Floor | Run |',
-      '|---|---|---|---|---|---|',
-    );
+    lines.push('| Gate | Value | Floor | Result |', '|---|---|---|---|');
     for (const row of report.rows) {
       lines.push(
-        `| ${cell(row?.gate)} | ${cell(row?.mode)} | ${cell(row?.status)} | ${cell(row?.value)} | ${cell(row?.floor)} | ${runCell(row)} |`,
+        `| ${cell(row?.gate)} | ${cell(row?.value)} | ${cell(row?.floor)} | ${cell(row?.status)} |`,
       );
     }
     lines.push('');
   }
+  lines.push(
+    CHART_START,
+    buildChartMarkdown(report, overall).trimEnd(),
+    CHART_END,
+    '',
+  );
   const evidence = (report.rows ?? []).filter((row) => row?.evidenceSha256);
   if (evidence.length > 0) {
     lines.push('Evidence SHA-256:');
@@ -145,13 +190,10 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
   const sha = report.sha || 'unavailable';
   const run = report.runUrl ? `[run](${report.runUrl})` : 'unavailable';
   const digest = artifactSha256 || 'unavailable';
-  lines.push(
-    `Commit: \`${sha}\``,
-    `Run: ${run}`,
-    `ci-readiness.json SHA-256: \`${digest}\``,
-    '',
-  );
-  return `${lines.join('\n')}`;
+  lines.push(`Commit: \`${sha}\``);
+  if (report.headSha) lines.push(`Head: \`${report.headSha}\``);
+  lines.push(`Run: ${run}`, `ci-readiness.json SHA-256: \`${digest}\``, '');
+  return withQualityGateHeader(lines.join('\n'));
 }
 
 export function renderQualityReportText(text) {
@@ -192,7 +234,7 @@ if (isDirectRun()) {
   const reportPath =
     process.env.CI_READINESS_REPORT || 'reports/quality/ci-readiness.json';
   const outPath =
-    process.env.QUALITY_REPORT || 'reports/quality/maxframe-quality.md';
+    process.env.QUALITY_REPORT || 'reports/quality/software-metrics.md';
   const { markdown, overall } = renderQualityReportFile(reportPath);
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, markdown.endsWith('\n') ? markdown : `${markdown}\n`);

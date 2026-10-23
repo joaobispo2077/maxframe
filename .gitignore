@@ -155,6 +155,7 @@ specs/active/**
 # Mutation testing outputs
 .stryker-tmp/
 reports/mutation/
+reports/quality/
 reports/stryker-incremental.json
 
 # Optional bundled yt-dlp (see buildResources/yt-dlp/README.txt)
