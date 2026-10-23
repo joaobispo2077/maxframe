@@ -43,6 +43,35 @@ function successfulNeeds() {
   );
 }
 
+function passingMutation() {
+  return {
+    value: 'Profile: incremental. 10 tested this run, 0 cached. Score 80.00%.',
+    floor: 'break 68',
+    stryker: {
+      profile: 'incremental',
+      killed: 8,
+      survived: 2,
+      timeout: 0,
+      noCoverage: 0,
+      scored: 10,
+      detectedScore: 80,
+      killedOnlyScore: 80,
+      timeoutPct: 0,
+      timeoutAbove2: false,
+      zeroMutants: false,
+      countsUnknown: false,
+      tested: 10,
+      cached: 0,
+    },
+    mutationScope: {
+      mode: 'changed-files',
+      mutableSourceChanged: true,
+      changedFiles: ['src/a.ts'],
+      scopeLabel: 'changed files: src/a.ts',
+    },
+  };
+}
+
 function passingGates(sha = 'abc') {
   return Object.fromEntries(
     REQUIRED_JOBS.map((job) => [
@@ -53,7 +82,8 @@ function passingGates(sha = 'abc') {
         sha,
         runId: '1',
         runAttempt: '1',
-        extra: { value: `${job} ok` },
+        extra:
+          job === 'mutation-tests' ? passingMutation() : { value: `${job} ok` },
       }),
     ]),
   );
@@ -71,8 +101,14 @@ describe('ci workflow contract', () => {
   });
 
   it('does not gate required jobs on head or base ref', () => {
+    const conditions = workflow
+      .split('\n')
+      .filter((line) => line.includes('if:'));
+    for (const line of conditions) {
+      expect(line).not.toContain('github.head_ref');
+      expect(line).not.toContain('github.base_ref');
+    }
     expect(workflow).not.toContain('github.head_ref');
-    expect(workflow).not.toContain('github.base_ref');
   });
 
   it('runs ci-readiness with if always and every required job', () => {
@@ -104,17 +140,30 @@ describe('ci workflow contract', () => {
     const cache = workflow.slice(cacheStart, cacheEnd);
     expect(cache).not.toContain('restore-keys');
     expect(cache).toContain('stryker-incremental-pr-');
+    expect(cache).toContain("outputs.profile == 'incremental'");
     expect(workflow).toContain('node scripts/ci/accept-stryker-cache.mjs');
+    expect(workflow).not.toContain('mutation-cache-only.mjs');
   });
 
-  it('posts one maxframe quality sticky and leaves size-limit on its own header', () => {
+  it('posts two stickies and deletes the old maxframe quality header', () => {
+    expect(workflow).toContain('header: quality-gates-report');
+    expect(workflow).toContain('header: mutation-report');
     expect(workflow).toContain('header: maxframe-quality');
-    expect(workflow).toContain('node scripts/ci/render-quality-report.mjs');
+    expect(workflow).toContain('delete: true');
+    expect(workflow).toContain('node scripts/ci/render-stickies.mjs');
     expect(workflow).toContain(
       "github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository",
     );
     expect(workflow).not.toContain('code-coverage-results.md');
     expect(workflow).not.toContain('mutation-test-results.md');
+    const comments = workflow.slice(workflow.indexOf('  quality-comments:\n'));
+    expect(comments).toContain('pull-requests: write');
+    expect(workflow.replace(comments, '')).not.toContain(
+      'pull-requests: write',
+    );
+    expect(workflow).not.toContain('actions: write');
+    expect(workflow).toContain('actions: read');
+    expect(workflow).toContain('gate-lint-attempt-${{ github.run_attempt }}');
     const sizeLimit = readFileSync(
       resolve(root, '.github/workflows/size-limit.yml'),
       'utf8',
@@ -167,6 +216,52 @@ describe('ci readiness', () => {
       sha: 'abc',
     });
     expect(failures).toContain('unit-tests: missing gate.json');
+  });
+
+  it('accepts mutation INFO only when the diff shows no mutable source changed', () => {
+    const sha = 'abc';
+    const gates = passingGates(sha);
+    gates['mutation-tests'] = buildGateReceipt({
+      job: 'mutation-tests',
+      outcome: 'success',
+      sha,
+      extra: {
+        gateStatus: 'INFO',
+        value: 'Mutation: INFO. no mutable source changed.',
+        floor: 'break 68',
+        mutationScope: {
+          mutableSourceChanged: false,
+          scopeLabel: 'No mutable source changed.',
+        },
+      },
+    });
+    expect(
+      evaluateReadiness({
+        needs: successfulNeeds(),
+        gates,
+        sha,
+      }),
+    ).toEqual([]);
+    const closed = passingGates(sha);
+    closed['mutation-tests'] = buildGateReceipt({
+      job: 'mutation-tests',
+      outcome: 'success',
+      sha,
+      extra: {
+        gateStatus: 'INFO',
+        value: 'Mutation: INFO. no mutable source changed.',
+        floor: 'break 68',
+        mutationScope: { mutableSourceChanged: null },
+      },
+    });
+    const failures = evaluateReadiness({
+      needs: successfulNeeds(),
+      gates: closed,
+      sha,
+    });
+    expect(failures.some((line) => line.includes('gate.json status'))).toBe(
+      true,
+    );
   });
 
   it('fails when gate.json does not pass', () => {

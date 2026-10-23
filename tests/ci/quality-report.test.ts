@@ -23,6 +23,11 @@ import {
   sha256Text,
 } from '../../scripts/ci/gate-metrics.mjs';
 import {
+  mutationOverall,
+  mutationReportExitCode,
+  renderMutationMarkdown,
+} from '../../scripts/ci/render-mutation-report.mjs';
+import {
   displayOverall,
   qualityReportExitCode,
   renderQualityMarkdown,
@@ -61,6 +66,34 @@ function successfulNeeds() {
   );
 }
 
+function changedSourceScope() {
+  return {
+    mode: 'changed-files',
+    mutableSourceChanged: true,
+    changedFiles: ['src/a.ts'],
+    scopeLabel: 'changed files: src/a.ts',
+  };
+}
+
+function passingMutationExtra() {
+  return {
+    value: 'mutation ok',
+    floor: 'break 68',
+    stryker: mutationMetrics({
+      report: mutationReport({
+        killed: 8,
+        timeout: 1,
+        survived: 1,
+        noCoverage: 0,
+      }),
+      logText: 'Result: 6 of 10 mutant result(s) are reused.',
+      profile: 'incremental',
+      cacheDecision: { exact: true },
+    }),
+    mutationScope: changedSourceScope(),
+  };
+}
+
 function passingGates() {
   return Object.fromEntries(
     REQUIRED_JOBS.map((job) => [
@@ -71,7 +104,10 @@ function passingGates() {
         sha: 'abc',
         runId: '9',
         runAttempt: '2',
-        extra: { value: `${job} ok`, floor: 'floor' },
+        extra:
+          job === 'mutation-tests'
+            ? passingMutationExtra()
+            : { value: `${job} ok`, floor: 'floor' },
       }),
     ]),
   );
@@ -136,12 +172,17 @@ describe('quality report fail closed', () => {
     expect(markdown).not.toContain('Overall: PASS');
   });
 
-  it('renders FAIL when an INFO row was marked PASS', () => {
+  it('renders FAIL when a blocking row is not PASS', () => {
     const report = passingReport();
     const coverage = report.rows.find((row) => row.job === 'coverage');
-    coverage.status = 'PASS';
+    coverage.status = 'FAIL';
+    coverage.value = 'Coverage: FAIL. lines 10.00%';
     expect(displayOverall(report)).toBe('FAIL');
-    expect(renderQualityMarkdown(report)).not.toContain('Overall: PASS');
+    const failed = renderQualityMarkdown(report);
+    expect(failed).not.toContain('**Overall: PASS**');
+    expect(failed).toContain('pie showData');
+    expect(failed).toContain('"FAIL" : 1');
+    expect(failed).not.toContain('](charts/');
   });
 
   it('keeps overall equal to a complete CI readiness conclusion', () => {
@@ -204,19 +245,58 @@ describe('quality report fail closed', () => {
     expect(markdown).not.toContain('ci-readiness.json is unreadable');
   });
 
-  it('keeps PASS and INFO-only rows at exit 0', () => {
+  it('keeps overall PASS when mutation is INFO because no mutable source changed', () => {
+    const gates = passingGates();
+    gates['mutation-tests'] = buildGateReceipt({
+      job: 'mutation-tests',
+      outcome: 'success',
+      sha: 'abc',
+      runId: '9',
+      runAttempt: '2',
+      extra: {
+        gateStatus: 'INFO',
+        value: 'Mutation: INFO. no mutable source changed.',
+        floor: 'break 68',
+        mutationScope: {
+          mutableSourceChanged: false,
+          scopeLabel: 'No mutable source changed.',
+        },
+      },
+    });
+    const report = buildReport({
+      needs: successfulNeeds(),
+      gates,
+      failures: [],
+      env: { GITHUB_SHA: 'abc' },
+    });
+    const mutation = report.rows.find((row) => row.job === 'mutation-tests');
+    expect(mutation.status).toBe('INFO');
+    expect(mutation.mode).toBe('INFO');
+    expect(report.status).toBe('PASS');
+    expect(displayOverall(report)).toBe('PASS');
+    expect(qualityReportExitCode(displayOverall(report))).toBe(0);
+    const sticky = renderMutationMarkdown(report);
+    expect(mutationOverall(report)).toBe('INFO');
+    expect(mutationReportExitCode('INFO')).toBe(0);
+    expect(
+      sticky.startsWith(
+        '<img src="https://raw.githubusercontent.com/joaobispo2077/avo/main/.github/bot-avatars/quality-gate-devsecops.png"',
+      ),
+    ).toBe(true);
+    expect(sticky).toContain('**Quality Gate DevSecOps** (Young Zangetsu)');
+    expect(sticky).toContain('no mutable source changed.');
+    expect(sticky).toContain('<!-- chart-overall:INFO -->');
+    expect(sticky).not.toContain('This is not a pass.');
+  });
+
+  it('keeps a complete blocking report at exit 0', () => {
     expect(qualityReportExitCode('PASS')).toBe(0);
     expect(qualityReportExitCode('UNKNOWN')).toBe(1);
     expect(qualityReportExitCode('FAIL')).toBe(1);
     const report = passingReport();
-    const info = report.rows.filter((row) => row.mode === 'INFO');
-    expect(info.some((row) => row.status === 'UNKNOWN')).toBe(true);
-    expect(info.every((row) => row.status !== 'PASS')).toBe(true);
-    expect(
-      report.rows
-        .filter((row) => row.mode === 'BLOCK')
-        .every((row) => row.status === 'PASS'),
-    ).toBe(true);
+    expect(report.rows.some((row) => row.mode === 'INFO')).toBe(false);
+    expect(report.rows.every((row) => row.mode === 'BLOCK')).toBe(true);
+    expect(report.rows.every((row) => row.status === 'PASS')).toBe(true);
     expect(displayOverall(report)).toBe('PASS');
     expect(qualityReportExitCode(displayOverall(report))).toBe(0);
   });
@@ -246,7 +326,7 @@ describe('quality report fail closed', () => {
 });
 
 describe('coverage and stryker rows', () => {
-  it('prints every coverage percentage against no threshold', () => {
+  it('prints every coverage percentage against the vitest floors', () => {
     const totals = readCoverageTotals({
       total: {
         lines: { pct: 80, covered: 8, total: 10 },
@@ -256,27 +336,28 @@ describe('coverage and stryker rows', () => {
       },
     });
     const value = formatCoverageValue(totals);
-    expect(value).toContain('lines 80.00% (8/10) vs threshold none');
-    expect(value).toContain('statements 81.20% (81/100) vs threshold none');
-    expect(value).toContain('branches 70.00% (7/10) vs threshold none');
-    expect(value).toContain('functions 75.00% (3/4) vs threshold none');
+    expect(value).toContain('lines 80.00% (8/10) vs threshold 75');
+    expect(value).toContain('statements 81.20% (81/100) vs threshold 74');
+    expect(value).toContain('branches 70.00% (7/10) vs threshold 63');
+    expect(value).toContain('functions 75.00% (3/4) vs threshold 81');
     const rows = buildQualityRows({
       needs: successfulNeeds(),
       gates: {
-        'unit-tests': {
+        coverage: {
           status: 'PASS',
-          coverage: { value, evidenceSha256: 'abc' },
+          value,
+          floor: 'statements 74, branches 63, functions 81, lines 75',
+          evidenceSha256: 'abc',
         },
       },
     });
     const coverage = rows.find((row) => row.job === 'coverage');
-    expect(coverage.mode).toBe('INFO');
-    expect(coverage.status).toBe('INFO');
-    expect(coverage.status).not.toBe('PASS');
+    expect(coverage.mode).toBe('BLOCK');
+    expect(coverage.status).toBe('PASS');
     expect(coverage.value).toBe(value);
   });
 
-  it('labels a fully cached Stryker score as cached and INFO', () => {
+  it('returns FAIL when mutated source changed and the score is only from cache', () => {
     const log = 'Result:\u001b[33m\t1264 of 1365 mutant result(s) are reused.';
     expect(parseReuseLine(log)).toEqual({ reused: 1264, universe: 1365 });
     const metrics = mutationMetrics({
@@ -294,18 +375,74 @@ describe('coverage and stryker rows', () => {
     expect(metrics.cached).toBe(1264);
     expect(metrics.detectedScore.toFixed(2)).toBe('69.86');
     expect(metrics.killedOnlyScore.toFixed(2)).toBe('68.51');
-    const row = buildStrykerRow({ metrics, jobResult: 'success' });
+    const row = buildStrykerRow({
+      metrics,
+      jobResult: 'success',
+      mutationScope: changedSourceScope(),
+    });
+    expect(row.mode).toBe('BLOCK');
+    expect(row.status).toBe('FAIL');
+    expect(row.status).not.toBe('PASS');
+    expect(row.status).not.toBe('INFO');
+    expect(row.value).toBe(
+      'Mutation: FAIL. Mutable source changed, but 0 mutants tested this run. Score is cache-only. 0 tested this run, 1264 cached.',
+    );
+    expect(row.floor).toContain('68');
+  });
+
+  it('returns INFO only when the mutate-set diff shows no source change', () => {
+    const row = buildStrykerRow({
+      metrics: null,
+      jobResult: 'success',
+      mutationScope: {
+        mutableSourceChanged: false,
+        scopeLabel: 'No mutable source changed.',
+      },
+    });
     expect(row.mode).toBe('INFO');
     expect(row.status).toBe('INFO');
-    expect(row.value).toContain('cached, not a floor sample');
-    expect(row.value).toContain('0 tested this run');
-    expect(row.value).toContain('1264 cached');
-    expect(row.value).toContain(
-      'Cached score with timeouts as detected: 69.86%',
+    expect(row.value).toBe('Mutation: INFO. no mutable source changed.');
+  });
+
+  it('returns FAIL when the mutate-set diff is unavailable', () => {
+    const missing = buildStrykerRow({
+      metrics: {
+        profile: 'incremental',
+        killed: 8,
+        survived: 2,
+        timeout: 0,
+        noCoverage: 0,
+        scored: 10,
+        detectedScore: 80,
+        killedOnlyScore: 80,
+        timeoutPct: 0,
+        timeoutAbove2: false,
+        zeroMutants: false,
+        countsUnknown: false,
+        tested: 10,
+        cached: 0,
+      },
+      jobResult: 'success',
+      mutationScope: null,
+    });
+    expect(missing.status).toBe('FAIL');
+    expect(missing.status).not.toBe('INFO');
+    expect(missing.value).toBe(
+      'Mutation: FAIL. Diff against the mutate set is unavailable.',
     );
-    expect(row.value).toContain('Killed only: 68.51%');
-    expect(row.value).not.toContain('Timeouts above 2%');
-    expect(row.status).not.toBe('PASS');
+    const errored = buildStrykerRow({
+      metrics: null,
+      jobResult: 'success',
+      mutationScope: {
+        mutableSourceChanged: null,
+        scopeLabel: 'Changed file list unavailable (missing base).',
+      },
+    });
+    expect(errored.status).toBe('FAIL');
+    expect(errored.status).not.toBe('INFO');
+    expect(errored.value).toBe(
+      'Mutation: FAIL. Diff against the mutate set is unavailable.',
+    );
   });
 
   it('does not turn zero mutants into 100 percent', () => {
@@ -314,8 +451,13 @@ describe('coverage and stryker rows', () => {
       profile: 'incremental',
       cacheDecision: { exact: true },
     });
-    const row = buildStrykerRow({ metrics, jobResult: 'success' });
-    expect(row.status).toBe('INFO');
+    const row = buildStrykerRow({
+      metrics,
+      jobResult: 'success',
+      mutationScope: changedSourceScope(),
+    });
+    expect(row.mode).toBe('BLOCK');
+    expect(row.status).toBe('UNKNOWN');
     expect(row.value).toBe('Zero mutants. Efficacy unavailable.');
     expect(row.value).not.toContain('100');
   });
@@ -328,25 +470,35 @@ describe('coverage and stryker rows', () => {
     });
     expect(metrics.tested).toBe(100);
     expect(metrics.cached).toBe(0);
-    const row = buildStrykerRow({ metrics, jobResult: 'success' });
-    expect(row.status).toBe('INFO');
+    const row = buildStrykerRow({
+      metrics,
+      jobResult: 'success',
+      mutationScope: changedSourceScope(),
+    });
+    expect(row.status).toBe('PASS');
     expect(row.value).toContain('Timeouts above 2%');
     expect(row.value).toContain('100 tested this run');
-    expect(row.value).not.toContain('cached, not a floor sample');
   });
 
-  it('leaves an unmeasured INFO gate as UNKNOWN and not blank', () => {
+  it('leaves a missing blocking summary as UNKNOWN and not PASS', () => {
     const rows = buildQualityRows({
       needs: successfulNeeds(),
-      gates: passingGates(),
+      gates: {
+        coverage: {
+          status: 'UNKNOWN',
+          value: 'Coverage: UNKNOWN. Counts unavailable from this run.',
+        },
+        duplication: null,
+      },
     });
-    for (const job of ['crap', 'jscpd', 'knip', 'dependency-cruiser']) {
-      const row = rows.find((item) => item.job === job);
-      expect(row.mode).toBe('INFO');
-      expect(row.status).toBe('UNKNOWN');
-      expect(row.value.trim().length).toBeGreaterThan(0);
-      expect(row.status).not.toBe('PASS');
-    }
+    const coverage = rows.find((item) => item.job === 'coverage');
+    expect(coverage.mode).toBe('BLOCK');
+    expect(coverage.status).toBe('UNKNOWN');
+    expect(coverage.value).toContain('UNKNOWN');
+    expect(coverage.status).not.toBe('PASS');
+    const duplication = rows.find((item) => item.job === 'duplication');
+    expect(duplication.status).toBe('FAIL');
+    expect(duplication.value).toContain('No gate.json');
   });
 });
 
@@ -396,7 +548,7 @@ describe('job numbers', () => {
           logLines: [
             'Unit: 2 passed, 0 failed, 0 skipped',
             'Coverage summary',
-            'lines 80.00% (8/10) vs threshold none',
+            'lines 80.00% (8/10) vs threshold 75',
           ],
         },
         { GITHUB_STEP_SUMMARY: summary },
@@ -405,9 +557,9 @@ describe('job numbers', () => {
       process.stdout.write = original;
     }
     const logged = lines.join('');
-    expect(logged).toContain('lines 80.00% (8/10) vs threshold none');
+    expect(logged).toContain('lines 80.00% (8/10) vs threshold 75');
     expect(readFileSync(summary, 'utf8')).toContain(
-      'lines 80.00% (8/10) vs threshold none',
+      'lines 80.00% (8/10) vs threshold 75',
     );
   });
 });
