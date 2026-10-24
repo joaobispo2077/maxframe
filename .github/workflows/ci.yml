@@ -756,7 +756,7 @@ jobs:
         run: |
           echo "Letting other jobs start, then cancelling this run."
           sleep 45
-          gh run cancel "${GITHUB_RUN_ID}"
+          gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
           echo "cancel requested"
 
   quality-comments:
