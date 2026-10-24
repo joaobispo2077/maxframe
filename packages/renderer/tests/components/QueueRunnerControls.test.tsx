@@ -71,6 +71,9 @@ describe('QueueRunnerControls', () => {
       screen.getByRole('button', { name: /stop queue/i }),
     ).toBeInTheDocument();
     expect(
+      screen.getByText('Running: 0 in progress, 0 finished.'),
+    ).toBeInTheDocument();
+    expect(
       screen.queryByRole('button', { name: /start queue/i }),
     ).not.toBeInTheDocument();
   });

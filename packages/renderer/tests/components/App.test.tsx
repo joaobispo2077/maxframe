@@ -54,11 +54,11 @@ describe('App', () => {
     render(<App />);
 
     expect(
-      screen.getByText('Pick a video, compare quality options, then download.'),
+      screen.getByText('Paste a link, pick a quality, download.'),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'One URL per line. Analyze quality previews the first URL. Add to queue sends every URL to the Queue tab.',
+        'One link per line. Check quality looks at the first link. Add to queue sends all of them to the Queue.',
       ),
     ).toBeInTheDocument();
   });
@@ -124,13 +124,19 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: {
         value:
           'https://www.youtube.com/watch?v=firstonly\nhttps://youtu.be/secondline',
       },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    expect(
+      screen.getByRole('button', { name: 'Check first link' }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Add 2 to queue' }),
+    ).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Check first link' }));
 
     await waitFor(() => {
       expect(analyzeVideoUrl).toHaveBeenCalledWith(
@@ -139,20 +145,22 @@ describe('App', () => {
     });
   });
 
-  it('clears Video URLs after Add to queue and shows queue rows', () => {
+  it('clears YouTube links after Add to queue and shows queue rows', () => {
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: {
         value: 'https://www.youtube.com/watch?v=aaa\nhttps://youtu.be/bbb',
       },
     });
-    fireEvent.click(screen.getByRole('button', { name: /add to queue/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add 2 to queue' }));
     expect(
-      (screen.getByLabelText('Video URLs') as HTMLTextAreaElement).value,
+      (screen.getByLabelText('YouTube links') as HTMLTextAreaElement).value,
     ).toBe('');
     fireEvent.click(screen.getByRole('tab', { name: 'Queue' }));
     expect(
-      screen.queryByText(/No active queue items/i),
+      screen.queryByText(
+        'Queue is empty. Paste links on Analyze and choose Add to queue.',
+      ),
     ).not.toBeInTheDocument();
   });
 
@@ -196,7 +204,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Analyze' }));
     expect(
-      screen.getByRole('button', { name: /analyze quality/i }),
+      screen.getByRole('button', { name: /check quality/i }),
     ).toBeInTheDocument();
   });
 
@@ -231,10 +239,10 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(analyzeVideoUrl).toHaveBeenCalledWith(
@@ -244,7 +252,7 @@ describe('App', () => {
 
     expect(screen.getByText('Video ID: dQw4w9WgXcQ')).toBeInTheDocument();
     expect(
-      screen.getByText('Best raw quality: 1080p60 @ 60fps (mp4)'),
+      screen.getByText('Best video: 1080p60 @ 60fps (mp4)'),
     ).toBeInTheDocument();
   });
 
@@ -259,10 +267,10 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=bad' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(analyzeVideoUrl).toHaveBeenCalled();
@@ -270,7 +278,7 @@ describe('App', () => {
 
     expect(
       screen.getByText(
-        'Video ID could not be parsed from this URL; confirm the link uses a standard watch, shorts, embed, or youtu.be shape.',
+        "Couldn't read a video ID from this link. Use a youtube.com/watch, /shorts, /embed, or youtu.be link.",
       ),
     ).toBeInTheDocument();
   });
@@ -278,8 +286,19 @@ describe('App', () => {
   it('disables analyze until a URL is entered', () => {
     render(<App />);
     expect(
-      screen.getByRole('button', { name: 'Analyze quality' }),
+      screen.getByRole('button', { name: 'Check quality' }),
     ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Add 0 to queue' }),
+    ).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
+      target: { value: 'https://www.youtube.com/watch?v=one' },
+    });
+    expect(screen.getByRole('button', { name: 'Check quality' })).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Add 1 to queue' }),
+    ).toBeEnabled();
   });
 
   it('shows loading label while analyzing', async () => {
@@ -291,12 +310,12 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
-    expect(screen.getByRole('button', { name: 'Analyzing...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled();
 
     resolveAnalysis({
       ...EXTRA_FIELDS,
@@ -308,7 +327,7 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: 'Analyze quality' }),
+        screen.getByRole('button', { name: 'Check quality' }),
       ).toBeInTheDocument();
     });
   });
@@ -318,13 +337,15 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('Unknown error');
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        "Couldn't load this video's details. Check the link and your connection, then try again.",
+      );
     });
   });
 
@@ -339,10 +360,10 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(
@@ -384,10 +405,10 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(
@@ -395,7 +416,11 @@ describe('App', () => {
       ).toBeInTheDocument();
     });
     expect(screen.getByText('What this list shows')).toBeInTheDocument();
-    expect(screen.getByText(/Qualities are whatever/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'These are the qualities yt-dlp found for this link. The top pick has the highest resolution, then frame rate, then bitrate. YouTube may offer other options in other apps.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('lists multiple quality rows', async () => {
@@ -439,10 +464,10 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('720p @ 30fps')).toBeInTheDocument();
@@ -485,10 +510,10 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
@@ -546,10 +571,10 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
@@ -599,10 +624,10 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
@@ -680,10 +705,10 @@ describe('App', () => {
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('1440p @ 60fps')).toBeInTheDocument();
@@ -730,10 +755,10 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
@@ -791,10 +816,10 @@ describe('App', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
     await waitFor(() => {
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
     });

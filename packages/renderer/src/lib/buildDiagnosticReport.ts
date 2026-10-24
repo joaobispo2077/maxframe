@@ -1,7 +1,7 @@
 import type { DiagnosticsReport } from '../maxframe-api.js';
 
 function found(v: boolean): string {
-  return v ? '[FOUND]' : '[NOT FOUND]';
+  return v ? '[Found]' : '[Missing]';
 }
 
 export function buildDiagnosticReport(report: DiagnosticsReport): string {

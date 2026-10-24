@@ -25,8 +25,8 @@ export function OutputFormatSelect({
             boxShadow: '0 0 0 1px var(--chakra-colors-purple-400)',
           }}
         >
-          <option value="mp4">MP4 (best video)</option>
-          <option value="mp3">MP3 (best audio)</option>
+          <option value="mp4">MP4 video</option>
+          <option value="mp3">MP3 audio only</option>
         </NativeSelect.Field>
         <NativeSelect.Indicator />
       </NativeSelect.Root>

@@ -110,7 +110,7 @@ export function QualityResultRow({
           <Text fontWeight="bold">{qualityLabel}</Text>
           {isBest ? (
             <Badge colorPalette="green" variant="solid" size="sm">
-              Ranked #1 (app)
+              Best in this list
             </Badge>
           ) : null}
         </HStack>

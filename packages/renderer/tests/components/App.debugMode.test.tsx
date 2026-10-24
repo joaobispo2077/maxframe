@@ -74,10 +74,13 @@ describe('App debug mode', () => {
 
     render(<App />);
 
-    fireEvent.change(screen.getByRole('textbox', { name: /^Video URLs$/i }), {
-      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /analyze quality/i }));
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /^YouTube links$/i }),
+      {
+        target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: /check quality/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
@@ -101,10 +104,13 @@ describe('App debug mode', () => {
 
     render(<App />);
 
-    fireEvent.change(screen.getByRole('textbox', { name: /^Video URLs$/i }), {
-      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /analyze quality/i }));
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /^YouTube links$/i }),
+      {
+        target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: /check quality/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();

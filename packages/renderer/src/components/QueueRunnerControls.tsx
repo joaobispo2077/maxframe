@@ -28,7 +28,7 @@ function statusLabel(
     summary.queuedReady;
   const done =
     summary.historyComplete + summary.historyFailed + summary.historyCancelled;
-  return `Processing — ${active} active, ${done} finished this session`;
+  return `Running: ${active} in progress, ${done} finished.`;
 }
 
 export function QueueRunnerControls({
