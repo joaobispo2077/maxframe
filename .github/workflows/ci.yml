@@ -642,6 +642,17 @@ jobs:
         with:
           node-version: '24.10'
 
+      # Throwaway AC9 proof. Attempt 1 fails this leaf gate. A failed-jobs
+      # re-run passes it with no new commit, so other gates keep attempt 1.
+      - name: Fail on first attempt for AC9 re-run proof
+        run: |
+          echo "AC9 proof: GITHUB_RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT}"
+          if [ "${GITHUB_RUN_ATTEMPT}" = "1" ]; then
+            echo "AC9 proof: fail scheduled-workflow on attempt 1. Re-run failed jobs passes this gate without a new commit."
+            exit 1
+          fi
+          echo "AC9 proof: attempt ${GITHUB_RUN_ATTEMPT} does not force a failure."
+
       - name: Warn when Stryker full is disabled
         id: gate
         env:
