@@ -20,8 +20,13 @@ function badgePalette(job: Pick<QueueJob, 'phase' | 'terminal'>): string {
   }
 }
 
+function visibleStatus(status: string): string {
+  if (status === 'Cancelled') return 'Canceled';
+  return status;
+}
+
 export function QueuePhaseBadge({ job }: { job: QueueJob }) {
-  const label = job.status.length > 0 ? job.status : job.phase;
+  const label = job.status.length > 0 ? visibleStatus(job.status) : job.phase;
   return (
     <Badge colorPalette={badgePalette(job)} variant="solid" size="sm">
       {label}

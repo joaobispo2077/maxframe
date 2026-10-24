@@ -14,6 +14,7 @@ import {
 } from '../lib/appPreferences.js';
 import { buildSuggestedFileName } from '../lib/buildSuggestedFileName.js';
 import { resolveBestDownload } from '../lib/resolveBestDownload.js';
+import { userFacingDownloadError } from '../lib/userFacingErrors.js';
 
 type UseQueueRunnerOptions = {
   model: QueueModel;
@@ -102,7 +103,7 @@ export function useQueueRunner({
           type: 'failJob',
           jobId,
           status: 'No output folder',
-          detail: 'Pick an output folder before starting the queue',
+          detail: 'Choose a save folder before you start the queue.',
         });
         return;
       }
@@ -149,7 +150,7 @@ export function useQueueRunner({
             type: 'failJob',
             jobId,
             status: 'Download failed',
-            detail: msg,
+            detail: userFacingDownloadError(msg),
           });
         }
       } finally {

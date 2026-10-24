@@ -5,7 +5,11 @@ import { useState } from 'react';
 
 import { getDefaultOutputMode } from '../lib/appPreferences.js';
 import { buildDiagnosticReport } from '../lib/buildDiagnosticReport.js';
-import { firstNonEmptyLine } from '../lib/firstNonEmptyLine.js';
+import {
+  countNonEmptyLines,
+  firstNonEmptyLine,
+} from '../lib/firstNonEmptyLine.js';
+import { ANALYZE_FAILURE_MESSAGE } from '../lib/userFacingErrors.js';
 
 type UseAnalyzeFlowOptions = {
   enqueueBulkText: (text: string) => void;
@@ -29,7 +33,8 @@ export function useAnalyzeFlow({
   const [reportCopied, setReportCopied] = useState(false);
 
   const analyzeTargetUrl = firstNonEmptyLine(urlsText);
-  const canAddToQueue = urlsText.trim().length > 0;
+  const linkCount = countNonEmptyLines(urlsText);
+  const canAddToQueue = linkCount > 0;
 
   async function fetchDiagnostics(): Promise<void> {
     try {
@@ -63,11 +68,9 @@ export function useAnalyzeFlow({
     try {
       const analysis = await window.maxframeApi.analyzeVideoUrl(urlToAnalyze);
       setResult(analysis);
-    } catch (caughtError) {
+    } catch {
       setResult(undefined);
-      setError(
-        caughtError instanceof Error ? caughtError.message : 'Unknown error',
-      );
+      setError(ANALYZE_FAILURE_MESSAGE);
       if (debugMode) {
         void fetchDiagnostics();
       }
@@ -98,6 +101,7 @@ export function useAnalyzeFlow({
     outputMode,
     setOutputMode,
     analyzeTargetUrl,
+    linkCount,
     canAddToQueue,
     analyzeUrl,
     handleAddToQueue,

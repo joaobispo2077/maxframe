@@ -113,31 +113,9 @@ function QualityListExplainer() {
           color="fg.muted"
         >
           <Text>
-            Qualities are whatever{' '}
-            <Text as="strong" color="fg">
-              yt-dlp
-            </Text>{' '}
-            reports for this URL at analyze time—not every option YouTube may
-            show in other apps or on the web. The highlighted{' '}
-            <Text as="strong" color="fg">
-              Ranked #1
-            </Text>{' '}
-            row is the best option in this app using height, then frame rate,
-            then listed video bitrate. This is not a legal guarantee of
-            {'"'}maximum{'"'} quality everywhere; it is the top entry in this
-            list only.
-          </Text>
-          <Text>
-            If a row is{' '}
-            <Text as="strong" color="fg">
-              video only
-            </Text>
-            , downloading it asks yt-dlp to merge in the best separate audio
-            when possible (same as many CLI workflows). That path needs{' '}
-            <Text as="strong" color="fg">
-              ffmpeg
-            </Text>{' '}
-            installed.
+            These are the qualities yt-dlp found for this link. The top pick has
+            the highest resolution, then frame rate, then bitrate. YouTube may
+            offer other options in other apps.
           </Text>
         </VStack>
       </Collapsible.Content>
@@ -155,8 +133,8 @@ function VideoIdLine({ videoId }: { videoId: string | undefined }) {
   }
   return (
     <Text mt={4} textAlign="center" fontSize="sm" color="orange.300">
-      Video ID could not be parsed from this URL; confirm the link uses a
-      standard watch, shorts, embed, or youtu.be shape.
+      Couldn&apos;t read a video ID from this link. Use a youtube.com/watch,
+      /shorts, /embed, or youtu.be link.
     </Text>
   );
 }
@@ -174,7 +152,7 @@ function AnalyzeBestSummary({
     if (result.bestQuality) {
       return (
         <Text mt={2} textAlign="center" fontSize="sm">
-          Best raw quality: {result.bestQuality.resolutionLabel} @{' '}
+          Best video: {result.bestQuality.resolutionLabel} @{' '}
           {result.bestQuality.fps}fps ({result.bestQuality.container})
         </Text>
       );
@@ -198,7 +176,7 @@ function AnalyzeBestSummary({
   if (mp3FallbackNeeded) {
     return (
       <Text mt={2} textAlign="center" fontSize="sm" color="orange.300">
-        No separate audio streams — audio will be extracted from the best
+        No separate audio streams. Audio will be extracted from the best
         available video stream.
       </Text>
     );
@@ -255,7 +233,7 @@ export function QualityResultsPanel({
       pt={6}
     >
       <Heading size="md" textAlign="center" mb={4}>
-        Available quality
+        Available qualities
       </Heading>
 
       <QualityListExplainer />

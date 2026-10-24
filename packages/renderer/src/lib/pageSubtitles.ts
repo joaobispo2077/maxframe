@@ -1,10 +1,10 @@
 import type { AppTab } from '../hooks/useAppNavigation.js';
 
 export const PAGE_SUBTITLES: Record<AppTab, string> = {
-  analyze: 'Pick a video, compare quality options, then download.',
+  analyze: 'Paste a link, pick a quality, download.',
   queue: 'Download multiple videos you added from Analyze.',
   settings: 'Output defaults and troubleshooting tools.',
 };
 
 export const ANALYZE_URLS_HELPER =
-  'One URL per line. Analyze quality previews the first URL. Add to queue sends every URL to the Queue tab.';
+  'One link per line. Check quality looks at the first link. Add to queue sends all of them to the Queue.';

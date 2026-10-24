@@ -43,14 +43,14 @@ export function QueueSummaryBar({ counts }: QueueSummaryBarProps) {
         </Text>
       ) : (
         <>
-          <CountChip label="Analyze" value={counts.pendingAnalyze} />
-          <CountChip label="Format" value={counts.awaitingFormat} />
+          <CountChip label="Checking" value={counts.pendingAnalyze} />
+          <CountChip label="Needs format" value={counts.awaitingFormat} />
           <CountChip label="Ready" value={counts.queuedReady} />
           <CountChip label="Downloading" value={counts.downloading} />
-          <CountChip label="Post-process" value={counts.postProcessing} />
+          <CountChip label="Finishing" value={counts.postProcessing} />
           <CountChip label="Done" value={counts.historyComplete} />
           <CountChip label="Failed" value={counts.historyFailed} />
-          <CountChip label="Cancelled" value={counts.historyCancelled} />
+          <CountChip label="Canceled" value={counts.historyCancelled} />
         </>
       )}
     </HStack>

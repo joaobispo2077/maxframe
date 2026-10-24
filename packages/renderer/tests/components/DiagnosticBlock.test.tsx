@@ -40,13 +40,13 @@ describe('DiagnosticBlock', () => {
     expect(screen.getByText('ffmpeg')).toBeInTheDocument();
   });
 
-  it('shows NOT FOUND text when ytdlpFound is false', () => {
+  it('shows Missing text when ytdlpFound is false', () => {
     render(<DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />);
-    const notFoundBadges = screen.getAllByText('NOT FOUND');
+    const notFoundBadges = screen.getAllByText('Missing');
     expect(notFoundBadges.length).toBeGreaterThan(0);
   });
 
-  it('shows FOUND badge when ytdlpFound is true', () => {
+  it('shows Found badge when ytdlpFound is true', () => {
     const foundReport: DiagnosticsReport = {
       ...REPORT,
       ytdlpFound: true,
@@ -54,7 +54,7 @@ describe('DiagnosticBlock', () => {
     render(
       <DiagnosticBlock report={foundReport} onCopy={vi.fn()} copied={false} />,
     );
-    expect(screen.getByText('FOUND')).toBeInTheDocument();
+    expect(screen.getByText('Found')).toBeInTheDocument();
   });
 
   it('calls onCopy when Copy report button is clicked', () => {
@@ -65,9 +65,9 @@ describe('DiagnosticBlock', () => {
     expect(onCopy).toHaveBeenCalledOnce();
   });
 
-  it('shows "Copied!" text when copied is true', () => {
+  it('shows "Copied" text when copied is true', () => {
     render(<DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={true} />);
-    expect(screen.getByText('Copied!')).toBeInTheDocument();
+    expect(screen.getByText('Copied')).toBeInTheDocument();
   });
 
   it('shows the last error message', () => {
