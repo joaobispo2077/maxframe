@@ -261,6 +261,30 @@ export function gateArtifactName(job, attempt) {
   return attempt ? `gate-${job}-attempt-${attempt}` : `gate-${job}`;
 }
 
+function wholeAttempt(value) {
+  const attempt = Number(value);
+  return Number.isInteger(attempt) && attempt > 0 ? attempt : 0;
+}
+
+// The receipt that counts is the one from the latest attempt in which that
+// job ran. Jobs that were not re-run keep the earlier attempt's artifact.
+// When the job list has no execution, stay on the current attempt so a
+// missing receipt fails closed instead of borrowing an older file.
+export function receiptAttemptForJob(runJobs, jobId, currentAttempt) {
+  const current = wholeAttempt(currentAttempt);
+  if (current === 0) return '';
+  if (current === 1) return '1';
+  const name = JOB_DISPLAY_NAMES[jobId];
+  let best = 0;
+  for (const job of Array.isArray(runJobs) ? runJobs : []) {
+    if (!job || job.name !== name) continue;
+    const attempt = wholeAttempt(job.run_attempt);
+    if (attempt < 1 || attempt > current) continue;
+    if (attempt > best) best = attempt;
+  }
+  return best > 0 ? String(best) : String(current);
+}
+
 export function selectNamedArtifact(artifacts, name) {
   const matches = (Array.isArray(artifacts) ? artifacts : []).filter(
     (item) => item && item.name === name && item.expired !== true,
@@ -273,20 +297,43 @@ export function selectNamedArtifact(artifacts, name) {
   return matches[0] ?? null;
 }
 
-async function listRunArtifacts(fetchImpl, repo, token, runId) {
-  const artifacts = [];
-  for (let page = 1; page <= 10; page += 1) {
-    const listUrl = `https://api.github.com/repos/${repo}/actions/runs/${runId}/artifacts?per_page=100&page=${page}`;
-    const listed = await fetchImpl(listUrl, { headers: authHeaders(token) });
+async function listPaged(fetchImpl, token, urlForPage, field, failure) {
+  const items = [];
+  for (let page = 1; page <= 20; page += 1) {
+    const listed = await fetchImpl(urlForPage(page), {
+      headers: authHeaders(token),
+    });
     if (!listed.ok) {
-      throw new Error(`gate artifact list failed: ${listed.status}`);
+      throw new Error(`${failure}: ${listed.status}`);
     }
     const body = await listed.json();
-    const batch = Array.isArray(body.artifacts) ? body.artifacts : [];
-    artifacts.push(...batch);
+    const batch = Array.isArray(body[field]) ? body[field] : [];
+    items.push(...batch);
     if (batch.length < 100) break;
   }
-  return artifacts;
+  return items;
+}
+
+async function listRunArtifacts(fetchImpl, repo, token, runId) {
+  return listPaged(
+    fetchImpl,
+    token,
+    (page) =>
+      `https://api.github.com/repos/${repo}/actions/runs/${runId}/artifacts?per_page=100&page=${page}`,
+    'artifacts',
+    'gate artifact list failed',
+  );
+}
+
+async function listRunJobs(fetchImpl, repo, token, runId) {
+  return listPaged(
+    fetchImpl,
+    token,
+    (page) =>
+      `https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs?filter=all&per_page=100&page=${page}`,
+    'jobs',
+    'job attempt list failed',
+  );
 }
 
 export async function collectGateReceipts({
@@ -305,9 +352,19 @@ export async function collectGateReceipts({
     );
   }
   const artifacts = await listRunArtifacts(fetchImpl, repo, token, runId);
+  const runJobs =
+    wholeAttempt(attempt) > 1
+      ? await listRunJobs(fetchImpl, repo, token, runId)
+      : [];
   const gates = {};
   for (const job of jobs) {
-    const name = gateArtifactName(job, attempt);
+    const resolved = receiptAttemptForJob(runJobs, job, attempt);
+    if (resolved && attempt && resolved !== String(attempt)) {
+      console.log(
+        `${job}: using gate receipt from attempt ${resolved} of this run`,
+      );
+    }
+    const name = gateArtifactName(job, resolved);
     const artifact = selectNamedArtifact(artifacts, name);
     if (!artifact) {
       gates[job] = null;

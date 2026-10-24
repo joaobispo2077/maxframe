@@ -16,10 +16,13 @@ import {
   decideStrykerCache,
 } from '../../scripts/ci/accept-stryker-cache.mjs';
 import {
+  JOB_DISPLAY_NAMES,
   REQUIRED_JOBS,
   buildReport,
+  collectGateReceipts,
   evaluateReadiness,
   jobResult,
+  receiptAttemptForJob,
 } from '../../scripts/ci/check-ci-readiness.mjs';
 import {
   checkScheduledWorkflow,
@@ -381,6 +384,358 @@ describe('ci readiness', () => {
     expect(e2e.status).toBe('UNKNOWN');
     expect(e2e.value).not.toContain('PASS');
     expect(readFileSync(outputPath, 'utf8')).toContain('status=UNKNOWN');
+  });
+});
+
+function jobExecution(job, runAttempt, conclusion = 'success') {
+  return {
+    name: JOB_DISPLAY_NAMES[job],
+    run_attempt: runAttempt,
+    conclusion,
+    html_url: `https://github.com/example/job/${job}/${runAttempt}`,
+  };
+}
+
+function storedArtifact(id, job, runAttempt, receipt, extra = {}) {
+  return {
+    id,
+    name: `gate-${job}-attempt-${runAttempt}`,
+    expired: false,
+    updated_at: `2026-10-24T00:00:0${runAttempt}Z`,
+    receipt,
+    ...extra,
+  };
+}
+
+function receiptFor(job, sha = 'abc', outcome = 'success') {
+  return buildGateReceipt({
+    job,
+    outcome,
+    sha,
+    runId: '99',
+    runAttempt: '1',
+    extra:
+      job === 'mutation-tests' ? passingMutation() : { value: `${job} ok` },
+  });
+}
+
+function jsonResponse(body, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: () => null },
+    json: async () => body,
+    arrayBuffer: async () => new Uint8Array([1]).buffer,
+  };
+}
+
+async function collectAttempt({ attempt, artifacts, executions }) {
+  const dir = mkdtempSync(join(tmpdir(), 'gate-attempts-'));
+  const urls = [];
+  const zipIds = [];
+  const byId = new Map(artifacts.map((item) => [item.id, item.receipt]));
+  const fetchImpl = async (url) => {
+    urls.push(url);
+    if (url.includes('/artifacts?')) {
+      return jsonResponse({
+        artifacts: artifacts.map((item) => ({
+          id: item.id,
+          name: item.name,
+          expired: item.expired,
+          updated_at: item.updated_at,
+        })),
+      });
+    }
+    if (url.includes('/jobs?')) {
+      return jsonResponse({ jobs: executions });
+    }
+    const zip = url.match(/\/artifacts\/(\d+)\/zip$/);
+    if (zip) {
+      zipIds.push(Number(zip[1]));
+      return jsonResponse({});
+    }
+    throw new Error(`unexpected url ${url}`);
+  };
+  const gates = await collectGateReceipts({
+    fetchImpl,
+    repo: 'joaobispo2077/maxframe',
+    token: 'token',
+    runId: '99',
+    destDir: dir,
+    attempt,
+    unpack: (_zipPath, dest) => {
+      const id = zipIds[zipIds.length - 1];
+      writeFileSync(
+        join(dest, 'gate.json'),
+        `${JSON.stringify(byId.get(id))}\n`,
+      );
+    },
+  });
+  return { gates, urls, zipIds };
+}
+
+function readinessReport(gates, sha = 'abc', attempt = '1') {
+  const failures = evaluateReadiness({
+    needs: successfulNeeds(),
+    gates,
+    sha,
+  });
+  const report = buildReport({
+    needs: successfulNeeds(),
+    gates,
+    failures,
+    env: { GITHUB_SHA: sha, GITHUB_RUN_ATTEMPT: attempt },
+  });
+  return { failures, report };
+}
+
+describe('ci readiness across run attempts', () => {
+  it('uses attempt 1 on the first run and ignores a later execution', () => {
+    expect(receiptAttemptForJob([], 'lint', '1')).toBe('1');
+    expect(receiptAttemptForJob([jobExecution('lint', 4)], 'lint', '1')).toBe(
+      '1',
+    );
+    expect(receiptAttemptForJob([], 'lint', '')).toBe('');
+    expect(
+      receiptAttemptForJob(
+        [jobExecution('lint', 3), jobExecution('lint', 1)],
+        'lint',
+        '2',
+      ),
+    ).toBe('1');
+    expect(receiptAttemptForJob([], 'lint', '2')).toBe('2');
+  });
+
+  it('passes on the first attempt when every gate receipt is from that attempt', async () => {
+    const artifacts = REQUIRED_JOBS.map((job, index) =>
+      storedArtifact(index + 1, job, 1, receiptFor(job)),
+    );
+    const { gates, urls } = await collectAttempt({
+      attempt: '1',
+      artifacts,
+      executions: REQUIRED_JOBS.map((job) => jobExecution(job, 1)),
+    });
+    expect(urls.some((url) => url.includes('/jobs?'))).toBe(false);
+    const { failures, report } = readinessReport(gates, 'abc', '1');
+    expect(failures).toEqual([]);
+    expect(report.status).toBe('PASS');
+    expect(report.result).toBe('success');
+  });
+
+  it('passes a re-run when receipts for jobs that were not re-run come from attempt 1', async () => {
+    const artifacts = [];
+    const executions = [];
+    let id = 1;
+    for (const job of REQUIRED_JOBS) {
+      if (job === 'unit-tests') {
+        artifacts.push(
+          storedArtifact(id, job, 1, receiptFor(job, 'abc', 'failure')),
+        );
+        executions.push(jobExecution(job, 1, 'failure'));
+        id += 1;
+        artifacts.push(storedArtifact(id, job, 2, receiptFor(job)));
+        executions.push(jobExecution(job, 2, 'success'));
+        id += 1;
+        continue;
+      }
+      artifacts.push(storedArtifact(id, job, 1, receiptFor(job)));
+      executions.push(jobExecution(job, 1, 'success'));
+      id += 1;
+    }
+    const { gates, urls, zipIds } = await collectAttempt({
+      attempt: '2',
+      artifacts,
+      executions,
+    });
+    expect(urls.some((url) => url.includes('filter=all'))).toBe(true);
+    const failedAttempt = artifacts.find(
+      (item) => item.name === 'gate-unit-tests-attempt-1',
+    );
+    const passedAttempt = artifacts.find(
+      (item) => item.name === 'gate-unit-tests-attempt-2',
+    );
+    expect(zipIds).toContain(passedAttempt.id);
+    expect(zipIds).not.toContain(failedAttempt.id);
+    expect(gates.lint.runAttempt).toBe('1');
+    expect(gates['unit-tests'].status).toBe('PASS');
+    const { failures, report } = readinessReport(gates, 'abc', '2');
+    expect(failures).toEqual([]);
+    expect(report.status).toBe('PASS');
+    expect(report.result).toBe('success');
+  });
+
+  it('fails when a required receipt is missing from every attempt', async () => {
+    const artifacts = [
+      {
+        id: 500,
+        name: 'gate-format',
+        expired: false,
+        updated_at: '2026-10-24T00:00:09Z',
+        receipt: receiptFor('format'),
+      },
+      {
+        id: 501,
+        name: 'gate-format-attempt-1',
+        expired: true,
+        updated_at: '2026-10-24T00:00:08Z',
+        receipt: receiptFor('format'),
+      },
+      {
+        id: 502,
+        name: 'gate-format-attempt-2',
+        expired: true,
+        updated_at: '2026-10-24T00:00:07Z',
+        receipt: receiptFor('format'),
+      },
+    ];
+    const executions = [
+      jobExecution('format', 1, 'success'),
+      jobExecution('format', 2, 'success'),
+    ];
+    let id = 1;
+    for (const job of REQUIRED_JOBS) {
+      if (job === 'format') continue;
+      artifacts.push(storedArtifact(id, job, 1, receiptFor(job)));
+      executions.push(jobExecution(job, 1, 'success'));
+      id += 1;
+    }
+    const { gates, zipIds } = await collectAttempt({
+      attempt: '2',
+      artifacts,
+      executions,
+    });
+    expect(zipIds).not.toContain(500);
+    expect(zipIds).not.toContain(501);
+    expect(zipIds).not.toContain(502);
+    expect(gates.format).toBeNull();
+    const { failures, report } = readinessReport(gates, 'abc', '2');
+    expect(failures).toContain('format: missing gate.json');
+    expect(report.status).toBe('FAIL');
+    expect(report.result).not.toBe('success');
+  });
+
+  it('fails when the receipt from the attempt that ran the job has a different head SHA', async () => {
+    const artifacts = [];
+    const executions = [];
+    let id = 1;
+    for (const job of REQUIRED_JOBS) {
+      const sha = job === 'lint' ? 'stale-head' : 'abc';
+      const attempt = job === 'unit-tests' ? 2 : 1;
+      artifacts.push(storedArtifact(id, job, attempt, receiptFor(job, sha)));
+      executions.push(jobExecution(job, attempt, 'success'));
+      if (job === 'unit-tests') {
+        artifacts.push(
+          storedArtifact(
+            id + 1,
+            job,
+            1,
+            receiptFor(job, 'stale-head', 'failure'),
+          ),
+        );
+        executions.push(jobExecution(job, 1, 'failure'));
+        id += 2;
+        continue;
+      }
+      id += 1;
+    }
+    const { gates } = await collectAttempt({
+      attempt: '2',
+      artifacts,
+      executions,
+    });
+    expect(gates.lint.sha).toBe('stale-head');
+    const { failures, report } = readinessReport(gates, 'abc', '2');
+    expect(failures).toContain('lint: gate.json sha does not match this run');
+    expect(report.status).toBe('FAIL');
+    expect(report.result).not.toBe('success');
+    expect(report.status).not.toBe('PASS');
+  });
+
+  it('fails a re-run when the latest receipt failed and an earlier attempt passed', async () => {
+    const artifacts = [];
+    const executions = [];
+    let id = 1;
+    for (const job of REQUIRED_JOBS) {
+      if (job === 'unit-tests') {
+        artifacts.push(storedArtifact(id, job, 1, receiptFor(job)));
+        executions.push(jobExecution(job, 1, 'success'));
+        id += 1;
+        artifacts.push(
+          storedArtifact(id, job, 2, receiptFor(job, 'abc', 'failure')),
+        );
+        executions.push(jobExecution(job, 2, 'failure'));
+        id += 1;
+        continue;
+      }
+      artifacts.push(storedArtifact(id, job, 1, receiptFor(job)));
+      executions.push(jobExecution(job, 1, 'success'));
+      id += 1;
+    }
+    const { gates, zipIds } = await collectAttempt({
+      attempt: '2',
+      artifacts,
+      executions,
+    });
+    const olderPass = artifacts.find(
+      (item) => item.name === 'gate-unit-tests-attempt-1',
+    );
+    expect(zipIds).not.toContain(olderPass.id);
+    expect(gates['unit-tests'].status).toBe('FAIL');
+    const { failures, report } = readinessReport(gates, 'abc', '2');
+    expect(failures.some((line) => line.startsWith('unit-tests:'))).toBe(true);
+    expect(report.status).toBe('FAIL');
+    expect(report.status).not.toBe('PASS');
+  });
+
+  it('fails when a re-run job has no new receipt even if an earlier attempt passed', async () => {
+    const artifacts = [];
+    const executions = [
+      jobExecution('unit-tests', 1, 'success'),
+      jobExecution('unit-tests', 2, 'success'),
+    ];
+    let id = 1;
+    for (const job of REQUIRED_JOBS) {
+      if (job === 'unit-tests') {
+        artifacts.push(storedArtifact(id, job, 1, receiptFor(job)));
+        id += 1;
+        continue;
+      }
+      artifacts.push(storedArtifact(id, job, 1, receiptFor(job)));
+      executions.push(jobExecution(job, 1, 'success'));
+      id += 1;
+    }
+    const { gates, zipIds } = await collectAttempt({
+      attempt: '2',
+      artifacts,
+      executions,
+    });
+    expect(zipIds).not.toContain(
+      artifacts.find((item) => item.name === 'gate-unit-tests-attempt-1').id,
+    );
+    expect(gates['unit-tests']).toBeNull();
+    const { failures, report } = readinessReport(gates, 'abc', '2');
+    expect(failures).toContain('unit-tests: missing gate.json');
+    expect(report.status).toBe('FAIL');
+    expect(report.status).not.toBe('PASS');
+  });
+
+  it('fails closed when the job attempt list cannot be read', async () => {
+    const fetchImpl = async (url) => {
+      if (url.includes('/artifacts?')) return jsonResponse({ artifacts: [] });
+      if (url.includes('/jobs?')) return jsonResponse({}, 500);
+      throw new Error(url);
+    };
+    await expect(
+      collectGateReceipts({
+        fetchImpl,
+        repo: 'joaobispo2077/maxframe',
+        token: 'token',
+        runId: '99',
+        destDir: mkdtempSync(join(tmpdir(), 'gate-jobs-')),
+        attempt: '2',
+        jobs: ['lint'],
+      }),
+    ).rejects.toThrow('job attempt list failed: 500');
   });
 });
 
