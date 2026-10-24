@@ -464,9 +464,21 @@ jobs:
           node-version: '24.10'
           cache: npm
 
+      # Throwaway proof for issue 102. Do not merge this branch.
+      # The step feeds a fixture npm audit JSON with one critical advisory
+      # into the real gate script, which must fail the job.
       - name: Check npm audit
         id: gate
-        run: node scripts/ci/check-audit.mjs
+        run: |
+          bindir="${RUNNER_TEMP}/audit-proof-bin"
+          mkdir -p "$bindir"
+          printf '%s\n' \
+            '#!/bin/sh' \
+            "cat '$GITHUB_WORKSPACE/tests/ci/fixtures/audit-one-critical.json'" \
+            'exit 1' \
+            > "$bindir/npm"
+          chmod +x "$bindir/npm"
+          PATH="$bindir:$PATH" node scripts/ci/check-audit.mjs
 
       - name: Write gate.json
         if: always()

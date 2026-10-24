@@ -1,0 +1,43 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "example-critical": {
+      "name": "example-critical",
+      "severity": "critical",
+      "isDirect": true,
+      "via": [
+        {
+          "source": 1000,
+          "name": "example-critical",
+          "dependency": "example-critical",
+          "title": "Fixture critical advisory",
+          "url": "https://example.test/advisories/1000",
+          "severity": "critical",
+          "range": "<0.0.0"
+        }
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": ["node_modules/example-critical"],
+      "fixAvailable": false
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 6,
+      "high": 12,
+      "critical": 1,
+      "total": 19
+    },
+    "dependencies": {
+      "prod": 1,
+      "dev": 0,
+      "optional": 0,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 1
+    }
+  }
+}
