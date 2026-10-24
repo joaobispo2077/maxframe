@@ -255,6 +255,9 @@ describe('ci workflow contract', () => {
       .map((line) => line.slice(2));
     expect(listed).toEqual(REQUIRED_JOBS);
     expect(readiness).toContain('FETCH_GATE_ARTIFACTS');
+    expect(readiness).toContain('PR_NUMBER:');
+    expect(readiness).toContain('PR_BASE_SHA:');
+    expect(readiness).toContain('PR_BASE_REF:');
     expect(readiness).toContain('node scripts/ci/check-ci-readiness.mjs');
   });
 
@@ -889,6 +892,13 @@ describe('ci readiness across run attempts', () => {
     expect(failures).toEqual([]);
     expect(report.status).toBe('PASS');
     expect(report.result).toBe('success');
+    const lint = REQUIRED_JOBS.indexOf('lint') + 1;
+    expect(gates.lint.artifactUrl).toBe(
+      `https://github.com/joaobispo2077/maxframe/actions/runs/99/artifacts/${lint}`,
+    );
+    expect(report.rows.find((row) => row.job === 'lint').artifactUrl).toBe(
+      gates.lint.artifactUrl,
+    );
   });
 
   it('passes a re-run when receipts for jobs that were not re-run come from attempt 1', async () => {
