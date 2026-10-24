@@ -1,0 +1,15 @@
+{
+  "minLines": 5,
+  "reporters": ["json"],
+  "output": "reports/quality/jscpd",
+  "absolute": true,
+  "gitignore": true,
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/reports/**"
+  ]
+}

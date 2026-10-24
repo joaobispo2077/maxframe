@@ -2,6 +2,8 @@ import { resolve } from 'node:path';
 
 import { defineConfig } from 'vitest/config';
 
+import { COVERAGE_FLOORS } from './scripts/ci/quality-floors.mjs';
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -21,5 +23,24 @@ export default defineConfig({
       'packages/renderer/tests/**/*.test.tsx',
     ],
     environmentMatchGlobs: [['tests/**', 'node']],
+    coverage: {
+      provider: 'v8',
+      reporter: ['json-summary', 'json', 'cobertura', 'text'],
+      exclude: [
+        'scripts/**',
+        'coverage/**',
+        'dist/**',
+        'reports/**',
+        '**/*.{png,svg,html}',
+      ],
+      excludeAfterRemap: true,
+      reportOnFailure: true,
+      thresholds: {
+        statements: COVERAGE_FLOORS.statements,
+        branches: COVERAGE_FLOORS.branches,
+        functions: COVERAGE_FLOORS.functions,
+        lines: COVERAGE_FLOORS.lines,
+      },
+    },
   },
 });

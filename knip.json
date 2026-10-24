@@ -1,0 +1,71 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": [
+    "coverage/**",
+    "reports/**",
+    "dist/**",
+    "cypress/screenshots/**",
+    "cypress/videos/**"
+  ],
+  "ignoreDependencies": ["@stryker-mutator/api"],
+  "semantic-release": false,
+  "ignoreUnresolved": ["vite"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "electron-builder.mjs",
+        "release.config.mjs",
+        "eslint.config.js",
+        "vitest.config.ts",
+        "vitest.stryker.config.ts",
+        "cypress.config.ts",
+        "stryker.config.mjs",
+        "stryker.config.pr.mjs",
+        "stryker.config.base.mjs",
+        "packages/entry-point.mjs",
+        "packages/dev-mode.js",
+        "scripts/ci/*.mjs",
+        "tests/**/*.ts"
+      ],
+      "project": [
+        "scripts/**/*.{mjs,js}",
+        "src/**/*.ts",
+        "tests/**/*.ts",
+        "types/**/*.d.ts",
+        "electron-builder.mjs",
+        "release.config.mjs",
+        "vitest.config.ts",
+        "vitest.stryker.config.ts",
+        "cypress.config.ts",
+        "stryker.config.mjs",
+        "stryker.config.pr.mjs",
+        "stryker.config.base.mjs"
+      ]
+    },
+    "packages/main": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/preload": {
+      "entry": ["src/exposed.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/renderer": {
+      "entry": [
+        "index.html",
+        "src/main.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+    },
+    "packages/electron-versions": {
+      "entry": ["index.js"],
+      "project": ["**/*.js"]
+    },
+    "packages/integrate-renderer": {
+      "entry": ["index.js", "create-renderer.js"],
+      "project": ["**/*.js"]
+    }
+  }
+}

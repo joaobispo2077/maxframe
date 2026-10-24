@@ -1,4 +1,5 @@
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export function warningForWorkflowState(state) {
@@ -35,6 +36,14 @@ export async function checkScheduledWorkflow({
   return { state: state || null, warning: warningForWorkflowState(state) };
 }
 
+function writeStateFile(payload) {
+  const path =
+    process.env.SCHEDULED_STATE_JSON ||
+    'reports/quality/scheduled-workflow.json';
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`);
+}
+
 function emitWarning(message) {
   console.log(`::warning::${message}`);
   if (process.env.GITHUB_STEP_SUMMARY) {
@@ -54,6 +63,7 @@ if (isDirectRun()) {
     workflow: process.env.SCHEDULED_WORKFLOW || 'stryker-full.yml',
   })
     .then(({ state, warning }) => {
+      writeStateFile({ state, warning });
       if (warning) {
         emitWarning(warning);
         return;
@@ -61,6 +71,7 @@ if (isDirectRun()) {
       console.log(`Stryker full weekly workflow is ${state}.`);
     })
     .catch((error) => {
+      writeStateFile({ state: null, warning: null, error: error.message });
       console.error(error.message);
       process.exit(1);
     });

@@ -3,15 +3,42 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { attemptLine, buildQualityRows } from './gate-metrics.mjs';
+
 export const REQUIRED_JOBS = [
   'typecheck',
   'lint',
   'format',
   'unit-tests',
   'e2e-tests',
+  'coverage',
+  'complexity',
+  'duplication',
+  'deadcode',
+  'architecture',
+  'audit',
+  'electron-security',
   'mutation-tests',
   'scheduled-workflow',
 ];
+
+export const JOB_DISPLAY_NAMES = {
+  typecheck: 'Typecheck',
+  lint: 'Lint',
+  format: 'Format',
+  'unit-tests': 'Unit Tests',
+  'e2e-tests': 'E2E Tests (Cypress Component)',
+  coverage: 'Coverage',
+  complexity: 'CRAP / complexity',
+  duplication: 'Duplication',
+  deadcode: 'Dead code',
+  architecture: 'Architecture',
+  audit: 'Dependency audit',
+  'electron-security': 'Electron security',
+  'mutation-tests': 'Mutation Tests (Stryker)',
+  'scheduled-workflow': 'Scheduled workflow state',
+  'ci-readiness': 'CI readiness',
+};
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -29,7 +56,7 @@ export function jobResult(needs, job) {
   return typeof evidence.result === 'string' ? evidence.result : null;
 }
 
-export function resultFailures(needs) {
+export function resultFailures(needs, gates = null) {
   if (!isObject(needs)) {
     return ['mandatory job results must be a JSON object'];
   }
@@ -37,6 +64,9 @@ export function resultFailures(needs) {
   for (const job of REQUIRED_JOBS) {
     const result = jobResult(needs, job);
     if (result !== 'success') {
+      // A failed job whose receipt is UNKNOWN is not a second hard failure.
+      // The UNKNOWN BLOCK row still keeps readiness from passing.
+      if (result === 'failure' && gates?.[job]?.status === 'UNKNOWN') continue;
       failures.push(
         `${job}: expected success, received ${formatReceived(result)}`,
       );
@@ -55,6 +85,38 @@ export function gateFailures(job, receipt, sha) {
     failures.push(
       `${job}: gate.json job is ${formatReceived(receipt.job ?? null)}`,
     );
+  }
+  if (receipt.status === 'UNKNOWN') {
+    if (sha && receipt.sha && receipt.sha !== sha) {
+      failures.push(`${job}: gate.json sha does not match this run`);
+    }
+    return failures;
+  }
+  if (receipt.status === 'INFO') {
+    const unchanged = receipt.mutationScope?.mutableSourceChanged === false;
+    const text = String(receipt.value || '').includes(
+      'no mutable source changed',
+    );
+    if (job !== 'mutation-tests' || !unchanged || !text) {
+      failures.push(
+        `${job}: gate.json status is ${formatReceived(receipt.status ?? null)}`,
+      );
+      return failures;
+    }
+    if (receipt.result !== 'success') {
+      failures.push(
+        `${job}: gate.json result is ${formatReceived(receipt.result ?? null)}`,
+      );
+    }
+    if (receipt.exitCode !== 0) {
+      failures.push(
+        `${job}: gate.json exitCode is ${formatReceived(receipt.exitCode ?? null)}`,
+      );
+    }
+    if (sha && receipt.sha !== sha) {
+      failures.push(`${job}: gate.json sha does not match this run`);
+    }
+    return failures;
   }
   if (receipt.status !== 'PASS') {
     failures.push(
@@ -78,7 +140,7 @@ export function gateFailures(job, receipt, sha) {
 }
 
 export function evaluateReadiness({ needs, gates, sha = '' }) {
-  const failures = resultFailures(needs);
+  const failures = resultFailures(needs, gates);
   if (isObject(needs)) {
     for (const job of REQUIRED_JOBS) {
       failures.push(...gateFailures(job, gates?.[job] ?? null, sha));
@@ -87,7 +149,17 @@ export function evaluateReadiness({ needs, gates, sha = '' }) {
   return failures;
 }
 
-export function buildReport({ needs, gates, failures, env }) {
+export function jobUrlsFromList(jobs) {
+  const urls = {};
+  if (!Array.isArray(jobs)) return urls;
+  for (const [id, name] of Object.entries(JOB_DISPLAY_NAMES)) {
+    const match = jobs.find((job) => job?.name === name && job.html_url);
+    if (match) urls[id] = match.html_url;
+  }
+  return urls;
+}
+
+export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
   const jobs = {};
   for (const job of REQUIRED_JOBS) {
     const receipt = gates?.[job] ?? null;
@@ -99,30 +171,49 @@ export function buildReport({ needs, gates, failures, env }) {
             result: receipt.result ?? null,
             exitCode: receipt.exitCode ?? null,
             sha: receipt.sha ?? null,
+            value: receipt.value ?? null,
+            evidenceSha256: receipt.evidenceSha256 ?? null,
           }
         : null,
       accepted: !failures.some((failure) => failure.startsWith(`${job}:`)),
     };
   }
-  const passed = failures.length === 0;
   const server = env.GITHUB_SERVER_URL || 'https://github.com';
   const repository = env.GITHUB_REPOSITORY || '';
   const runId = env.GITHUB_RUN_ID || '';
+  const runUrl =
+    repository && runId
+      ? `${server}/${repository}/actions/runs/${runId}`
+      : null;
+  const runAttempt = env.GITHUB_RUN_ATTEMPT || null;
+  const rows = buildQualityRows({ needs, gates, jobUrls, runUrl });
+  const rowFail = rows.some(
+    (row) => row?.mode === 'BLOCK' && row?.status === 'FAIL',
+  );
+  const blockUnknown = rows.some(
+    (row) => row?.mode === 'BLOCK' && row?.status === 'UNKNOWN',
+  );
+  const status =
+    failures.length > 0 || rowFail ? 'FAIL' : blockUnknown ? 'UNKNOWN' : 'PASS';
+  const mutationGate = gates?.['mutation-tests'] ?? null;
   return {
     schemaVersion: 1,
     gate: 'ci-readiness',
     sha: env.GITHUB_SHA || null,
+    headSha: env.PR_HEAD_SHA || null,
     runId: runId || null,
-    runAttempt: env.GITHUB_RUN_ATTEMPT || null,
-    runUrl:
-      repository && runId
-        ? `${server}/${repository}/actions/runs/${runId}`
-        : null,
-    status: passed ? 'PASS' : 'FAIL',
-    result: passed ? 'success' : 'failure',
+    runAttempt,
+    runUrl,
+    status,
+    result: status === 'PASS' ? 'success' : 'failure',
     requiredJobs: REQUIRED_JOBS,
     jobs,
     failures,
+    rows,
+    mutation: mutationGate?.stryker ?? null,
+    survivors: mutationGate?.survivors ?? null,
+    mutationScope: mutationGate?.mutationScope ?? null,
+    attemptLine: attemptLine(runAttempt),
   };
 }
 
@@ -166,6 +257,38 @@ function readGateFile(dir) {
   }
 }
 
+export function gateArtifactName(job, attempt) {
+  return attempt ? `gate-${job}-attempt-${attempt}` : `gate-${job}`;
+}
+
+export function selectNamedArtifact(artifacts, name) {
+  const matches = (Array.isArray(artifacts) ? artifacts : []).filter(
+    (item) => item && item.name === name && item.expired !== true,
+  );
+  matches.sort((left, right) =>
+    String(right.updated_at || right.created_at || '').localeCompare(
+      String(left.updated_at || left.created_at || ''),
+    ),
+  );
+  return matches[0] ?? null;
+}
+
+async function listRunArtifacts(fetchImpl, repo, token, runId) {
+  const artifacts = [];
+  for (let page = 1; page <= 10; page += 1) {
+    const listUrl = `https://api.github.com/repos/${repo}/actions/runs/${runId}/artifacts?per_page=100&page=${page}`;
+    const listed = await fetchImpl(listUrl, { headers: authHeaders(token) });
+    if (!listed.ok) {
+      throw new Error(`gate artifact list failed: ${listed.status}`);
+    }
+    const body = await listed.json();
+    const batch = Array.isArray(body.artifacts) ? body.artifacts : [];
+    artifacts.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return artifacts;
+}
+
 export async function collectGateReceipts({
   fetchImpl = globalThis.fetch,
   repo,
@@ -174,25 +297,18 @@ export async function collectGateReceipts({
   destDir,
   unpack = defaultUnpack,
   jobs = REQUIRED_JOBS,
+  attempt = '',
 }) {
   if (!repo || !token || !runId) {
     throw new Error(
       'repository, token, and run id are required to fetch gate.json',
     );
   }
-  const listUrl = `https://api.github.com/repos/${repo}/actions/runs/${runId}/artifacts?per_page=100`;
-  const listed = await fetchImpl(listUrl, { headers: authHeaders(token) });
-  if (!listed.ok) {
-    throw new Error(`gate artifact list failed: ${listed.status}`);
-  }
-  const body = await listed.json();
-  const artifacts = Array.isArray(body.artifacts) ? body.artifacts : [];
+  const artifacts = await listRunArtifacts(fetchImpl, repo, token, runId);
   const gates = {};
   for (const job of jobs) {
-    const name = `gate-${job}`;
-    const artifact = artifacts.find(
-      (item) => item?.name === name && !item.expired,
-    );
+    const name = gateArtifactName(job, attempt);
+    const artifact = selectNamedArtifact(artifacts, name);
     if (!artifact) {
       gates[job] = null;
       continue;
@@ -222,6 +338,21 @@ export function readGatesFromDir(dir, jobs = REQUIRED_JOBS) {
   return gates;
 }
 
+export async function fetchJobUrls({
+  fetchImpl = globalThis.fetch,
+  repo,
+  token,
+  runId,
+}) {
+  const url = `https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs?per_page=100`;
+  const response = await fetchImpl(url, { headers: authHeaders(token) });
+  if (!response.ok) {
+    throw new Error(`job list failed: ${response.status}`);
+  }
+  const body = await response.json();
+  return jobUrlsFromList(body.jobs);
+}
+
 function writeOutputs(env, report) {
   if (!env.GITHUB_OUTPUT) return;
   writeFileSync(
@@ -249,6 +380,7 @@ export async function main(env = process.env) {
         token: env.GH_TOKEN || env.GITHUB_TOKEN,
         runId: env.GITHUB_RUN_ID,
         destDir: env.GATE_INCOMING_DIR || 'reports/quality/incoming-gates',
+        attempt: env.GITHUB_RUN_ATTEMPT || '',
       });
     } catch (error) {
       fetchFailures = [`gate artifact download failed: ${error.message}`];
@@ -268,14 +400,30 @@ export async function main(env = process.env) {
         })
       : []),
   ];
-  const report = buildReport({ needs, gates, failures, env });
+  let jobUrls = {};
+  if (
+    env.GITHUB_REPOSITORY &&
+    env.GITHUB_RUN_ID &&
+    (env.GH_TOKEN || env.GITHUB_TOKEN)
+  ) {
+    try {
+      jobUrls = await fetchJobUrls({
+        repo: env.GITHUB_REPOSITORY,
+        token: env.GH_TOKEN || env.GITHUB_TOKEN,
+        runId: env.GITHUB_RUN_ID,
+      });
+    } catch (error) {
+      console.error(`job url lookup failed: ${error.message}`);
+    }
+  }
+  const report = buildReport({ needs, gates, failures, env, jobUrls });
   const out = env.CI_READINESS_REPORT || 'reports/quality/ci-readiness.json';
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
   writeGateReceiptFile(report, env);
   writeOutputs(env, report);
-  if (failures.length > 0) {
-    console.error('CI readiness: FAIL');
+  if (report.status !== 'PASS') {
+    console.error(`CI readiness: ${report.status}`);
     for (const failure of failures) console.error(`  ${failure}`);
     return 1;
   }
