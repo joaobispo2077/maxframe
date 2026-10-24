@@ -738,6 +738,27 @@ jobs:
           echo "CI readiness: FAIL. The workflow run was cancelled."
           exit 1
 
+  # Temporary. Push only, and only for the proof commit message.
+  # Cancels the run while required jobs are still going, before CI readiness
+  # starts, so that job has to run under cancellation and fail.
+  cancel-readiness-proof:
+    name: Cancel readiness proof
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[cancel-readiness-proof]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Cancel this run partway
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Letting other jobs start, then cancelling this run."
+          sleep 45
+          gh run cancel "${GITHUB_RUN_ID}"
+          echo "cancel requested"
+
   quality-comments:
     name: Quality comments
     # Not the required check. A cancelled run may skip the sticky.
