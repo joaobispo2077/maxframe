@@ -330,13 +330,7 @@ describe('ci workflow contract', () => {
     expect(workflow.replace(comments, '')).not.toContain(
       'pull-requests: write',
     );
-    const proofStart = workflow.indexOf('  cancel-readiness-proof:\n');
-    const proofEnd = workflow.indexOf('  quality-comments:\n');
-    const withoutProof =
-      proofStart >= 0
-        ? workflow.slice(0, proofStart) + workflow.slice(proofEnd)
-        : workflow;
-    expect(withoutProof).not.toContain('actions: write');
+    expect(workflow).not.toContain('actions: write');
     expect(workflow).toContain('actions: read');
     expect(workflow).toContain('gate-lint-attempt-${{ github.run_attempt }}');
     const sizeLimit = readFileSync(
