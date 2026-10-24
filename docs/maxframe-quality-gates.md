@@ -50,7 +50,7 @@ Thresholds apply to application source that the unit tests load (`src` and `pack
 These are frozen measurements, not relaxed minimums:
 
 - Duplication ceiling is 2. The measured share on this change was 1.95%, rounded up to one decimal. The ceiling only moves down.
-- Any critical audit finding fails. There is no waiver. The high ceiling is 40, the count measured before the handlebars and tar bumps, and it only moves down. Moderate and low are reported and do not block. Do not use `npm audit fix --force`.
+- Any critical audit finding fails. There is no waiver. A critical advisory in the report fails even when `metadata.vulnerabilities.critical` is 0. The high ceiling is 40, the count measured before the handlebars and tar bumps, and it only moves down. When the vulnerability list contains more high findings than that rollup, the higher count is compared with 40. Moderate and low are reported and do not block. npm exits non-zero for moderate findings; that exit code is not the gate. Do not use `npm audit fix --force`.
 - CRAP stays at 30. The measured max was 156, and 26 functions were already over 30. Those 26 are listed in `scripts/ci/crap-allowlist.json` as `file:name`. New functions over 30 fail. Do not raise 30.
 - Dead code floor stays "0 unwaived". `scripts/ci/deadcode-allowlist.json` freezes the knip findings measured with this config (32 rows). New findings fail. The knip semantic-release plugin is off: `release.config.mjs` registers a function plugin, and knip crashes on that (`input.specifier.startsWith is not a function`). `@semantic-release/changelog` and `@semantic-release/git` stay on the allowlist because that config names them as strings.
 
