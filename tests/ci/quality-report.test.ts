@@ -10,6 +10,8 @@ import {
   buildReport,
 } from '../../scripts/ci/check-ci-readiness.mjs';
 import {
+  BLOCK_GATES,
+  NOT_WIRED_GATES,
   buildQualityRows,
   buildStrykerRow,
   formatCoverageValue,
@@ -29,6 +31,8 @@ import {
 } from '../../scripts/ci/render-mutation-report.mjs';
 import {
   displayOverall,
+  evidenceClass,
+  evidenceCompletenessLine,
   qualityReportExitCode,
   renderQualityMarkdown,
   renderQualityReportFile,
@@ -639,5 +643,193 @@ describe('quality report process exit', () => {
     const markdown = readFileSync(markdownPath, 'utf8');
     expect(markdown).toContain('Overall: FAIL');
     expect(markdown).not.toContain('Overall: PASS');
+  });
+});
+
+describe('quality report sections', () => {
+  const head = 'a'.repeat(40);
+  const base = 'b'.repeat(40);
+  const artifact =
+    'https://github.com/joaobispo2077/maxframe/actions/runs/9/artifacts/44';
+  const jobUrl =
+    'https://github.com/joaobispo2077/maxframe/actions/runs/9/job/8';
+
+  function rowLine(markdown, gate) {
+    return markdown.split('\n').find((line) => line.startsWith(`| ${gate} |`));
+  }
+
+  it('lists planned gates as not wired and does not change a passing overall', () => {
+    const report = passingReport();
+    expect(report.status).toBe('PASS');
+    expect(displayOverall(report)).toBe('PASS');
+    expect(report.unwired).toHaveLength(NOT_WIRED_GATES.length);
+    for (const spec of NOT_WIRED_GATES) {
+      expect(REQUIRED_JOBS).not.toContain(spec.job);
+      expect(BLOCK_GATES.map((gate) => gate.job)).not.toContain(spec.job);
+      expect(report.rows.some((row) => row.job === spec.job)).toBe(false);
+    }
+    const markdown = renderQualityMarkdown(report);
+    expect(markdown).toContain(
+      `${REQUIRED_JOBS.length} of ${REQUIRED_JOBS.length + NOT_WIRED_GATES.length} gates wired.`,
+    );
+    expect(markdown).toContain(
+      `All wired gates passed. ${NOT_WIRED_GATES.length} gates not wired yet.`,
+    );
+    expect(markdown).toContain('Evidence completeness:');
+    expect(markdown).toContain('### Executed test evidence');
+    expect(markdown).toContain(
+      '| Suite | Passed | Failed | Skipped | Result | Evidence |',
+    );
+    for (const row of report.unwired) {
+      expect(row.status).not.toBe('PASS');
+      expect(markdown).toContain(
+        `${row.gate}: Not wired yet. Does not change Overall.`,
+      );
+    }
+    expect(markdown).toContain('**Overall: PASS**');
+    expect(qualityReportExitCode(displayOverall(report))).toBe(0);
+  });
+
+  it('links each measured row to its artifact and prints the pull request', () => {
+    const report = passingReport();
+    const digest = 'c'.repeat(64);
+    for (const row of report.rows) {
+      row.evidenceSha256 = digest;
+      row.artifactUrl = artifact;
+    }
+    report.rows.find((row) => row.job === 'unit-tests').metrics = {
+      passed: 394,
+      failed: 0,
+      skipped: 2,
+    };
+    report.rows.find((row) => row.job === 'e2e-tests').metrics = {
+      passed: 12,
+      failed: 0,
+      skipped: 1,
+    };
+    report.pullRequest = {
+      number: '53',
+      url: 'https://github.com/joaobispo2077/maxframe/pull/53',
+      headSha: head,
+      baseSha: base,
+      baseRef: 'develop',
+    };
+    const markdown = renderQualityMarkdown(report, { artifactSha256: digest });
+    expect(evidenceCompletenessLine(report.rows)).toBe(
+      `Evidence completeness: ${report.rows.length} measured, 0 partial, 0 unavailable.`,
+    );
+    expect(markdown).toContain(
+      `Evidence completeness: ${report.rows.length} measured, 0 partial, 0 unavailable.`,
+    );
+    expect(markdown).toContain(
+      'PR: [#53](https://github.com/joaobispo2077/maxframe/pull/53)',
+    );
+    expect(markdown).toContain(`PR head: \`${head}\``);
+    expect(markdown).toContain(`PR base: \`${base}\` (develop)`);
+    expect(markdown).toContain('Tested revision: `abc`');
+    const unit = rowLine(markdown, 'Unit');
+    expect(unit).toContain(`[artifact](${artifact})`);
+    expect(unit).toContain('PASS');
+    expect(markdown).toContain(`- Unit: [artifact](${artifact}) \`${digest}\``);
+    expect(markdown).toContain('| Unit (Vitest) | 394 | 0 | 2 | PASS |');
+    expect(markdown).toContain('| E2E (Cypress) | 12 | 0 | 1 | PASS |');
+    expect(displayOverall(report)).toBe('PASS');
+  });
+
+  it('does not render PASS when the job failed or was skipped', () => {
+    const failedNeeds = successfulNeeds();
+    failedNeeds.format = { result: 'failure' };
+    const failedGates = passingGates();
+    failedGates.format = buildGateReceipt({
+      job: 'format',
+      outcome: 'success',
+      sha: 'abc',
+      extra: {
+        value: '0 files',
+        floor: '0 files',
+        evidenceSha256: 'd'.repeat(64),
+      },
+    });
+    failedGates.format.artifactUrl = artifact;
+    expect(failedGates.format.status).toBe('PASS');
+    const failed = buildReport({
+      needs: failedNeeds,
+      gates: failedGates,
+      failures: ['format: expected success, received "failure"'],
+      env: {
+        GITHUB_SHA: 'abc',
+        GITHUB_REPOSITORY: 'joaobispo2077/maxframe',
+        GITHUB_RUN_ID: '9',
+        PR_NUMBER: '80',
+        PR_BASE_REF: 'develop',
+        PR_BASE_SHA: base,
+        PR_HEAD_SHA: head,
+      },
+      jobUrls: { format: jobUrl },
+    });
+    expect(failed.status).toBe('FAIL');
+    const format = failed.rows.find((row) => row.job === 'format');
+    expect(format.status).toBe('FAIL');
+    expect(format.artifactUrl).toBe(artifact);
+    expect(evidenceClass(format)).toBe('measured');
+    const failedMarkdown = renderQualityMarkdown(failed);
+    expect(displayOverall(failed)).toBe('FAIL');
+    expect(failedMarkdown).toContain('**Overall: FAIL**');
+    expect(failedMarkdown).not.toContain('**Overall: PASS**');
+    expect(failedMarkdown).not.toContain('All wired gates passed.');
+    expect(failedMarkdown).toContain('Failed: Format.');
+    const failedLine = rowLine(failedMarkdown, 'Format');
+    expect(failedLine).toContain('FAIL');
+    expect(failedLine).toContain(`[artifact](${artifact})`);
+    expect(failedLine).not.toContain('PASS');
+
+    const skippedNeeds = successfulNeeds();
+    skippedNeeds['unit-tests'] = { result: 'skipped' };
+    const skippedGates = passingGates();
+    skippedGates['unit-tests'].artifactUrl = artifact;
+    expect(skippedGates['unit-tests'].status).toBe('PASS');
+    const skipped = buildReport({
+      needs: skippedNeeds,
+      gates: skippedGates,
+      failures: ['unit-tests: expected success, received "skipped"'],
+      env: { GITHUB_SHA: 'abc' },
+      jobUrls: { 'unit-tests': jobUrl },
+    });
+    const unit = skipped.rows.find((row) => row.job === 'unit-tests');
+    expect(unit.status).toBe('FAIL');
+    expect(unit.artifactUrl).toBeNull();
+    expect(unit.value).toBe('Unit: FAIL. Skipped, no evidence from this run.');
+    expect(evidenceClass(unit)).toBe('unavailable');
+    const skippedMarkdown = renderQualityMarkdown(skipped);
+    const unitLine = rowLine(skippedMarkdown, 'Unit');
+    expect(unitLine).toContain('FAIL');
+    expect(unitLine).toContain(`[job](${jobUrl})`);
+    expect(unitLine).not.toContain(artifact);
+    expect(unitLine).not.toContain('PASS');
+    expect(skippedMarkdown).not.toContain(artifact);
+    expect(skippedMarkdown).toContain(
+      '| Unit (Vitest) | unavailable | unavailable | unavailable | FAIL |',
+    );
+    expect(skippedMarkdown).not.toContain('**Overall: PASS**');
+  });
+
+  it('keeps the section headings when the readiness file is missing', () => {
+    const missing = renderQualityReportFile(
+      join(tmpdir(), 'missing-sections.json'),
+    );
+    expect(missing.overall).toBe('UNKNOWN');
+    expect(missing.markdown).toContain('Gates wired: unavailable.');
+    expect(missing.markdown).toContain('Evidence completeness: unavailable.');
+    expect(missing.markdown).toContain('PR: unavailable');
+    expect(missing.markdown).toContain('PR base: unavailable');
+    expect(missing.markdown).toContain('### Executed test evidence');
+    expect(missing.markdown).toContain('This is not a pass.');
+    expect(missing.markdown).not.toContain('All wired gates passed.');
+    expect(missing.markdown).not.toContain('**Overall: PASS**');
+    for (const spec of NOT_WIRED_GATES) {
+      expect(missing.markdown).toContain(
+        `${spec.gate}: Not wired yet. Does not change Overall.`,
+      );
+    }
   });
 });
