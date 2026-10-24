@@ -65,6 +65,8 @@ These are frozen measurements, not relaxed minimums:
 
 `ci-readiness` uses `if: always()`. That expression stays true when the workflow is cancelled and when a needed job fails, is skipped, or is cancelled, so the job runs and the script can fail it. `if: always() && !cancelled()` is false when the run is cancelled. GitHub then skips the job, and a skipped required check is a pass. That is the false pass this job exists to close.
 
+Steps inside the job default to `success()`, which is false when the run is cancelled, so Checkout, Setup Node, and the readiness script would skip and the job could finish without a failure. Those three steps use `if: always()`. A last step uses `if: cancelled()` and exits 1, so a cancelled run is still red when every needed job had already succeeded.
+
 `scripts/ci/check-ci-readiness.mjs` reads every job in `needs`. `cancelled` is a failure. `skipped` is a failure. A failed job and a missing `gate.json` stay failures. A `failure` result whose receipt is `UNKNOWN` does not add a second hard failure line. The UNKNOWN row still blocks.
 
 No required job is skipped on purpose. The workflow has no path filters and no branch filters. `INTENTIONAL_SKIP_JOBS` is empty. A `skipped` result can pass only when the job is not a required job, its id is in that set, and this section names the job. `cancelled` is never waived. A required job cannot be waived by that set.

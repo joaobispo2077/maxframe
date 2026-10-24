@@ -696,16 +696,22 @@ jobs:
       result: ${{ steps.readiness.outputs.result }}
       status: ${{ steps.readiness.outputs.status }}
     steps:
+      # Steps default to success(), which is false after a cancellation, so
+      # they would skip and this job could finish without running the script.
+      # always() keeps checkout, setup, and the script on that path.
       - name: Checkout
+        if: always()
         uses: actions/checkout@v6
 
       - name: Setup Node
+        if: always()
         uses: actions/setup-node@v6
         with:
           node-version: '24.10'
 
       - name: Require successful required jobs and gate.json
         id: readiness
+        if: always()
         env:
           CI_NEEDS_JSON: ${{ toJSON(needs) }}
           FETCH_GATE_ARTIFACTS: '1'
@@ -723,6 +729,14 @@ jobs:
             reports/quality/gates/ci-readiness/gate.json
           if-no-files-found: error
           retention-days: 14
+
+      # Backstop: needs can all be success while the run itself was cancelled.
+      # The script would pass, and a skipped step would not turn the check red.
+      - name: Fail when the workflow was cancelled
+        if: cancelled()
+        run: |
+          echo "CI readiness: FAIL. The workflow run was cancelled."
+          exit 1
 
   quality-comments:
     name: Quality comments

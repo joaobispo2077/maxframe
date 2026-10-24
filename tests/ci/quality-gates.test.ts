@@ -120,6 +120,74 @@ function workflowJobIf(yamlText: string, jobId: string) {
   return field.replace(/^    if:\s*/, '').trim();
 }
 
+type WorkflowStep = { name: string; if?: string };
+
+function workflowJobSteps(yamlText: string, jobId: string): WorkflowStep[] {
+  const body = jobBody(yamlText, jobId);
+  const stepsAt = body.indexOf('    steps:');
+  if (stepsAt < 0) return [];
+  return collectJobSteps(body.slice(stepsAt + 1));
+}
+
+function collectJobSteps(lines: string[]) {
+  const steps: WorkflowStep[] = [];
+  let current: WorkflowStep | null = null;
+  for (const line of lines) {
+    const name = /^      - name:\s*(.*?)\s*$/.exec(line);
+    if (name) {
+      if (current) steps.push(current);
+      current = { name: name[1] };
+      continue;
+    }
+    if (!current) continue;
+    const condition = /^        if:\s*(.*?)\s*$/.exec(line);
+    if (condition && current.if === undefined) current.if = condition[1];
+  }
+  if (current) steps.push(current);
+  return steps;
+}
+
+const READINESS_ALWAYS_STEPS = [
+  'Checkout',
+  'Setup Node',
+  'Require successful required jobs and gate.json',
+];
+
+function readinessStepContractFailures(steps: WorkflowStep[]) {
+  const failures: string[] = [];
+  for (const name of READINESS_ALWAYS_STEPS) {
+    const step = steps.find((item) => item.name === name);
+    if (!step) {
+      failures.push(`missing step ${name}`);
+      continue;
+    }
+    if (step.if !== 'always()') {
+      failures.push(
+        `${name} if must be exactly always(), received ${JSON.stringify(step.if)}`,
+      );
+    }
+  }
+  if (!steps.some((step) => step.if === 'cancelled()')) {
+    failures.push('missing a step with if: cancelled() that fails the job');
+  }
+  return failures;
+}
+
+const legacyReadinessSteps = [
+  'jobs:',
+  '  ci-readiness:',
+  '    if: always()',
+  '    steps:',
+  '      - name: Checkout',
+  '        uses: actions/checkout@v6',
+  '      - name: Setup Node',
+  '        uses: actions/setup-node@v6',
+  '      - name: Require successful required jobs and gate.json',
+  '        run: node scripts/ci/check-ci-readiness.mjs',
+  '      - name: Upload CI readiness artifact',
+  '        if: always()',
+].join('\n');
+
 function readinessIfContractFailures(expression: string | undefined) {
   const failures: string[] = [];
   if (expression !== 'always()') {
@@ -171,6 +239,11 @@ describe('ci workflow contract', () => {
     expect(expression).toBe('always()');
     expect(readinessIfContractFailures(expression)).toEqual([]);
     expect(readinessIfSkipsOnCancellation(expression)).toBe(false);
+    const steps = workflowJobSteps(workflow, 'ci-readiness');
+    expect(readinessStepContractFailures(steps)).toEqual([]);
+    expect(steps.find((step) => step.if === 'cancelled()')?.name).toBe(
+      'Fail when the workflow was cancelled',
+    );
     const readiness = workflow.slice(workflow.indexOf('  ci-readiness:\n'));
     const needsAt = readiness.indexOf('    needs:\n');
     const runsAt = readiness.indexOf('    runs-on:');
@@ -203,6 +276,24 @@ describe('ci workflow contract', () => {
     expect(
       readinessIfContractFailures(workflowJobIf(reverted, 'ci-readiness')),
     ).not.toEqual([]);
+  });
+
+  it('rejects readiness steps that still default to success() on cancellation', () => {
+    const steps = workflowJobSteps(legacyReadinessSteps, 'ci-readiness');
+    expect(steps.map((step) => step.if)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      'always()',
+    ]);
+    expect(readinessStepContractFailures(steps)).toEqual([
+      'Checkout if must be exactly always(), received undefined',
+      'Setup Node if must be exactly always(), received undefined',
+      'Require successful required jobs and gate.json if must be exactly always(), received undefined',
+      'missing a step with if: cancelled() that fails the job',
+    ]);
+    const live = workflowJobSteps(workflow, 'ci-readiness');
+    expect(readinessStepContractFailures(live)).toEqual([]);
   });
 
   it('records job status so an earlier step failure is not a skipped receipt', () => {
