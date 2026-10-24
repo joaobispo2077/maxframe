@@ -717,6 +717,9 @@ jobs:
           FETCH_GATE_ARTIFACTS: '1'
           GH_TOKEN: ${{ github.token }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PR_BASE_REF: ${{ github.base_ref || '' }}
         run: node scripts/ci/check-ci-readiness.mjs
 
       - name: Upload CI readiness artifact

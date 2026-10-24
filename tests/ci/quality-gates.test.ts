@@ -255,6 +255,9 @@ describe('ci workflow contract', () => {
       .map((line) => line.slice(2));
     expect(listed).toEqual(REQUIRED_JOBS);
     expect(readiness).toContain('FETCH_GATE_ARTIFACTS');
+    expect(readiness).toContain('PR_NUMBER:');
+    expect(readiness).toContain('PR_BASE_SHA:');
+    expect(readiness).toContain('PR_BASE_REF:');
     expect(readiness).toContain('node scripts/ci/check-ci-readiness.mjs');
   });
 
@@ -299,6 +302,14 @@ describe('ci workflow contract', () => {
   it('records job status so an earlier step failure is not a skipped receipt', () => {
     expect(workflow).toContain('GATE_OUTCOME: ${{ job.status }}');
     expect(workflow).not.toContain('steps.gate.outcome');
+  });
+
+  it('runs dependency audit through the gate script', () => {
+    const audit = jobBody(workflow, 'audit').join('\n');
+    expect(audit).toContain('name: Dependency audit');
+    expect(audit).toContain('run: node scripts/ci/check-audit.mjs');
+    expect(audit).not.toContain('AUDIT_JSON');
+    expect(audit).not.toContain('audit-one-critical');
   });
 
   it('restores the Stryker PR cache only on an exact key', () => {
@@ -422,6 +433,84 @@ describe('ci readiness', () => {
     const written = JSON.parse(readFileSync(reportPath, 'utf8'));
     expect(written.status).toBe('FAIL');
     expect(written.result).toBe('failure');
+    expect(readFileSync(outputPath, 'utf8')).toContain('status=FAIL');
+  });
+
+  it('fails CI readiness when dependency audit has a critical finding', () => {
+    const sha = 'abc';
+    const needs = successfulNeeds();
+    needs.audit = { result: 'failure' };
+    const gates = passingGates(sha);
+    gates.audit = buildGateReceipt({
+      job: 'audit',
+      outcome: 'failure',
+      sha,
+      extra: {
+        value:
+          'Dependency audit: FAIL. 1 critical, 12 high, 0 moderate reported, 0 low reported. 1 critical is above 0',
+        floor: '0 critical, <= 40 high',
+        gateStatus: 'FAIL',
+        metrics: { critical: 1, high: 12, moderate: 0, low: 0, total: 13 },
+      },
+    });
+    const failures = evaluateReadiness({ needs, gates, sha });
+    expect(failures).toContain('audit: expected success, received "failure"');
+    expect(failures).toContain('audit: gate.json status is "FAIL"');
+    const report = buildReport({
+      needs,
+      gates,
+      failures,
+      env: { GITHUB_SHA: sha },
+    });
+    expect(report.status).toBe('FAIL');
+    expect(report.result).toBe('failure');
+    const audit = report.rows.find((row) => row.job === 'audit');
+    expect(audit?.gate).toBe('Dependency audit');
+    expect(audit?.status).toBe('FAIL');
+    expect(audit?.mode).toBe('BLOCK');
+    expect(audit?.value).toContain('1 critical is above 0');
+    expect(audit?.status).not.toBe('PASS');
+
+    const dir = mkdtempSync(join(tmpdir(), 'readiness-audit-'));
+    for (const [job, receipt] of Object.entries(gates)) {
+      const path = join(dir, `gate-${job}`, 'gate.json');
+      mkdirSync(join(dir, `gate-${job}`), { recursive: true });
+      writeFileSync(path, JSON.stringify(receipt));
+    }
+    const reportPath = join(dir, 'ci-readiness.json');
+    const outputPath = join(dir, 'github-output.txt');
+    writeFileSync(outputPath, '');
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/ci/check-ci-readiness.mjs'],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          CI_NEEDS_JSON: JSON.stringify(needs),
+          CI_READINESS_REPORT: reportPath,
+          GITHUB_OUTPUT: outputPath,
+          GATE_INCOMING_DIR: dir,
+          GATE_ROOT: join(dir, 'gates'),
+          FETCH_GATE_ARTIFACTS: '',
+          GITHUB_REPOSITORY: '',
+          GITHUB_RUN_ID: '',
+          GH_TOKEN: '',
+          GITHUB_TOKEN: '',
+          GITHUB_SHA: sha,
+        },
+        encoding: 'utf8',
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'audit: expected success, received "failure"',
+    );
+    const written = JSON.parse(readFileSync(reportPath, 'utf8'));
+    expect(written.status).toBe('FAIL');
+    const writtenAudit = written.rows.find((row) => row.job === 'audit');
+    expect(writtenAudit.status).toBe('FAIL');
+    expect(writtenAudit.gate).toBe('Dependency audit');
     expect(readFileSync(outputPath, 'utf8')).toContain('status=FAIL');
   });
 
@@ -803,6 +892,13 @@ describe('ci readiness across run attempts', () => {
     expect(failures).toEqual([]);
     expect(report.status).toBe('PASS');
     expect(report.result).toBe('success');
+    const lint = REQUIRED_JOBS.indexOf('lint') + 1;
+    expect(gates.lint.artifactUrl).toBe(
+      `https://github.com/joaobispo2077/maxframe/actions/runs/99/artifacts/${lint}`,
+    );
+    expect(report.rows.find((row) => row.job === 'lint').artifactUrl).toBe(
+      gates.lint.artifactUrl,
+    );
   });
 
   it('passes a re-run when receipts for jobs that were not re-run come from attempt 1', async () => {
