@@ -59,6 +59,30 @@ export const BLOCK_GATES = [
 
 export const INFO_GATES = [];
 
+// Planned in #55 and not a job yet. They are listed on the sticky and do not
+// affect Overall. They stay out of INFO_GATES so a missing row cannot fail a
+// run that already passed every wired gate.
+export const NOT_WIRED_GATES = [
+  { job: 'find-dupes', gate: 'Dependency tree (npm find-dupes)' },
+  { job: 'windows-smoke', gate: 'Windows build smoke' },
+  { job: 'bundled-binaries', gate: 'Bundled binaries' },
+  { job: 'accessibility', gate: 'Accessibility (cypress-axe)' },
+];
+
+export function unwiredGateRows() {
+  return NOT_WIRED_GATES.map((spec) => ({
+    gate: spec.gate,
+    job: spec.job,
+    mode: 'UNWIRED',
+    status: 'NOT_WIRED',
+    value: `${spec.gate}: Not wired yet. Does not change Overall.`,
+    floor: 'none',
+    runUrl: null,
+    artifactUrl: null,
+    evidenceSha256: null,
+  }));
+}
+
 const INFO_UNAVAILABLE =
   'Unavailable: no evidence from this run. Informational. Does not change Overall.';
 
@@ -365,6 +389,8 @@ export function buildStrykerRow({
   jobResult,
   runUrl = null,
   evidenceSha256 = null,
+  artifactUrl = null,
+  artifactName = null,
   floor = MUTATION_BREAK,
   receiptStatus = null,
   mutationScope = null,
@@ -376,6 +402,8 @@ export function buildStrykerRow({
     floor: mutationFloorLabel(floor),
     runUrl,
     evidenceSha256,
+    artifactUrl,
+    artifactName,
   };
   if (jobResult === 'skipped') {
     return {
@@ -383,6 +411,8 @@ export function buildStrykerRow({
       status: 'FAIL',
       value: 'Mutation: FAIL. Skipped, no evidence from this run.',
       evidenceSha256: null,
+      artifactUrl: null,
+      artifactName: null,
     };
   }
   if (jobResult === 'cancelled') {
@@ -391,6 +421,8 @@ export function buildStrykerRow({
       status: 'FAIL',
       value: 'Mutation: FAIL. Cancelled, no evidence from this run.',
       evidenceSha256: null,
+      artifactUrl: null,
+      artifactName: null,
     };
   }
   const diff = mutationDiffState(mutationScope);
@@ -478,6 +510,8 @@ function blockRow(spec, needs, receipt, runUrl) {
     floor: receipt?.floor || spec.floor,
     runUrl: runUrl || null,
     evidenceSha256: receipt?.evidenceSha256 || null,
+    artifactUrl: receipt?.artifactUrl || null,
+    artifactName: receipt?.artifactName || null,
   };
   if (result === 'skipped') {
     return {
@@ -485,6 +519,8 @@ function blockRow(spec, needs, receipt, runUrl) {
       status: 'FAIL',
       value: `${spec.gate}: FAIL. Skipped, no evidence from this run.`,
       evidenceSha256: null,
+      artifactUrl: null,
+      artifactName: null,
     };
   }
   if (result === 'cancelled') {
@@ -493,6 +529,8 @@ function blockRow(spec, needs, receipt, runUrl) {
       status: 'FAIL',
       value: `${spec.gate}: FAIL. Cancelled, no evidence from this run.`,
       evidenceSha256: null,
+      artifactUrl: null,
+      artifactName: null,
     };
   }
   if (receipt?.status === 'UNKNOWN') {
@@ -514,6 +552,8 @@ function blockRow(spec, needs, receipt, runUrl) {
       status: 'FAIL',
       value: `${spec.gate}: FAIL. No gate.json from this run.`,
       evidenceSha256: null,
+      artifactUrl: null,
+      artifactName: null,
     };
   }
   if (result !== 'success' || receipt.status !== 'PASS') {
@@ -606,6 +646,8 @@ export function buildQualityRows({
       runUrl: jobUrls['mutation-tests'] || runUrl,
       evidenceSha256:
         mutation?.stryker?.evidenceSha256 || mutation?.evidenceSha256 || null,
+      artifactUrl: mutation?.artifactUrl || null,
+      artifactName: mutation?.artifactName || null,
       floor: MUTATION_BREAK,
       receiptStatus: mutation?.status ?? null,
       mutationScope: mutation?.mutationScope ?? null,
