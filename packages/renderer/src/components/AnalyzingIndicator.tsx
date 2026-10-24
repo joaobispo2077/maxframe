@@ -7,7 +7,7 @@ type AnalyzingIndicatorProps = {
 /**
  * Indeterminate progress bar shown during URL analysis.
  * Always rendered to avoid layout shift; hidden via visibility when inactive.
- * Width matches the "Analyze quality" button (alignSelf flex-start on sm+).
+ * Width matches the "Check quality" button (alignSelf flex-start on sm+).
  */
 export function AnalyzingIndicator({ visible }: AnalyzingIndicatorProps) {
   return (
@@ -18,7 +18,7 @@ export function AnalyzingIndicator({ visible }: AnalyzingIndicatorProps) {
       alignSelf={{ base: 'stretch', sm: 'flex-start' }}
       minW={{ sm: '160px' }}
       style={{ visibility: visible ? 'visible' : 'hidden' }}
-      aria-label="Analyzing URL"
+      aria-label="Checking…"
       aria-hidden={!visible}
     >
       <Progress.Track borderRadius="full">

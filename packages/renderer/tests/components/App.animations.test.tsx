@@ -79,10 +79,10 @@ describe('App — animated UI transitions', () => {
       .mockResolvedValue(MOCK_ANALYZE_RESULT);
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(
@@ -103,10 +103,10 @@ describe('App — animated UI transitions', () => {
     );
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();

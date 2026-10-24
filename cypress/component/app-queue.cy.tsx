@@ -76,7 +76,7 @@ describe('App queue runner flow', () => {
     cy.get('#unified-queue-urls').type(
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
-    cy.contains('button', 'Add to queue').click();
+    cy.contains('button', 'Add 1 to queue').click();
     cy.contains('button', 'Queue').click();
     cy.contains('button', 'Start queue').should('be.enabled').click();
     cy.contains('button', 'Stop queue', { timeout: 8000 }).should('be.visible');

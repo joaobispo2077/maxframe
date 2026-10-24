@@ -42,7 +42,11 @@ describe('DownloadQueuePanel', () => {
     expect(
       screen.getByRole('heading', { name: /download queue/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/No active queue items/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Queue is empty. Paste links on Analyze and choose Add to queue.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /start queue/i })).toBeDisabled();
   });
 
@@ -66,7 +70,9 @@ describe('DownloadQueuePanel', () => {
     );
 
     expect(
-      screen.queryByText(/No active queue items/i),
+      screen.queryByText(
+        'Queue is empty. Paste links on Analyze and choose Add to queue.',
+      ),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /start queue/i })).toBeEnabled();
     expect(

@@ -8,6 +8,7 @@ import {
   setLastOutputFolder,
 } from '../lib/appPreferences.js';
 import { buildSuggestedFileName } from '../lib/buildSuggestedFileName.js';
+import { userFacingDownloadError } from '../lib/userFacingErrors.js';
 
 import { useDownloadProgress } from './useDownloadProgress.js';
 
@@ -91,7 +92,7 @@ export function useActiveDownload({
         setError(undefined);
         setDownloadNote(undefined);
       } else {
-        setError(msg);
+        setError(userFacingDownloadError(msg));
         if (debugMode) {
           void fetchDiagnostics();
         }

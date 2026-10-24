@@ -1,4 +1,7 @@
-import { firstNonEmptyLine } from '@ui/lib/firstNonEmptyLine';
+import {
+  countNonEmptyLines,
+  firstNonEmptyLine,
+} from '@ui/lib/firstNonEmptyLine';
 import { describe, expect, it } from 'vitest';
 
 describe('firstNonEmptyLine', () => {
@@ -15,6 +18,17 @@ describe('firstNonEmptyLine', () => {
   it('trims leading and trailing spaces on the chosen line', () => {
     expect(firstNonEmptyLine('  https://x.test/y  \n')).toBe(
       'https://x.test/y',
+    );
+  });
+});
+
+describe('countNonEmptyLines', () => {
+  it('counts only non-empty lines', () => {
+    expect(countNonEmptyLines('')).toBe(0);
+    expect(countNonEmptyLines('   \n\t\n')).toBe(0);
+    expect(countNonEmptyLines('https://youtu.be/a')).toBe(1);
+    expect(countNonEmptyLines('https://youtu.be/a\n\nhttps://youtu.be/b')).toBe(
+      2,
     );
   });
 });

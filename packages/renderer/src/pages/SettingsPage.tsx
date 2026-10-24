@@ -77,7 +77,7 @@ export function SettingsPage({
             colorPalette="purple"
             onClick={onBack}
           >
-            Back to home
+            Back
           </Button>
         ) : null}
       </HStack>
@@ -100,8 +100,8 @@ export function SettingsPage({
                 borderColor="border"
                 fontSize="sm"
               >
-                <option value="mp4">MP4 (best video)</option>
-                <option value="mp3">MP3 (best audio)</option>
+                <option value="mp4">MP4 video</option>
+                <option value="mp3">MP3 audio only</option>
               </NativeSelect.Field>
               <NativeSelect.Indicator />
             </NativeSelect.Root>
@@ -116,7 +116,7 @@ export function SettingsPage({
             </Text>
             <Text fontSize="xs" color="fg.muted" mt={1} wordBreak="break-all">
               {lastOutputFolder ??
-                'No downloads yet — completed files will show their folder here.'}
+                'No downloads yet. Completed files will show their folder here.'}
             </Text>
           </Box>
         </VStack>

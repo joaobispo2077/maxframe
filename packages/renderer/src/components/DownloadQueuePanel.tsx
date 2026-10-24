@@ -60,7 +60,9 @@ export function DownloadQueuePanel({
         <Separator borderColor="border" />
         <Stack gap={3}>
           {ordered.length === 0 ? (
-            <Text textStyle="queueMeta">No active queue items.</Text>
+            <Text textStyle="queueMeta">
+              Queue is empty. Paste links on Analyze and choose Add to queue.
+            </Text>
           ) : (
             ordered.map((job) => (
               <QueueJobRow
