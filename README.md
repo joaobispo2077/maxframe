@@ -39,7 +39,7 @@ GitHub Actions workflows include:
 - `CI` (`.github/workflows/ci.yml`)
   - Runs on `push` for `feature/**`, `develop`, and `release`
   - Runs on `pull_request` targeting `develop`, `release`, and `main`
-  - Required jobs are not filtered by head or base branch. `ci-readiness` fails unless every required job is `success` and uploaded a passing `gate.json`. Skipped, cancelled, failed, and missing `gate.json` are red.
+  - Required jobs are not filtered by head or base branch. `ci-readiness` uses `if: always()` and fails unless every required job is `success` and uploaded a passing `gate.json`. Skipped, cancelled, failed, and missing `gate.json` are red. No required job is an intentional path-filter skip. See [Quality gates](docs/maxframe-quality-gates.md).
   - Jobs:
     - `typecheck`
     - `lint` (`npm run lint`)

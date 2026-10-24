@@ -61,6 +61,18 @@ These are frozen measurements, not relaxed minimums:
 3. Raise the mutation break after a full weekly run stays 2 or more points above it. Do not lower it without an explicit decision from the repo owner.
 4. Remove an allowlist row when that function or knip finding is actually gone. Adding a row to hide a new failure needs the new measurement recorded in the pull request.
 
+## Cancellation and skips
+
+`ci-readiness` uses `if: always()`. That expression stays true when the workflow is cancelled and when a needed job fails, is skipped, or is cancelled, so the job runs and the script can fail it. `if: always() && !cancelled()` is false when the run is cancelled. GitHub then skips the job, and a skipped required check is a pass. That is the false pass this job exists to close.
+
+Steps inside the job default to `success()`, which is false when the run is cancelled, so Checkout, Setup Node, and the readiness script would skip and the job could finish without a failure. Those three steps use `if: always()`. A last step uses `if: cancelled()` and exits 1, so a cancelled run is still red when every needed job had already succeeded.
+
+`scripts/ci/check-ci-readiness.mjs` reads every job in `needs`. `cancelled` is a failure. `skipped` is a failure. A failed job and a missing `gate.json` stay failures. A `failure` result whose receipt is `UNKNOWN` does not add a second hard failure line. The UNKNOWN row still blocks.
+
+No required job is skipped on purpose. The workflow has no path filters and no branch filters. `INTENTIONAL_SKIP_JOBS` is empty. A `skipped` result can pass only when the job is not a required job, its id is in that set, and this section names the job. `cancelled` is never waived. A required job cannot be waived by that set.
+
+`coverage` and `complexity` use `if: always() && !cancelled()` so they stop after a cancelled run. That skip is not a success. Readiness fails. Step conditions (Stryker cache restore, pull request comments) do not skip the job. `quality-comments` may skip when the run is cancelled. It is not the required check.
+
 ## Branch protection
 
 The check name to require is `CI readiness`.
