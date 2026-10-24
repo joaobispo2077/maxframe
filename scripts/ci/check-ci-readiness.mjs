@@ -22,6 +22,27 @@ export const REQUIRED_JOBS = [
   'scheduled-workflow',
 ];
 
+/**
+ * The only `ci-readiness` job `if` that still runs when the workflow is
+ * cancelled. `always()` is true in that case. `always() && !cancelled()`
+ * and `success() || failure()` are not: GitHub skips the job, and a skipped
+ * required check counts as a pass.
+ */
+export const CI_READINESS_IF = 'always()';
+
+/**
+ * Jobs in `needs` that may be `skipped` without failing readiness.
+ * Required jobs are never included: this workflow has no path filters and
+ * no branch filters on them. `cancelled` is never waived. The set is empty.
+ * A future non-required path filter must be added here and named in
+ * docs/maxframe-quality-gates.md before a skip can pass.
+ */
+export const INTENTIONAL_SKIP_JOBS = new Set();
+
+export function readinessIfSkipsOnCancellation(expression) {
+  return String(expression ?? '').trim() !== CI_READINESS_IF;
+}
+
 export const JOB_DISPLAY_NAMES = {
   typecheck: 'Typecheck',
   lint: 'Lint',
@@ -56,13 +77,49 @@ export function jobResult(needs, job) {
   return typeof evidence.result === 'string' ? evidence.result : null;
 }
 
-export function resultFailures(needs, gates = null) {
+function needsJobIds(needs) {
+  const extras = Object.keys(needs)
+    .filter((job) => !REQUIRED_JOBS.includes(job))
+    .sort();
+  return [...REQUIRED_JOBS, ...extras];
+}
+
+/**
+ * A `skipped` result is by design only for a non-required job listed in
+ * `intentionalSkips`. Required jobs and every `cancelled` result stay red.
+ */
+export function skipIsByDesign(
+  job,
+  result,
+  intentionalSkips = INTENTIONAL_SKIP_JOBS,
+) {
+  return (
+    result === 'skipped' &&
+    !REQUIRED_JOBS.includes(job) &&
+    intentionalSkips.has(job)
+  );
+}
+
+export function resultFailures(
+  needs,
+  gates = null,
+  intentionalSkips = INTENTIONAL_SKIP_JOBS,
+) {
   if (!isObject(needs)) {
     return ['mandatory job results must be a JSON object'];
   }
   const failures = [];
-  for (const job of REQUIRED_JOBS) {
+  for (const job of needsJobIds(needs)) {
     const result = jobResult(needs, job);
+    if (skipIsByDesign(job, result, intentionalSkips)) continue;
+    // Cancelled and skipped are failures even when gate.json is UNKNOWN.
+    // The UNKNOWN waiver below applies only to result === 'failure'.
+    if (result === 'cancelled' || result === 'skipped') {
+      failures.push(
+        `${job}: expected success, received ${formatReceived(result)}`,
+      );
+      continue;
+    }
     if (result !== 'success') {
       // A failed job whose receipt is UNKNOWN is not a second hard failure.
       // The UNKNOWN BLOCK row still keeps readiness from passing.
@@ -139,8 +196,13 @@ export function gateFailures(job, receipt, sha) {
   return failures;
 }
 
-export function evaluateReadiness({ needs, gates, sha = '' }) {
-  const failures = resultFailures(needs, gates);
+export function evaluateReadiness({
+  needs,
+  gates,
+  sha = '',
+  intentionalSkips = INTENTIONAL_SKIP_JOBS,
+}) {
+  const failures = resultFailures(needs, gates, intentionalSkips);
   if (isObject(needs)) {
     for (const job of REQUIRED_JOBS) {
       failures.push(...gateFailures(job, gates?.[job] ?? null, sha));

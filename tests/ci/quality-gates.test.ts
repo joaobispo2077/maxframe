@@ -16,10 +16,14 @@ import {
   decideStrykerCache,
 } from '../../scripts/ci/accept-stryker-cache.mjs';
 import {
+  INTENTIONAL_SKIP_JOBS,
   REQUIRED_JOBS,
   buildReport,
   evaluateReadiness,
   jobResult,
+  readinessIfSkipsOnCancellation,
+  resultFailures,
+  skipIsByDesign,
 } from '../../scripts/ci/check-ci-readiness.mjs';
 import {
   checkScheduledWorkflow,
@@ -89,6 +93,54 @@ function passingGates(sha = 'abc') {
   );
 }
 
+function isOutsideJob(line: string) {
+  const trimmed = line.trim();
+  if (trimmed === '' || trimmed.startsWith('#')) return false;
+  return !line.startsWith('    ');
+}
+
+function jobBody(yamlText: string, jobId: string) {
+  const lines = yamlText.replaceAll('\r\n', '\n').split('\n');
+  const start = lines.indexOf(`  ${jobId}:`);
+  if (start < 0) return [];
+  const body: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (isOutsideJob(line)) break;
+    body.push(line);
+  }
+  return body;
+}
+
+function workflowJobIf(yamlText: string, jobId: string) {
+  const field = jobBody(yamlText, jobId).find((line) => /^    if:/.test(line));
+  if (!field) return undefined;
+  return field.replace(/^    if:\s*/, '').trim();
+}
+
+function readinessIfContractFailures(expression: string | undefined) {
+  const failures: string[] = [];
+  if (expression !== 'always()') {
+    failures.push(
+      `ci-readiness if must be exactly always(), received ${JSON.stringify(expression)}`,
+    );
+  }
+  if (readinessIfSkipsOnCancellation(expression)) {
+    failures.push('ci-readiness if skips the job when the run is cancelled');
+  }
+  return failures;
+}
+
+const legacyReadinessIf = [
+  'jobs:',
+  '  ci-readiness:',
+  '    name: CI readiness',
+  '    if: always() && !cancelled()',
+  '    runs-on: ubuntu-latest',
+  '    steps:',
+  '      - name: Upload CI readiness artifact',
+  '        if: always()',
+].join('\n');
+
 describe('ci workflow contract', () => {
   it('triggers push on develop and pull requests into develop', () => {
     const pullAt = workflow.indexOf('  pull_request:\n');
@@ -112,8 +164,11 @@ describe('ci workflow contract', () => {
   });
 
   it('runs ci-readiness with if always and every required job', () => {
+    const expression = workflowJobIf(workflow, 'ci-readiness');
+    expect(expression).toBe('always()');
+    expect(readinessIfContractFailures(expression)).toEqual([]);
+    expect(readinessIfSkipsOnCancellation(expression)).toBe(false);
     const readiness = workflow.slice(workflow.indexOf('  ci-readiness:\n'));
-    expect(readiness).toContain('if: always()');
     const needsAt = readiness.indexOf('    needs:\n');
     const runsAt = readiness.indexOf('    runs-on:');
     const needs = readiness.slice(needsAt, runsAt);
@@ -125,6 +180,26 @@ describe('ci workflow contract', () => {
     expect(listed).toEqual(REQUIRED_JOBS);
     expect(readiness).toContain('FETCH_GATE_ARTIFACTS');
     expect(readiness).toContain('node scripts/ci/check-ci-readiness.mjs');
+  });
+
+  it('rejects always() && !cancelled() because that skips on cancellation', () => {
+    const expression = workflowJobIf(legacyReadinessIf, 'ci-readiness');
+    expect(expression).toBe('always() && !cancelled()');
+    expect(expression).not.toBe(workflowJobIf(workflow, 'ci-readiness'));
+    expect(readinessIfSkipsOnCancellation(expression)).toBe(true);
+    expect(readinessIfSkipsOnCancellation('success() || failure()')).toBe(true);
+    expect(readinessIfContractFailures(expression)).toEqual([
+      'ci-readiness if must be exactly always(), received "always() && !cancelled()"',
+      'ci-readiness if skips the job when the run is cancelled',
+    ]);
+    const reverted = workflow.replace(
+      '    if: always()\n    needs:\n',
+      '    if: always() && !cancelled()\n    needs:\n',
+    );
+    expect(reverted).not.toBe(workflow);
+    expect(
+      readinessIfContractFailures(workflowJobIf(reverted, 'ci-readiness')),
+    ).not.toEqual([]);
   });
 
   it('records job status so an earlier step failure is not a skipped receipt', () => {
@@ -204,6 +279,123 @@ describe('ci readiness', () => {
       });
       expect(failures.some((line) => line.startsWith('lint:'))).toBe(true);
       expect(jobResult(needs, 'lint')).not.toBe('success');
+    }
+  });
+
+  it('fails the check when a needed job is cancelled', () => {
+    const needs = successfulNeeds();
+    needs.lint = { result: 'cancelled' };
+    const gates = passingGates('abc');
+    const failures = evaluateReadiness({ needs, gates, sha: 'abc' });
+    expect(failures).toContain('lint: expected success, received "cancelled"');
+    const report = buildReport({
+      needs,
+      gates,
+      failures,
+      env: { GITHUB_SHA: 'abc' },
+    });
+    expect(report.status).toBe('FAIL');
+    expect(report.result).toBe('failure');
+
+    const dir = mkdtempSync(join(tmpdir(), 'readiness-cancelled-'));
+    const reportPath = join(dir, 'ci-readiness.json');
+    const outputPath = join(dir, 'github-output.txt');
+    writeFileSync(outputPath, '');
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/ci/check-ci-readiness.mjs'],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          CI_NEEDS_JSON: JSON.stringify(needs),
+          CI_READINESS_REPORT: reportPath,
+          GITHUB_OUTPUT: outputPath,
+          GATE_ROOT: join(dir, 'gates'),
+          FETCH_GATE_ARTIFACTS: '',
+          GITHUB_REPOSITORY: '',
+          GITHUB_RUN_ID: '',
+          GH_TOKEN: '',
+          GITHUB_TOKEN: '',
+        },
+        encoding: 'utf8',
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'lint: expected success, received "cancelled"',
+    );
+    const written = JSON.parse(readFileSync(reportPath, 'utf8'));
+    expect(written.status).toBe('FAIL');
+    expect(written.result).toBe('failure');
+    expect(readFileSync(outputPath, 'utf8')).toContain('status=FAIL');
+  });
+
+  it('fails when any job in needs is skipped or cancelled', () => {
+    const needs = successfulNeeds();
+    needs['path-filter'] = { result: 'skipped' };
+    expect(resultFailures(needs, passingGates('abc'))).toContain(
+      'path-filter: expected success, received "skipped"',
+    );
+    needs['path-filter'] = { result: 'cancelled' };
+    expect(
+      resultFailures(needs, passingGates('abc'), new Set(['path-filter'])),
+    ).toContain('path-filter: expected success, received "cancelled"');
+  });
+
+  it('allows a documented non-required skip and still fails required skips', () => {
+    expect(INTENTIONAL_SKIP_JOBS.size).toBe(0);
+    expect(skipIsByDesign('path-filter', 'skipped', new Set())).toBe(false);
+    expect(
+      skipIsByDesign('path-filter', 'skipped', new Set(['path-filter'])),
+    ).toBe(true);
+    expect(
+      skipIsByDesign('path-filter', 'cancelled', new Set(['path-filter'])),
+    ).toBe(false);
+    expect(skipIsByDesign('lint', 'skipped', new Set(['lint']))).toBe(false);
+
+    const needs = successfulNeeds();
+    needs['path-filter'] = { result: 'skipped' };
+    const gates = passingGates('abc');
+    expect(
+      evaluateReadiness({
+        needs,
+        gates,
+        sha: 'abc',
+        intentionalSkips: new Set(['path-filter']),
+      }),
+    ).toEqual([]);
+
+    needs.lint = { result: 'skipped' };
+    const requiredSkip = evaluateReadiness({
+      needs,
+      gates,
+      sha: 'abc',
+      intentionalSkips: new Set(['lint', 'path-filter']),
+    });
+    expect(requiredSkip).toContain(
+      'lint: expected success, received "skipped"',
+    );
+  });
+
+  it('does not waive cancelled or skipped when the receipt is UNKNOWN', () => {
+    for (const result of ['cancelled', 'skipped'] as const) {
+      const needs = successfulNeeds();
+      needs.lint = { result };
+      const gates = passingGates('abc');
+      gates.lint = buildGateReceipt({
+        job: 'lint',
+        outcome: 'failure',
+        sha: 'abc',
+        extra: {
+          gateStatus: 'UNKNOWN',
+          value: 'Lint: UNKNOWN. Counts unavailable.',
+        },
+      });
+      const failures = resultFailures(needs, gates);
+      expect(failures).toContain(
+        `lint: expected success, received ${JSON.stringify(result)}`,
+      );
     }
   });
 
