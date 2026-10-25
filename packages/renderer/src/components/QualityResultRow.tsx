@@ -68,6 +68,8 @@ export function QualityResultRow({
   const qualityLabel = quality.hasVideo
     ? `${quality.resolutionLabel} @ ${quality.fps}fps`
     : `${quality.audioBitrateKbps ?? '?'}kbps`;
+  const rowStatus =
+    downloadFormatId === quality.formatId ? 'downloading' : 'ready';
 
   function handleBlur(event: FocusEvent<HTMLDivElement>): void {
     if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -84,9 +86,11 @@ export function QualityResultRow({
   }
 
   return (
-    <Box as="li">
+    <Box as="li" data-testid={`quality-row-${quality.formatId}`}>
       <Box
         role="group"
+        data-testid={`quality-row-status-${quality.formatId}`}
+        data-status={rowStatus}
         tabIndex={0}
         p={3}
         borderRadius="md"
@@ -129,6 +133,7 @@ export function QualityResultRow({
             size="sm"
             colorPalette="purple"
             variant="outline"
+            data-testid={`quality-download-${quality.formatId}`}
             onClick={() => void onDownload(quality.formatId, quality.hasAudio)}
             disabled={downloadBusy || loading}
             loading={downloadFormatId === quality.formatId}

@@ -39,9 +39,12 @@ function Mp3FallbackCard({
   isDisabled,
   onDownload,
 }: Mp3FallbackCardProps) {
+  const rowStatus = isDownloading ? 'downloading' : 'ready';
   return (
-    <Box as="li">
+    <Box as="li" data-testid="quality-row-mp3-fallback">
       <Box
+        data-testid="quality-row-status-mp3-fallback"
+        data-status={rowStatus}
         p={3}
         borderRadius="md"
         borderWidth="1px"
@@ -72,6 +75,7 @@ function Mp3FallbackCard({
             size="sm"
             colorPalette="purple"
             variant="outline"
+            data-testid="quality-download-mp3-fallback"
             onClick={onDownload}
             disabled={isDisabled}
             loading={isDownloading}

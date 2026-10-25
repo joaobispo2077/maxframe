@@ -15,6 +15,7 @@ export function OutputFormatSelect({
       <NativeSelect.Root colorPalette="purple">
         <NativeSelect.Field
           id="output-format"
+          data-testid="format-picker"
           value={value}
           onChange={(e) => onChange(e.target.value as 'mp3' | 'mp4')}
           bg="blackAlpha.400"
@@ -25,8 +26,12 @@ export function OutputFormatSelect({
             boxShadow: '0 0 0 1px var(--chakra-colors-purple-400)',
           }}
         >
-          <option value="mp4">MP4 video</option>
-          <option value="mp3">MP3 audio only</option>
+          <option value="mp4" data-testid="format-option-mp4">
+            MP4 video
+          </option>
+          <option value="mp3" data-testid="format-option-mp3">
+            MP3 audio only
+          </option>
         </NativeSelect.Field>
         <NativeSelect.Indicator />
       </NativeSelect.Root>

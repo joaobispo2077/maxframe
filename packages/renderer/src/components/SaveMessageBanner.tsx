@@ -18,6 +18,7 @@ export function SaveMessageBanner({
   return (
     <HStack
       role="status"
+      data-testid="download-success"
       justify="space-between"
       gap={3}
       p={3}
@@ -26,7 +27,12 @@ export function SaveMessageBanner({
       borderWidth="1px"
       borderColor="green.700"
     >
-      <Text fontSize="sm" flex="1">
+      <Text
+        fontSize="sm"
+        flex="1"
+        data-testid="download-saved-path"
+        data-saved-path={savedPath ?? ''}
+      >
         {downloadNote}
       </Text>
       <HStack gap={1}>
