@@ -1,6 +1,7 @@
 {
   "items": [
     "packages/renderer/src/App.tsx:App",
+    "packages/renderer/src/lib/crapProofSpike.ts:crapProofSpike",
     "packages/renderer/src/components/DownloadProgressCard.tsx:DownloadProgressCard",
     "packages/renderer/src/components/QualityResultRow.tsx:QualityResultRow",
     "packages/renderer/src/components/QualityResultsPanel.tsx:AnalyzeBestSummary",

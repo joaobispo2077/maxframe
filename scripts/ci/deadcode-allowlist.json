@@ -27,6 +27,7 @@
     "devDependencies\tpackages/renderer/package.json\ttypescript-eslint",
     "exports\tpackages/main/src/downloadVideoHandler.ts\tdefaultDownloadSuggestedName",
     "files\tpackages/main/src/modules/ChromeDevToolsExtension.ts\tpackages/main/src/modules/ChromeDevToolsExtension.ts",
+    "files\tpackages/renderer/src/lib/crapProofSpike.ts\tpackages/renderer/src/lib/crapProofSpike.ts",
     "files\tpackages/preload/src/nodeCrypto.ts\tpackages/preload/src/nodeCrypto.ts",
     "files\tpackages/preload/src/versions.ts\tpackages/preload/src/versions.ts",
     "types\tsrc/domain/download-queue/model.ts\tQueuePhase",
