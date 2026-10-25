@@ -6,10 +6,10 @@ import type {
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import { e2eYtdlpFileUrlArgs } from '../e2e/e2eTestHook.js';
+import { e2eYtdlpFileUrlArgs, resolveE2eFixture } from '../e2e/e2eTestHook.js';
 
+import { videoQualitiesForYtdlpPayload } from './fixtureGenericMp4Row.js';
 import { mapYtdlpAudioFormatsToQualityOptions } from './mapYtdlpAudioFormatsToQualityOptions.js';
-import { mapYtdlpFormatsToQualityOptions } from './mapYtdlpFormatsToQualityOptions.js';
 import { resolveYtdlpExecutable } from './resolveYtdlpExecutable.js';
 import { asString, isRecord } from './ytdlpParseHelpers.js';
 
@@ -82,7 +82,10 @@ function parseStdoutToVideoAnalysis(stdout: string): VideoAnalysis {
     : 'Unknown Channel';
 
   return {
-    videoQualities: mapYtdlpFormatsToQualityOptions(parsed),
+    videoQualities: videoQualitiesForYtdlpPayload(
+      parsed,
+      resolveE2eFixture().active,
+    ),
     audioQualities: mapYtdlpAudioFormatsToQualityOptions(parsed),
     title,
     uploader,

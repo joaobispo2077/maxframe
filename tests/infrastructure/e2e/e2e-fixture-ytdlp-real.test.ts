@@ -132,7 +132,7 @@ describe('real yt-dlp fixture file URL', () => {
     ).rejects.toThrow(/--enable-file-urls/);
   }, 60_000);
 
-  it('analyze uses that binary and maps the fixture to no quality rows', async () => {
+  it('analyze uses that binary and maps the fixture to one mp4 video row', async () => {
     process.env.MAXFRAME_E2E = '1';
     process.env.MAXFRAME_E2E_FIXTURE = FIXTURE;
     const gateway = createYtdlpVideoMetadataGateway();
@@ -140,7 +140,18 @@ describe('real yt-dlp fixture file URL', () => {
     await expect(gateway.analyzeVideo(FILE_URL)).resolves.toEqual({
       title: 'sample',
       uploader: 'Unknown Channel',
-      videoQualities: [],
+      videoQualities: [
+        {
+          formatId: 'mp4',
+          container: 'mp4',
+          resolutionLabel: 'unknown',
+          width: 0,
+          height: 0,
+          fps: 0,
+          hasVideo: true,
+          hasAudio: true,
+        },
+      ],
       audioQualities: [],
     });
   }, 60_000);
