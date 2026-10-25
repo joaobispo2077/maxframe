@@ -33,6 +33,11 @@ export function AnalyzeView({
 }: AnalyzeViewProps) {
   return (
     <Stack gap={4} align="stretch" minW={0}>
+      <img
+        src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+        width={32}
+        height={32}
+      />
       <Field.Root>
         <Field.Label htmlFor="unified-queue-urls">YouTube links</Field.Label>
         <Field.HelperText fontSize="sm" color="fg.muted">
