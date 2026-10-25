@@ -1,13 +1,3 @@
-# [1.8.0](https://github.com/joaobispo2077/maxframe/compare/v1.7.2...v1.8.0) (2026-10-24)
-
-
-### Features
-
-* **renderer:** clarify Analyze labels and link-count buttons ([f6af9be](https://github.com/joaobispo2077/maxframe/commit/f6af9be5468ec0c46ddb16894ea76a468b8e776c))
-* **renderer:** clarify Queue status, chips, and empty state ([92f53a0](https://github.com/joaobispo2077/maxframe/commit/92f53a0f246704de900a5b01007c3b87d6e582b9))
-* **renderer:** rewrite quality list and analyze error copy ([34b4651](https://github.com/joaobispo2077/maxframe/commit/34b4651d7b2dc675bb3875ad047abca671d1d328))
-* **renderer:** standardize Canceled, diagnostics, and Settings copy ([08c1f93](https://github.com/joaobispo2077/maxframe/commit/08c1f93827699a47f777af503bfb640563bf710e))
-
 ## [1.7.2](https://github.com/joaobispo2077/maxframe/compare/v1.7.1...v1.7.2) (2026-10-21)
 
 
