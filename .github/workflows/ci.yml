@@ -166,6 +166,13 @@ jobs:
       - name: Install dependencies
         run: npm ci || { rm -rf node_modules && npm ci; }
 
+      - name: Fetch pinned yt-dlp for fixture tests
+        run: |
+          bin="$(node scripts/ci/ensure-pinned-ytdlp.mjs)"
+          echo "YT_DLP_PATH=$bin" >> "$GITHUB_ENV"
+          echo "Pinned yt-dlp for unit tests: $bin"
+          "$bin" --version
+
       - name: Run unit tests
         id: gate
         env:
@@ -672,6 +679,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci || { rm -rf node_modules && npm ci; }
+
+      - name: Fetch pinned yt-dlp for fixture tests
+        run: |
+          bin="$(node scripts/ci/ensure-pinned-ytdlp.mjs)"
+          echo "YT_DLP_PATH=$bin" >> "$GITHUB_ENV"
+          echo "Pinned yt-dlp for mutation tests: $bin"
+          "$bin" --version
 
       - name: Record mutation scope
         id: mutation-scope
