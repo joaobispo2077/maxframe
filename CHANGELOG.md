@@ -1,3 +1,18 @@
+# [1.9.0](https://github.com/joaobispo2077/maxframe/compare/v1.8.1...v1.9.0) (2026-10-25)
+
+
+### Features
+
+* **renderer:** add stable test ids for the AC15 GUI flow ([2a1e100](https://github.com/joaobispo2077/maxframe/commit/2a1e100378115bb758d665fe65b4e58f7682068c))
+* **e2e:** gate yt-dlp on a local fixture in test mode ([d6462dd](https://github.com/joaobispo2077/maxframe/commit/d6462dd824076757644817933d95f4e5d3e4515d))
+
+## [1.8.1](https://github.com/joaobispo2077/maxframe/compare/v1.8.0...v1.8.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* measure every function body in the CRAP gate ([f289846](https://github.com/joaobispo2077/maxframe/commit/f289846fa251a2cb2e7900071801cf3ab9956d06))
+
 # [1.8.0](https://github.com/joaobispo2077/maxframe/compare/v1.7.2...v1.8.0) (2026-10-24)
 
 

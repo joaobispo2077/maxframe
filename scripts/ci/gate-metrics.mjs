@@ -14,6 +14,7 @@ import {
   MUTATION_SURVIVOR_LIMIT,
   complexityFloorLabel,
   coverageFloorLabel,
+  crapTopFloorLabel,
   mutationFloorLabel,
 } from './quality-floors.mjs';
 
@@ -40,6 +41,11 @@ export const BLOCK_GATES = [
     job: 'complexity',
     gate: 'CRAP / complexity',
     floor: complexityFloorLabel(),
+  },
+  {
+    job: 'crap',
+    gate: 'CRAP top 10',
+    floor: crapTopFloorLabel(),
   },
   {
     job: 'duplication',
@@ -859,6 +865,7 @@ export function evidenceForJob(job, env = process.env) {
     [
       'coverage',
       'complexity',
+      'crap',
       'duplication',
       'deadcode',
       'architecture',

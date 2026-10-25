@@ -27,6 +27,7 @@ export function DownloadBestButton({
   return (
     <Button
       type="button"
+      data-testid="download-button"
       colorPalette="purple"
       variant="solid"
       size="md"

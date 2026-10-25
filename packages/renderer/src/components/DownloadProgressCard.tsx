@@ -58,6 +58,8 @@ export function DownloadProgressCard({
 
   return (
     <Box
+      data-testid="download-progress"
+      data-status={stage}
       p={3}
       borderRadius="md"
       bg="blackAlpha.500"
