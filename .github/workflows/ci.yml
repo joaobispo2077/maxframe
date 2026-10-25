@@ -4,20 +4,47 @@ on:
   push:
     branches:
       - release
-      - develop
       - 'feature/**'
   pull_request:
     branches:
-      - release
       - main
       - develop
+      - release
+
+# Release certification keeps every exact-commit run, even while pending.
+# Feature pushes and pull requests cancel superseded runs in the same group.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ (github.event_name == 'push' && github.ref_name == 'release') && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'feature/')) }}
 
 permissions:
   contents: read
 
 jobs:
+  select-run:
+    name: Select CI work
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_full_ci: ${{ steps.select.outputs.run_full_ci }}
+      reason: ${{ steps.select.outputs.reason }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Select validation
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/select-ci-run.mjs --workflow ci
+
   typecheck:
     name: Typecheck
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -62,6 +89,8 @@ jobs:
 
   lint:
     name: Lint
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -107,6 +136,8 @@ jobs:
 
   format:
     name: Format
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -252,6 +283,8 @@ jobs:
     name: Accessibility (cypress-axe)
     # Serves the built renderer and runs cypress-axe headless.
     # The Electron window is not the page this job drives.
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -298,11 +331,14 @@ jobs:
 
   coverage:
     name: Coverage
-    # Not an intentional success skip. This is false only when the run is
-    # cancelled. ci-readiness still runs and treats that skip as a failure.
-    if: always() && !cancelled()
+    # Not an intentional success skip on a pull request. False when the run
+    # is cancelled or select-run suppressed this feature push. ci-readiness
+    # still runs and fails a skipped gate except on that push suppression.
+    if: always() && !cancelled() && needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
-    needs: unit-tests
+    needs:
+      - select-run
+      - unit-tests
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -342,10 +378,12 @@ jobs:
 
   complexity:
     name: CRAP / complexity
-    # Not an intentional success skip. Same cancel-only guard as coverage.
-    if: always() && !cancelled()
+    # Not an intentional success skip on a pull request. Same guard as coverage.
+    if: always() && !cancelled() && needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
-    needs: unit-tests
+    needs:
+      - select-run
+      - unit-tests
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -389,11 +427,13 @@ jobs:
 
   crap:
     name: CRAP top 10
-    # Not an intentional success skip. Same cancel-only guard as coverage.
+    # Not an intentional success skip on a pull request. Same guard as coverage.
     # Production functions only. The script skips tests.
-    if: always() && !cancelled()
+    if: always() && !cancelled() && needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
-    needs: unit-tests
+    needs:
+      - select-run
+      - unit-tests
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -437,6 +477,8 @@ jobs:
 
   duplication:
     name: Duplication
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -474,6 +516,8 @@ jobs:
 
   deadcode:
     name: Dead code
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -511,6 +555,8 @@ jobs:
 
   architecture:
     name: Architecture
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -548,6 +594,8 @@ jobs:
 
   audit:
     name: Dependency audit
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -584,6 +632,8 @@ jobs:
     name: Dependency tree
     # Package names in package-lock.json resolved at more than one version.
     # npm find-dupes follows the registry, so that plan is not the ceiling.
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -617,6 +667,8 @@ jobs:
 
   electron-security:
     name: Electron security
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -759,6 +811,8 @@ jobs:
 
   scheduled-workflow:
     name: Scheduled workflow state
+    needs: select-run
+    if: needs.select-run.outputs.run_full_ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -797,13 +851,17 @@ jobs:
           retention-days: 14
 
   ci-readiness:
-    name: CI readiness
     # Exactly `always()`. `always() && !cancelled()` is false when the run
-    # is cancelled, so GitHub skips this job. A skipped required check is a
-    # pass. The script fails the job when any needed result is cancelled,
-    # skipped, or failed. See docs/maxframe-quality-gates.md.
+    # is cancelled, so GitHub skips this job. A skipped check named
+    # `CI readiness` would satisfy the required check. This job therefore
+    # still runs when select-run suppresses a feature push, and the name
+    # below is not `CI readiness` on that path. The script waives skipped
+    # gates only for that push. A pull_request skip still fails the job.
+    # See docs/maxframe-quality-gates.md.
+    name: ${{ (github.event_name == 'push' && needs.select-run.outputs.run_full_ci == 'false') && 'CI readiness (push skipped, PR validates)' || 'CI readiness' }}
     if: always()
     needs:
+      - select-run
       - typecheck
       - lint
       - format
@@ -854,6 +912,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number || '' }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           PR_BASE_REF: ${{ github.base_ref || '' }}
+          RUN_FULL_CI: ${{ needs.select-run.outputs.run_full_ci }}
         run: node scripts/ci/check-ci-readiness.mjs
 
       - name: Upload CI readiness artifact
@@ -878,8 +937,11 @@ jobs:
   quality-comments:
     name: Quality comments
     # Not the required check. A cancelled run may skip the sticky.
-    if: always() && !cancelled()
-    needs: ci-readiness
+    # A suppressed feature push has nothing new to publish.
+    if: ${{ !cancelled() && !(needs.select-run.result == 'success' && needs.select-run.outputs.run_full_ci == 'false') }}
+    needs:
+      - select-run
+      - ci-readiness
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -910,15 +972,23 @@ jobs:
           CI_READINESS_REPORT: reports/quality/ci-readiness.json
         run: node scripts/ci/render-stickies.mjs
 
+      - name: Check current PR before comments
+        id: current-pr
+        if: always() && !cancelled() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/select-ci-run.mjs --workflow ci --check-pr-current
+
       - name: Publish Software metrics comment
-        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && github.event_name == 'pull_request' && steps.current-pr.outputs.number != '' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: quality-gates-report
           path: reports/quality/software-metrics.md
 
       - name: Publish Mutation tests comment
-        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && github.event_name == 'pull_request' && steps.current-pr.outputs.number != '' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: mutation-report
@@ -926,7 +996,7 @@ jobs:
           recreate: true
 
       - name: Remove superseded maxframe quality comment
-        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && github.event_name == 'pull_request' && steps.current-pr.outputs.number != '' && github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
         uses: marocchino/sticky-pull-request-comment@v3
         with:
@@ -934,7 +1004,7 @@ jobs:
           delete: true
 
       - name: Remove superseded coverage comment
-        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && github.event_name == 'pull_request' && steps.current-pr.outputs.number != '' && github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
         uses: marocchino/sticky-pull-request-comment@v3
         with:
@@ -942,7 +1012,7 @@ jobs:
           delete: true
 
       - name: Remove superseded mutation summary comment
-        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && github.event_name == 'pull_request' && steps.current-pr.outputs.number != '' && github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
         uses: marocchino/sticky-pull-request-comment@v3
         with:
