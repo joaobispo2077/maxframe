@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process';
 import { dirname } from 'node:path';
 
+import { e2eYtdlpFileUrlArgs } from '../e2e/e2eTestHook.js';
+
 import {
   createYtdlpStreamLineState,
   feedYtdlpStreamLines,
@@ -108,7 +110,7 @@ export async function runYtdlpDownload(
   ) {
     args.unshift('--ffmpeg-location', params.ffmpegExecutable);
   }
-  args.push(params.url);
+  args.push(...e2eYtdlpFileUrlArgs(), params.url);
 
   const logTail: string[] = [];
   const pushTail = (s: string) => {

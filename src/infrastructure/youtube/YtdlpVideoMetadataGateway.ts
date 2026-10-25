@@ -6,6 +6,8 @@ import type {
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { e2eYtdlpFileUrlArgs } from '../e2e/e2eTestHook.js';
+
 import { mapYtdlpAudioFormatsToQualityOptions } from './mapYtdlpAudioFormatsToQualityOptions.js';
 import { mapYtdlpFormatsToQualityOptions } from './mapYtdlpFormatsToQualityOptions.js';
 import { resolveYtdlpExecutable } from './resolveYtdlpExecutable.js';
@@ -49,11 +51,15 @@ async function runYtdlpJsonDump(
   timeoutMs: number,
 ): Promise<string> {
   try {
-    const result = await execFileAsync(executable, [...JSON_ARGS, url], {
-      maxBuffer: 50 * 1024 * 1024,
-      timeout: timeoutMs,
-      windowsHide: true,
-    });
+    const result = await execFileAsync(
+      executable,
+      [...JSON_ARGS, ...e2eYtdlpFileUrlArgs(), url],
+      {
+        maxBuffer: 50 * 1024 * 1024,
+        timeout: timeoutMs,
+        windowsHide: true,
+      },
+    );
     return result.stdout;
   } catch (error: unknown) {
     throwFromYtdlpExecError(error, executable);

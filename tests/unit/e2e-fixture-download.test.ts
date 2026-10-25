@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { buildYtdlpFormatSelector } from '@src/infrastructure/youtube/buildYtdlpFormatSelector.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -127,7 +128,7 @@ describe('downloadVideoHandler e2e fixture hook', () => {
 
     expect(showSaveDialogMock).not.toHaveBeenCalled();
     const call = ytdlpCall();
-    expect(call.url).toBe(fixturePath);
+    expect(call.url).toBe(pathToFileURL(fixturePath).href);
     expect(call.formatSelector).toBe('bestaudio/best');
     expect(call.extractAudio).toEqual({ format: 'mp3' });
     expect(call.mergeOutputFormat).toBeUndefined();
@@ -143,7 +144,7 @@ describe('downloadVideoHandler e2e fixture hook', () => {
     await downloadVideoHandler(request());
 
     const call = ytdlpCall();
-    expect(call.url).toBe(fixturePath);
+    expect(call.url).toBe(pathToFileURL(fixturePath).href);
     expect(call.formatSelector).toBe(
       buildYtdlpFormatSelector('137', false, 'mp4'),
     );
@@ -173,7 +174,7 @@ describe('downloadVideoHandler e2e fixture hook', () => {
     await downloadVideoHandler(request());
 
     expect(showSaveDialogMock).toHaveBeenCalledTimes(1);
-    expect(ytdlpCall().url).toBe(fixturePath);
+    expect(ytdlpCall().url).toBe(pathToFileURL(fixturePath).href);
   });
 
   it('rejects a missing fixture before the save dialog or yt-dlp', async () => {
