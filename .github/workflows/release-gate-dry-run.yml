@@ -1,0 +1,42 @@
+name: Release gate dry run
+
+# Proves the publish gate refuses the v1.9.1 SHA. This workflow does not
+# build installers and does not run semantic-release.
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - release
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+  actions: read
+
+jobs:
+  refuse-red-sha:
+    name: Refuse red release SHA
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Dry-run the publish gate on the v1.9.1 SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: e4542f7500324a76972f7204f4a98a3f78f48e54
+          TARGET_REF: refs/heads/release
+          CI_READINESS_TIMEOUT_MS: '0'
+        run: |
+          set +e
+          node scripts/ci/require-release-ci-readiness.mjs
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "The publish gate would have published the red SHA."
+            exit 1
+          fi
+          echo "Publish gate refused the red SHA with exit ${code}."

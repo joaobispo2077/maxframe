@@ -12,6 +12,8 @@ concurrency:
 
 permissions:
   contents: write
+  checks: read
+  actions: read
 
 env:
   NODE_VERSION: '24.10'
@@ -44,6 +46,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: true
 
@@ -83,6 +86,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -150,6 +155,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -217,6 +224,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Download installer
         uses: actions/download-artifact@v8
@@ -250,6 +259,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Download portable
         uses: actions/download-artifact@v8
@@ -285,15 +296,19 @@ jobs:
     needs: [determine-version, smoke-windows, smoke-windows-portable]
     if: needs.determine-version.outputs.next-version != ''
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       # Keep explicit secret token for semantic-release (can be PAT-backed, independent from github.token runtime scope).
       GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
+      # Detached HEAD at github.sha. semantic-release tags HEAD and pushes
+      # HEAD:release, and it leaves a detached checkout in place. Full history
+      # and tags are required for the release branch analysis.
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: true
 
@@ -322,6 +337,16 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Fail closed unless this exact commit has a successful pull_request
+      # CI readiness check and release still points at github.sha.
+      # workflow_dispatch hits this step too. There is no skip input.
+      - name: Require pull_request CI readiness for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.sha }}
+          TARGET_REF: ${{ github.ref }}
+        run: node scripts/ci/require-release-ci-readiness.mjs
 
       - name: Release
         run: npm run release

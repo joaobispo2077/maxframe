@@ -90,3 +90,5 @@ The check name to require is `CI readiness`.
 Add it as a required status check on `develop`, `release`, and `main`.
 
 A bot token receives 403 on branch protection. The repo owner sets this in the GitHub rulesets or branch protection page. Until that is done, a red `CI readiness` job does not stop a merge.
+
+Release publish uses this check name with one more constraint. `.github/workflows/release.yml` checks out `github.sha` and, before `npm run release`, requires a check named exactly `CI readiness` from the `pull_request` run of this workflow, with conclusion `success`, on that commit. The push name `CI readiness (push skipped, PR validates)` does not count, and a push run's `CI readiness` check does not count either. The job aborts when the check is missing, not success, still pending after the wait, or the check-runs API errors. It also aborts when the remote `release` tip has moved off that SHA.
