@@ -46,6 +46,51 @@ export const CI_READINESS_IF = 'always()';
  */
 export const INTENTIONAL_SKIP_JOBS = new Set();
 
+/**
+ * The only waiver for skipped required gates. A pull_request run never
+ * qualifies, even if run_full_ci is false. A feature push with no eligible
+ * PR has run_full_ci true and does not qualify either.
+ */
+export function deliberatePushSkip(eventName, runFullCi) {
+  return eventName === 'push' && String(runFullCi) === 'false';
+}
+
+export const PUSH_SKIP_READINESS_NAME =
+  'CI readiness (push skipped, PR validates)';
+
+export function readinessJobName(eventName, runFullCi) {
+  return deliberatePushSkip(eventName, runFullCi)
+    ? PUSH_SKIP_READINESS_NAME
+    : 'CI readiness';
+}
+
+/**
+ * Suppressed feature pushes skip every required gate. That is a pass only
+ * when select-run succeeded and every required job is skipped. A failure,
+ * a cancellation, or a job that actually ran stays red. Missing gate.json
+ * is expected and is not a failure on this path.
+ */
+export function deliberateSkipFailures(needs) {
+  if (!isObject(needs)) {
+    return ['mandatory job results must be a JSON object'];
+  }
+  const failures = [];
+  const selector = jobResult(needs, 'select-run');
+  if (selector !== 'success') {
+    failures.push(
+      `select-run: expected success, received ${formatReceived(selector)}`,
+    );
+  }
+  for (const job of REQUIRED_JOBS) {
+    const result = jobResult(needs, job);
+    if (result === 'skipped') continue;
+    failures.push(
+      `${job}: expected skipped, received ${formatReceived(result)}`,
+    );
+  }
+  return failures;
+}
+
 export function readinessIfSkipsOnCancellation(expression) {
   return String(expression ?? '').trim() !== CI_READINESS_IF;
 }
@@ -211,7 +256,12 @@ export function evaluateReadiness({
   gates,
   sha = '',
   intentionalSkips = INTENTIONAL_SKIP_JOBS,
+  eventName = '',
+  runFullCi = '',
 }) {
+  if (deliberatePushSkip(eventName, runFullCi)) {
+    return deliberateSkipFailures(needs);
+  }
   const failures = resultFailures(needs, gates, intentionalSkips);
   if (isObject(needs)) {
     for (const job of REQUIRED_JOBS) {
@@ -271,7 +321,14 @@ export function pullRequestFromEnv(env) {
   };
 }
 
-export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
+export function buildReport({
+  needs,
+  gates,
+  failures,
+  env,
+  jobUrls = {},
+  ignoreRowFailures = false,
+}) {
   const jobs = {};
   for (const job of REQUIRED_JOBS) {
     const receipt = gates?.[job] ?? null;
@@ -305,8 +362,15 @@ export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
   const blockUnknown = rows.some(
     (row) => row?.mode === 'BLOCK' && row?.status === 'UNKNOWN',
   );
-  const status =
-    failures.length > 0 || rowFail ? 'FAIL' : blockUnknown ? 'UNKNOWN' : 'PASS';
+  const status = ignoreRowFailures
+    ? failures.length > 0
+      ? 'FAIL'
+      : 'PASS'
+    : failures.length > 0 || rowFail
+      ? 'FAIL'
+      : blockUnknown
+        ? 'UNKNOWN'
+        : 'PASS';
   const mutationGate = gates?.['mutation-tests'] ?? null;
   return {
     schemaVersion: 1,
@@ -608,9 +672,14 @@ export async function main(env = process.env) {
     parseFailures = [`invalid CI_NEEDS_JSON: ${error.message}`];
   }
 
+  const deliberate = deliberatePushSkip(env.GITHUB_EVENT_NAME, env.RUN_FULL_CI);
   let gates = {};
   let fetchFailures = [];
-  if (parseFailures.length === 0 && env.FETCH_GATE_ARTIFACTS === '1') {
+  if (
+    parseFailures.length === 0 &&
+    env.FETCH_GATE_ARTIFACTS === '1' &&
+    !deliberate
+  ) {
     try {
       gates = await collectGateReceipts({
         repo: env.GITHUB_REPOSITORY,
@@ -634,6 +703,8 @@ export async function main(env = process.env) {
           needs,
           gates,
           sha: env.GITHUB_SHA || '',
+          eventName: env.GITHUB_EVENT_NAME || '',
+          runFullCi: env.RUN_FULL_CI || '',
         })
       : []),
   ];
@@ -653,7 +724,14 @@ export async function main(env = process.env) {
       console.error(`job url lookup failed: ${error.message}`);
     }
   }
-  const report = buildReport({ needs, gates, failures, env, jobUrls });
+  const report = buildReport({
+    needs,
+    gates,
+    failures,
+    env,
+    jobUrls,
+    ignoreRowFailures: deliberate,
+  });
   const out = env.CI_READINESS_REPORT || 'reports/quality/ci-readiness.json';
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);

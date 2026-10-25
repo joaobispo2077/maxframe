@@ -14,6 +14,8 @@ import {
   E2E_OUTPUT_DIR_ENV,
   E2E_TEST_MODE_ENV,
   E2eTestHookError,
+  YTDLP_ENABLE_FILE_URLS_ARG,
+  e2eYtdlpFileUrlArgs,
   resolveE2eFixture,
   resolveE2eOutputDir,
   resolveYtdlpMediaUrl,
@@ -90,7 +92,7 @@ describe('e2e test hook gating', () => {
     process.env[E2E_FIXTURE_ENV] = `  ${fixture}  `;
 
     expect(resolveE2eFixture()).toEqual({ active: true, fixturePath: fixture });
-    expect(resolveYtdlpMediaUrl(WATCH_URL)).toBe(fixture);
+    expect(resolveYtdlpMediaUrl(WATCH_URL)).toBe(pathToFileURL(fixture).href);
   });
 
   it('accepts the committed sample and a file URL to that file', () => {
@@ -146,11 +148,30 @@ describe('e2e test hook gating', () => {
       fixturePath: windowsPath,
     });
 
+    expect(resolveYtdlpMediaUrl(WATCH_URL, process.env, fsKind('file'))).toBe(
+      'file:///C:/fixtures/sample.mp4',
+    );
+
     const uncPath = '\\\\server\\share\\sample.mp4';
     process.env[E2E_FIXTURE_ENV] = uncPath;
     expect(resolveYtdlpMediaUrl(WATCH_URL, process.env, fsKind('file'))).toBe(
-      uncPath,
+      'file://server/share/sample.mp4',
     );
+    expect(e2eYtdlpFileUrlArgs(process.env, fsKind('file'))).toEqual([
+      '--enable-file-urls',
+    ]);
+  });
+
+  it('asks yt-dlp for file URLs only while the fixture is active', () => {
+    expect(YTDLP_ENABLE_FILE_URLS_ARG).toBe('--enable-file-urls');
+    expect(e2eYtdlpFileUrlArgs()).toEqual([]);
+
+    const fixture = join(root, 'clip.mp4');
+    writeFileSync(fixture, 'x');
+    process.env[E2E_TEST_MODE_ENV] = '1';
+    process.env[E2E_FIXTURE_ENV] = fixture;
+    expect(e2eYtdlpFileUrlArgs()).toEqual(['--enable-file-urls']);
+    expect(resolveYtdlpMediaUrl(WATCH_URL)).toBe(pathToFileURL(fixture).href);
   });
 
   it('does not stat a remote URL', () => {

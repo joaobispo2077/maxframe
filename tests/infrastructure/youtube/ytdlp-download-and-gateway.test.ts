@@ -1,4 +1,8 @@
 import { EventEmitter } from 'node:events';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { SOCIAL_COMPATIBLE_VIDEO_CONVERTOR_PPA } from '@src/infrastructure/youtube/socialCompatibleMp4Policy';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,6 +65,8 @@ describe('runYtdlpDownload', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+    delete process.env.MAXFRAME_E2E;
+    delete process.env.MAXFRAME_E2E_FIXTURE;
   });
 
   it('streams progress lines and resolves when yt-dlp exits with code 0', async () => {
@@ -277,6 +283,8 @@ describe('runYtdlpDownload', () => {
 describe('runYtdlpDownload — social-compatible MP4 args', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.MAXFRAME_E2E;
+    delete process.env.MAXFRAME_E2E_FIXTURE;
   });
 
   it('omits social flags when mergeOutputFormat is omitted', async () => {
@@ -338,6 +346,8 @@ describe('runYtdlpDownload — social-compatible MP4 args', () => {
 describe('createYtdlpVideoMetadataGateway', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.MAXFRAME_E2E;
+    delete process.env.MAXFRAME_E2E_FIXTURE;
     resolveExecutableMock.mockReturnValue('resolved-ytdlp');
     mapFormatsMock.mockReturnValue([
       {
@@ -455,5 +465,127 @@ describe('createYtdlpVideoMetadataGateway', () => {
       audioQualities: [],
     });
     expect(resolveExecutableMock).toHaveBeenCalled();
+  });
+});
+
+describe('yt-dlp file URL args', () => {
+  let root: string;
+  let fixturePath: string;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.MAXFRAME_E2E;
+    delete process.env.MAXFRAME_E2E_FIXTURE;
+    root = mkdtempSync(join(tmpdir(), 'maxframe-e2e-ytdlp-args-'));
+    fixturePath = join(root, 'sample.mp4');
+    writeFileSync(fixturePath, 'fixture');
+    resolveExecutableMock.mockReturnValue('resolved-ytdlp');
+    mapFormatsMock.mockReturnValue([]);
+    mapAudioFormatsMock.mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    delete process.env.MAXFRAME_E2E;
+    delete process.env.MAXFRAME_E2E_FIXTURE;
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  async function captureDownloadArgs(url: string): Promise<string[]> {
+    const child = createFakeChild();
+    spawnMock.mockReturnValue(child);
+    const { runYtdlpDownload } = await import(
+      '@src/infrastructure/youtube/runYtdlpDownload'
+    );
+    const pending = runYtdlpDownload({
+      executable: 'yt-dlp',
+      url,
+      formatSelector: 'best',
+      outputTemplate: 'out.%(ext)s',
+    });
+    child.emit('close', 0);
+    await pending;
+    return spawnMock.mock.calls[0]?.[1] as string[];
+  }
+
+  it('keeps --enable-file-urls out of normal analyze and download args', async () => {
+    const fileUrl = pathToFileURL(fixturePath).href;
+    const downloadArgs = await captureDownloadArgs(fileUrl);
+    expect(downloadArgs).toEqual([
+      '--no-warnings',
+      '--no-playlist',
+      '--newline',
+      '-f',
+      'best',
+      '-o',
+      'out.%(ext)s',
+      fileUrl,
+    ]);
+    expect(downloadArgs).not.toContain('--enable-file-urls');
+
+    execFileMock.mockImplementation((_exe, _args, _opts, callback) => {
+      callback?.(null, { stdout: '{"formats":[]}', stderr: '' });
+    });
+    const { createYtdlpVideoMetadataGateway } = await import(
+      '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
+    );
+    const gateway = createYtdlpVideoMetadataGateway({
+      ytdlpExecutable: 'yt-dlp',
+    });
+    await gateway.analyzeVideo(fileUrl);
+    const analyzeArgs = execFileMock.mock.calls[0]?.[1] as string[];
+    expect(analyzeArgs).toEqual([
+      '-J',
+      '--no-warnings',
+      '--skip-download',
+      fileUrl,
+    ]);
+    expect(analyzeArgs).not.toContain('--enable-file-urls');
+  });
+
+  it('passes --enable-file-urls and the file URL when the fixture is active', async () => {
+    const fileUrl = pathToFileURL(fixturePath).href;
+    process.env.MAXFRAME_E2E = '1';
+    process.env.MAXFRAME_E2E_FIXTURE = fixturePath;
+
+    const downloadArgs = await captureDownloadArgs(fileUrl);
+    expect(downloadArgs).toEqual([
+      '--no-warnings',
+      '--no-playlist',
+      '--newline',
+      '-f',
+      'best',
+      '-o',
+      'out.%(ext)s',
+      '--enable-file-urls',
+      fileUrl,
+    ]);
+
+    execFileMock.mockImplementation((_exe, _args, _opts, callback) => {
+      callback?.(null, { stdout: '{"formats":[]}', stderr: '' });
+    });
+    const { createYtdlpVideoMetadataGateway } = await import(
+      '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
+    );
+    const gateway = createYtdlpVideoMetadataGateway({
+      ytdlpExecutable: 'yt-dlp',
+    });
+    await gateway.analyzeVideo(fileUrl);
+    expect(execFileMock.mock.calls[0]?.[1]).toEqual([
+      '-J',
+      '--no-warnings',
+      '--skip-download',
+      '--enable-file-urls',
+      fileUrl,
+    ]);
+  });
+
+  it('adds --enable-file-urls from the fixture gate, not from the URL scheme', async () => {
+    process.env.MAXFRAME_E2E = '1';
+    process.env.MAXFRAME_E2E_FIXTURE = fixturePath;
+    const downloadArgs = await captureDownloadArgs(
+      'https://youtu.be/dQw4w9WgXcQ',
+    );
+    expect(downloadArgs.at(-2)).toBe('--enable-file-urls');
+    expect(downloadArgs.at(-1)).toBe('https://youtu.be/dQw4w9WgXcQ');
   });
 });
