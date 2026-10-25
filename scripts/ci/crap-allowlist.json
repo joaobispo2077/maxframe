@@ -2,7 +2,6 @@
   "items": [
     "packages/main/src/index.ts:initApp",
     "packages/main/src/modules/AutoUpdater.ts:runAutoUpdater",
-    "packages/main/src/modules/WindowManager.ts:restoreOrCreateWindow",
-    "packages/renderer/src/lib/crapProofSpike.ts:crapProofSpike"
+    "packages/main/src/modules/WindowManager.ts:restoreOrCreateWindow"
   ]
 }
