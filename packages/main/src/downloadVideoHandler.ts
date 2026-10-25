@@ -6,6 +6,10 @@ import { BrowserWindow, dialog } from 'electron';
 import { createVideoUrl } from '../../../src/domain/video/VideoUrl.js';
 import { canonicalYoutubeWatchUrl } from '../../../src/domain/video/youtubeVideoId.js';
 import {
+  resolveE2eOutputDir,
+  resolveYtdlpMediaUrl,
+} from '../../../src/infrastructure/e2e/e2eTestHook.js';
+import {
   ffmpegMissingMessage,
   probeFfmpegAvailable,
 } from '../../../src/infrastructure/ffmpeg/probeFfmpegAvailable.js';
@@ -53,13 +57,11 @@ function dialogFiltersForMode(outputMode: 'mp3' | 'mp4') {
 async function resolveOutputLocation(
   params: DownloadVideoRequest,
 ): Promise<{ filePath: string }> {
-  if (params.outputDir) {
+  const outputDir = params.outputDir ?? resolveE2eOutputDir();
+  if (outputDir) {
     const stem = parsePath(params.suggestedFileName).name;
     return {
-      filePath: join(
-        params.outputDir,
-        stem + parsePath(params.suggestedFileName).ext,
-      ),
+      filePath: join(outputDir, stem + parsePath(params.suggestedFileName).ext),
     };
   }
   const filePath = await promptSaveFilePath(
@@ -136,7 +138,7 @@ export async function downloadVideoHandler(
   const validatedUrl = createVideoUrl(params.url);
   const paramsForYtdlp: DownloadVideoRequest = {
     ...params,
-    url: canonicalYoutubeWatchUrl(validatedUrl),
+    url: resolveYtdlpMediaUrl(canonicalYoutubeWatchUrl(validatedUrl)),
   };
 
   const outputLocation = await resolveOutputLocation(params);

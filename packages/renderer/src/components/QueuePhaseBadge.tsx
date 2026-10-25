@@ -28,7 +28,13 @@ function visibleStatus(status: string): string {
 export function QueuePhaseBadge({ job }: { job: QueueJob }) {
   const label = job.status.length > 0 ? visibleStatus(job.status) : job.phase;
   return (
-    <Badge colorPalette={badgePalette(job)} variant="solid" size="sm">
+    <Badge
+      colorPalette={badgePalette(job)}
+      variant="solid"
+      size="sm"
+      data-testid={`queue-row-status-${job.id}`}
+      data-status={job.terminal ?? job.phase}
+    >
       {label}
     </Badge>
   );
