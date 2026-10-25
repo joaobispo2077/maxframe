@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import { mutationDiffState } from './mutation-scope.mjs';
 import {
+  A11Y_CRITICAL_MAX,
+  A11Y_SERIOUS_MAX,
   AUDIT_HIGH_MAX,
   COVERAGE_FLOORS,
   DUPLICATION_CEILING,
@@ -28,6 +30,11 @@ export const BLOCK_GATES = [
   { job: 'format', gate: 'Format', floor: '0 files' },
   { job: 'unit-tests', gate: 'Unit', floor: 'tests pass' },
   { job: 'e2e-tests', gate: 'E2E', floor: 'tests pass' },
+  {
+    job: 'accessibility',
+    gate: 'Accessibility (cypress-axe)',
+    floor: `<= ${A11Y_CRITICAL_MAX} critical, <= ${A11Y_SERIOUS_MAX} serious`,
+  },
   { job: 'coverage', gate: 'Coverage', floor: coverageFloorLabel() },
   {
     job: 'complexity',
@@ -71,7 +78,6 @@ export const INFO_GATES = [];
 export const NOT_WIRED_GATES = [
   { job: 'windows-smoke', gate: 'Windows build smoke' },
   { job: 'bundled-binaries', gate: 'Bundled binaries' },
-  { job: 'accessibility', gate: 'Accessibility (cypress-axe)' },
 ];
 
 export function unwiredGateRows() {
@@ -858,6 +864,7 @@ export function evidenceForJob(job, env = process.env) {
       'architecture',
       'audit',
       'find-dupes',
+      'accessibility',
       'electron-security',
     ].includes(job)
   ) {

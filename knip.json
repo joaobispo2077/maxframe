@@ -19,6 +19,8 @@
         "vitest.config.ts",
         "vitest.stryker.config.ts",
         "cypress.config.ts",
+        "cypress.a11y.config.ts",
+        "cypress/support/a11y.ts",
         "stryker.config.mjs",
         "stryker.config.pr.mjs",
         "stryker.config.base.mjs",
@@ -37,6 +39,8 @@
         "vitest.config.ts",
         "vitest.stryker.config.ts",
         "cypress.config.ts",
+        "cypress.a11y.config.ts",
+        "cypress/support/a11y.ts",
         "stryker.config.mjs",
         "stryker.config.pr.mjs",
         "stryker.config.base.mjs"

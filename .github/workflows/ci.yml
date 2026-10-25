@@ -248,6 +248,54 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  accessibility:
+    name: Accessibility (cypress-axe)
+    # Serves the built renderer and runs cypress-axe headless.
+    # The Electron window is not the page this job drives.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.10'
+          cache: npm
+
+      - name: Scan the built renderer with cypress-axe
+        id: scan
+        uses: cypress-io/github-action@v7
+        with:
+          install-command: npm ci || { rm -rf node_modules && npm ci; }
+          build: npm run build:a11y -w @maxframe/renderer
+          start: npm run preview -w @maxframe/renderer -- --host 127.0.0.1 --port 4173 --strictPort
+          wait-on: http://127.0.0.1:4173
+          wait-on-timeout: 120
+          command: npm run test:a11y
+
+      - name: Check accessibility
+        if: always()
+        id: gate
+        run: node scripts/ci/check-accessibility.mjs
+
+      - name: Write gate.json
+        if: always()
+        env:
+          GATE_JOB: accessibility
+          GATE_OUTCOME: ${{ job.status }}
+        run: node scripts/ci/write-gate-json.mjs
+
+      - name: Upload gate.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-accessibility-attempt-${{ github.run_attempt }}
+          path: reports/quality/gates/accessibility
+          if-no-files-found: error
+          retention-days: 14
+
   coverage:
     name: Coverage
     # Not an intentional success skip. This is false only when the run is
@@ -713,6 +761,7 @@ jobs:
       - format
       - unit-tests
       - e2e-tests
+      - accessibility
       - coverage
       - complexity
       - duplication
