@@ -38,9 +38,10 @@ For real analyze/download on your machine you still need:
 GitHub Actions workflows include:
 
 - `CI` (`.github/workflows/ci.yml`)
-  - Runs on `push` for `feature/**`, `develop`, and `release`
-  - Runs on `pull_request` targeting `develop`, `release`, and `main`
-  - Required jobs are not filtered by head or base branch. `ci-readiness` uses `if: always()` and fails unless every required job is `success` and uploaded a passing `gate.json`. Skipped, cancelled, failed, and missing `gate.json` are red. No required job is an intentional path-filter skip. See [Quality gates](docs/maxframe-quality-gates.md).
+  - Runs on `push` for `release` and `feature/**`. It does not run on a push to `develop` or `main`.
+  - A `feature/**` push runs full CI, including a check named `CI readiness`, when no open mergeable pull request validates that commit. When one does, `select-run` sets `run_full_ci` to false, the gate jobs are skipped, and the readiness job is renamed to `CI readiness (push skipped, PR validates)`. That push does not report a check named `CI readiness`.
+  - Runs on `pull_request` targeting `main`, `develop`, and `release`. That run always executes the gates. Its check named `CI readiness` is the one branch protection should require. A skipped or missing gate on that run fails `CI readiness`.
+  - Required jobs are not filtered by head or base branch. `ci-readiness` uses `if: always()` and, except for the renamed push suppression above, fails unless every required job is `success` and uploaded a passing `gate.json`. Skipped, cancelled, failed, and missing `gate.json` are red on a pull request. No required job is an intentional path-filter skip. See [Quality gates](docs/maxframe-quality-gates.md).
   - Jobs:
     - `typecheck`
     - `lint` (`npm run lint`)

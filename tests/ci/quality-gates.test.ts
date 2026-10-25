@@ -18,12 +18,16 @@ import {
 import {
   INTENTIONAL_SKIP_JOBS,
   JOB_DISPLAY_NAMES,
+  PUSH_SKIP_READINESS_NAME,
   REQUIRED_JOBS,
   buildReport,
   collectGateReceipts,
+  deliberatePushSkip,
+  deliberateSkipFailures,
   evaluateReadiness,
   jobResult,
   readinessIfSkipsOnCancellation,
+  readinessJobName,
   receiptAttemptForJob,
   resultFailures,
   skipIsByDesign,
@@ -213,15 +217,83 @@ const legacyReadinessIf = [
   '        if: always()',
 ].join('\n');
 
+function branchList(block: string) {
+  const start = block.indexOf('    branches:\n');
+  if (start < 0) return [];
+  const names: string[] = [];
+  for (const line of block.slice(start).split('\n').slice(1)) {
+    const match = /^      - ['"]?(.+?)['"]?\s*$/.exec(line);
+    if (!match) break;
+    names.push(match[1]);
+  }
+  return names;
+}
+
+const ROOT_GATES = [
+  'typecheck',
+  'lint',
+  'format',
+  'accessibility',
+  'duplication',
+  'deadcode',
+  'architecture',
+  'audit',
+  'find-dupes',
+  'electron-security',
+  'scheduled-workflow',
+];
+
+const FULL_CI_IF = "needs.select-run.outputs.run_full_ci == 'true'";
+
 describe('ci workflow contract', () => {
-  it('triggers push on develop and pull requests into develop', () => {
+  it('limits push to release and feature branches', () => {
     const pullAt = workflow.indexOf('  pull_request:\n');
     const jobsAt = workflow.indexOf('\njobs:');
     const push = workflow.slice(0, pullAt);
     const pull = workflow.slice(pullAt, jobsAt);
-    expect(push).toContain('- develop');
-    expect(pull).toContain('- develop');
+    expect(branchList(push)).toEqual(['release', 'feature/**']);
+    expect(branchList(pull)).toEqual(['main', 'develop', 'release']);
+    expect(push).not.toMatch(/^\s+- develop$/m);
+    expect(push).not.toMatch(/^\s+- main$/m);
     expect(push).not.toMatch(/^\s+- dev$/m);
+    const concurrency = workflow.slice(
+      workflow.indexOf('\nconcurrency:\n'),
+      workflow.indexOf('\npermissions:\n'),
+    );
+    expect(concurrency).toContain(
+      "group: ci-${{ github.event_name }}-${{ (github.event_name == 'push' && github.ref_name == 'release') && github.run_id || github.event.pull_request.number || github.ref }}",
+    );
+    expect(concurrency).toContain(
+      "cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'feature/')) }}",
+    );
+    expect(concurrency).toContain("github.ref_name == 'release'");
+    expect(concurrency).toContain('github.run_id');
+  });
+
+  it('selects full CI on the first gate and lets downstream jobs follow needs', () => {
+    const select = jobBody(workflow, 'select-run').join('\n');
+    expect(select).toContain('name: Select CI work');
+    expect(select).toContain('contents: read');
+    expect(select).toContain('pull-requests: read');
+    expect(select).toContain('run_full_ci:');
+    expect(select).toContain('node scripts/ci/select-ci-run.mjs --workflow ci');
+    for (const job of ROOT_GATES) {
+      expect(workflowJobIf(workflow, job), job).toBe(FULL_CI_IF);
+      expect(jobBody(workflow, job).join('\n'), job).toContain(
+        'needs: select-run',
+      );
+    }
+    for (const job of ['unit-tests', 'e2e-tests', 'mutation-tests']) {
+      expect(workflowJobIf(workflow, job), job).toBeUndefined();
+      expect(jobBody(workflow, job).join('\n'), job).not.toContain(
+        'select-run',
+      );
+    }
+    for (const job of ['coverage', 'complexity', 'crap']) {
+      expect(workflowJobIf(workflow, job), job).toBe(
+        `always() && !cancelled() && ${FULL_CI_IF}`,
+      );
+    }
   });
 
   it('does not gate required jobs on head or base ref', () => {
@@ -254,8 +326,28 @@ describe('ci workflow contract', () => {
       .map((line) => line.trim())
       .filter((line) => line.startsWith('- '))
       .map((line) => line.slice(2));
-    expect(listed).toEqual(REQUIRED_JOBS);
+    expect(listed).toEqual(['select-run', ...REQUIRED_JOBS]);
     expect(readiness).toContain('FETCH_GATE_ARTIFACTS');
+    expect(readiness).toContain('RUN_FULL_CI:');
+    const nameLine = jobBody(workflow, 'ci-readiness').find((line) =>
+      line.includes('name:'),
+    );
+    expect(nameLine).toContain(PUSH_SKIP_READINESS_NAME);
+    expect(nameLine).toContain("github.event_name == 'push'");
+    expect(nameLine).toContain("run_full_ci == 'false'");
+    expect(nameLine).toContain("|| 'CI readiness'");
+    expect(
+      jobBody(workflow, 'ci-readiness').some(
+        (line) => line.trim() === 'name: CI readiness',
+      ),
+    ).toBe(false);
+    expect(workflowJobIf(workflow, 'quality-comments')).toBe(
+      "${{ !cancelled() && !(needs.select-run.result == 'success' && needs.select-run.outputs.run_full_ci == 'false') }}",
+    );
+    expect(workflow).toContain(
+      'node scripts/ci/select-ci-run.mjs --workflow ci --check-pr-current',
+    );
+    expect(workflow).toContain("steps.current-pr.outputs.number != ''");
     expect(readiness).toContain('PR_NUMBER:');
     expect(readiness).toContain('PR_BASE_SHA:');
     expect(readiness).toContain('PR_BASE_REF:');
@@ -381,7 +473,7 @@ describe('ci workflow contract', () => {
     expect(workflow).toContain('delete: true');
     expect(workflow).toContain('node scripts/ci/render-stickies.mjs');
     expect(workflow).toContain(
-      "github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository",
+      "github.event_name == 'pull_request' && steps.current-pr.outputs.number != '' && github.event.pull_request.head.repo.full_name == github.repository",
     );
     expect(workflow).not.toContain('code-coverage-results.md');
     expect(workflow).not.toContain('mutation-test-results.md');
@@ -434,6 +526,112 @@ describe('ci workflow contract', () => {
       const text = readFileSync(resolve(dir, name), 'utf8');
       expect(text, name).not.toContain('npm ci --force');
     }
+  });
+});
+
+describe('push suppression readiness', () => {
+  function suppressedNeeds() {
+    return {
+      ...Object.fromEntries(
+        REQUIRED_JOBS.map((job) => [job, { result: 'skipped' }]),
+      ),
+      'select-run': { result: 'success' },
+    };
+  }
+
+  it('reserves the CI readiness check name for runs that execute the gates', () => {
+    expect(readinessJobName('pull_request', 'true')).toBe('CI readiness');
+    expect(readinessJobName('pull_request', 'false')).toBe('CI readiness');
+    expect(readinessJobName('push', 'true')).toBe('CI readiness');
+    expect(readinessJobName('push', 'false')).toBe(PUSH_SKIP_READINESS_NAME);
+    expect(deliberatePushSkip('pull_request', 'false')).toBe(false);
+    expect(deliberatePushSkip('push', 'true')).toBe(false);
+    expect(deliberatePushSkip('push', 'false')).toBe(true);
+  });
+
+  it('fails a pull request when a required gate is skipped or missing', () => {
+    for (const runFullCi of ['true', 'false']) {
+      const needs = successfulNeeds();
+      needs.lint = { result: 'skipped' };
+      const skipped = evaluateReadiness({
+        needs,
+        gates: passingGates(),
+        sha: 'abc',
+        eventName: 'pull_request',
+        runFullCi,
+      });
+      expect(skipped.some((line) => line.startsWith('lint:'))).toBe(true);
+
+      const gates = passingGates();
+      gates.lint = null;
+      const missing = evaluateReadiness({
+        needs: successfulNeeds(),
+        gates,
+        sha: 'abc',
+        eventName: 'pull_request',
+        runFullCi,
+      });
+      expect(missing.some((line) => line.startsWith('lint:'))).toBe(true);
+    }
+  });
+
+  it('fails a full push when a required gate is skipped', () => {
+    const needs = successfulNeeds();
+    needs.lint = { result: 'skipped' };
+    const failures = evaluateReadiness({
+      needs,
+      gates: passingGates(),
+      sha: 'abc',
+      eventName: 'push',
+      runFullCi: 'true',
+    });
+    expect(failures.some((line) => line.startsWith('lint:'))).toBe(true);
+  });
+
+  it('passes a suppressed feature push only when every required gate is skipped', () => {
+    const needs = suppressedNeeds();
+    expect(deliberateSkipFailures(needs)).toEqual([]);
+    expect(
+      evaluateReadiness({
+        needs,
+        gates: {},
+        sha: 'abc',
+        eventName: 'push',
+        runFullCi: 'false',
+      }),
+    ).toEqual([]);
+    const report = buildReport({
+      needs,
+      gates: {},
+      failures: [],
+      env: { GITHUB_EVENT_NAME: 'push', RUN_FULL_CI: 'false' },
+      ignoreRowFailures: true,
+    });
+    expect(report.status).toBe('PASS');
+    expect(report.result).toBe('success');
+  });
+
+  it('rejects a suppressed push that failed, was cancelled, or ran a gate', () => {
+    for (const result of ['failure', 'cancelled', 'success', null]) {
+      const needs = suppressedNeeds();
+      needs.lint = result === null ? {} : { result };
+      const failures = evaluateReadiness({
+        needs,
+        gates: {},
+        eventName: 'push',
+        runFullCi: 'false',
+      });
+      expect(failures.some((line) => line.startsWith('lint:'))).toBe(true);
+    }
+    const needs = suppressedNeeds();
+    needs['select-run'] = { result: 'failure' };
+    const failures = evaluateReadiness({
+      needs,
+      gates: {},
+      eventName: 'push',
+      runFullCi: 'false',
+    });
+    expect(failures.some((line) => line.startsWith('select-run:'))).toBe(true);
   });
 });
 
