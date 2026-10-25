@@ -20,7 +20,7 @@ When test mode is on and a path variable is set, the path must be local and must
 
 The pasted link is still validated as a YouTube URL. The test can paste `https://www.youtube.com/watch?v=dQw4w9WgXcQ`. After that check, yt-dlp receives a `file:///` URL for the fixture, not the bare path stored in `MAXFRAME_E2E_FIXTURE`. Format selection, `--extract-audio` / MP4 merge arguments, and `--ffmpeg-location` stay the same as a normal download. `--enable-file-urls` is added only while the fixture is active.
 
-`MAXFRAME_E2E_FIXTURE` wins over `MAXFRAME_FAKE_VIDEO_METADATA`. The GUI job should not set the fake-metadata flag. Analyze reads the fixture instead of the fake catalog. For this sample, that read has no quality rows. See the format table below.
+`MAXFRAME_E2E_FIXTURE` wins over `MAXFRAME_FAKE_VIDEO_METADATA`. The GUI job should not set the fake-metadata flag. Analyze reads the fixture instead of the fake catalog. For this sample, that read is one MP4 video row (`formatId` `mp4`) and no audio-only row. MP3 mode shows the fallback card. See the format table below.
 
 If the download request already includes `outputDir` (the queue runner), that directory is used and `MAXFRAME_E2E_OUTPUT_DIR` is ignored.
 
@@ -37,7 +37,7 @@ ffmpeg -y \
   tests/fixtures/e2e/sample.mp4
 ```
 
-The file needs both a video stream and an audio stream so a later probe can extract MP3 and keep an MP4 video row. The pinned yt-dlp build does not probe those streams for a direct file URL. See the format table below.
+The file needs both a video stream and an audio stream. ffprobe already reports H.264 (`avc1`) and AAC on `tests/fixtures/e2e/sample.mp4`. Regenerating that file does not change what yt-dlp returns: the generic extractor still leaves `vcodec` null and omits `acodec`. See the format table below.
 
 ## File URL passed to yt-dlp
 
@@ -79,19 +79,33 @@ yt-dlp -J --enable-file-urls "file:///absolute/path/tests/fixtures/e2e/sample.mp
 | audio_ext          | `none`                                   |
 | width, height, fps | absent                                   |
 
-`mapYtdlpFormatsToQualityOptions` treats a null video codec as no video and drops the format. `mapYtdlpAudioFormatsToQualityOptions` requires an audio codec, so it drops it too. Analyze therefore returns `videoQualities: []` and `audioQualities: []`.
+`mapYtdlpFormatsToQualityOptions` treats a null video codec as no video and drops the format. `mapYtdlpAudioFormatsToQualityOptions` requires an audio codec, so it drops it too. Normal mode therefore still returns `videoQualities: []` and `audioQualities: []` for this JSON. That filtering is unchanged.
 
-That is neither a video row nor the MP3 fallback:
+While the fixture hook is active (`MAXFRAME_E2E=1` and `resolveE2eFixture` active), analyze recognizes this exact shape — extractor `generic`, exactly one format, `format_id` `mp4`, `ext` `mp4`, `vcodec` null or absent — and returns one video row instead:
 
-| UI                                                                        | Result for this fixture                                                                                    |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Video row `quality-row-<formatId>` / `quality-download-<formatId>`        | Not rendered. There is no format id to target.                                                             |
-| MP3 fallback `quality-row-mp3-fallback` / `quality-download-mp3-fallback` | Not rendered. The fallback card is only added when a video quality exists and no audio-only format exists. |
-| `download-button`                                                         | Not rendered. Best MP4 and best MP3 both need a quality row.                                               |
-| MP4 summary                                                               | `No downloadable video quality available for this URL.`                                                    |
-| MP3 summary                                                               | `No downloadable audio quality available for this URL.`                                                    |
+| Field              | Value                                              |
+| ------------------ | -------------------------------------------------- |
+| formatId           | `mp4`                                              |
+| row type           | MP4 video row (`hasVideo: true`, `hasAudio: true`) |
+| container          | `mp4`                                              |
+| resolutionLabel    | `unknown`                                          |
+| width, height, fps | `0`                                                |
+| audioQualities     | `[]`                                               |
 
-The unit-tests job installs this same binary before `npm run test:unit:coverage` by running `node scripts/ci/ensure-pinned-ytdlp.mjs` and exporting `YT_DLP_PATH`. `tests/infrastructure/e2e/e2e-fixture-ytdlp-real.test.ts` calls `resolveYtdlpExecutable()` and runs `-J --enable-file-urls` against the `file:///` URL of `tests/fixtures/e2e/sample.mp4`. The test does not skip when the binary is missing. It runs that setup script and fails if the pinned binary does not execute.
+`hasAudio` stays true because `-f mp4` downloads the muxed file. The video-only selector (`mp4+bestaudio`) is not available for this format, so a video-only row would fail the MP4 download. MP3 mode does not use this format id. It still requests `bestaudio/best` and extracts MP3 with ffmpeg. A payload that already includes a video codec keeps the normal mapper row, including in fixture mode.
+
+| UI                                                                        | Result for this fixture                                                                    |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Video row `quality-row-mp4` / `quality-row-status-mp4`                    | Rendered in MP4 mode. `data-status` is `ready` before download.                            |
+| `quality-download-mp4`                                                    | Download button on that video row. Click this for the MP4 file.                            |
+| MP3 fallback `quality-row-mp3-fallback` / `quality-download-mp3-fallback` | Rendered in MP3 mode, because a video quality exists and no audio-only format exists.      |
+| `download-button`                                                         | Rendered for both MP4 (`formatId` `mp4`) and MP3 (same fallback as the card).              |
+| MP4 summary                                                               | `Best video: unknown @ 0fps (mp4)`                                                         |
+| MP3 summary                                                               | `No separate audio streams. Audio will be extracted from the best available video stream.` |
+
+The saved file is the path on `download-saved-path` (`data-saved-path`), inside `MAXFRAME_E2E_OUTPUT_DIR`.
+
+The unit-tests job installs this same binary before `npm run test:unit:coverage` by running `node scripts/ci/ensure-pinned-ytdlp.mjs` and exporting `YT_DLP_PATH`. `tests/infrastructure/e2e/e2e-fixture-ytdlp-real.test.ts` calls `resolveYtdlpExecutable()` and runs `-J --enable-file-urls` against the `file:///` URL of `tests/fixtures/e2e/sample.mp4`. It then analyzes that URL through `createYtdlpVideoMetadataGateway` and expects one video row with `formatId` `mp4`. The test does not skip when the binary is missing. It runs that setup script and fails if the pinned binary does not execute.
 
 ## Launch
 
@@ -105,12 +119,25 @@ npm start
 
 Playwright should pass the same variables on `_electron.launch({ env })` for the portable exe. Dev (`npm start`) has no bundled yt-dlp or ffmpeg. The packaged exe resolves the binaries shipped in the build.
 
-Suggested GUI steps for this fixture:
+Suggested GUI steps for this fixture. The format id is `mp4`. The MP4 choice is a video row. The MP3 choice is the fallback row.
+
+MP4:
 
 1. Fill `link-input` with a YouTube watch URL.
-2. Choose MP3 or MP4 on `format-picker`.
+2. Choose MP4 on `format-picker` (`format-option-mp4`).
 3. Click `check-quality-button`.
-4. Assert the summary text from the table above. Do not wait for `download-button`, `quality-download-<formatId>`, or `quality-download-mp3-fallback`. Those nodes are absent for `tests/fixtures/e2e/sample.mp4` with yt-dlp 2026.08.19.
+4. Wait for `quality-row-mp4` and `quality-download-mp4`. `download-button` is also present.
+5. Click `quality-download-mp4`.
+6. Wait for `download-success`. Read `download-saved-path` (`data-saved-path`) and confirm that file is on disk under `MAXFRAME_E2E_OUTPUT_DIR`.
+
+MP3:
+
+1. Fill `link-input` with a YouTube watch URL.
+2. Choose MP3 on `format-picker` (`format-option-mp3`).
+3. Click `check-quality-button`.
+4. Wait for `quality-row-mp3-fallback` and `quality-download-mp3-fallback`. `download-button` is also present.
+5. Click `quality-download-mp3-fallback`.
+6. Wait for `download-success`. The file at `data-saved-path` is the extracted MP3.
 
 ## Test ids
 
@@ -125,7 +152,7 @@ Suggested GUI steps for this fixture:
 | `quality-row-<formatId>`          | One quality row                                                                                                                          |
 | `quality-row-status-<formatId>`   | Row status. `data-status` is `ready` or `downloading`.                                                                                   |
 | `quality-download-<formatId>`     | Download button on that row                                                                                                              |
-| `quality-row-mp3-fallback`        | MP3 card when analyze returned a video quality and no audio-only stream. This sample does not show it.                                   |
+| `quality-row-mp3-fallback`        | MP3 card when analyze returned a video quality and no audio-only stream. This sample shows it in MP3 mode.                               |
 | `quality-row-status-mp3-fallback` | Status for that card (`data-status` as above)                                                                                            |
 | `quality-download-mp3-fallback`   | Download button on that card                                                                                                             |
 | `download-progress`               | Progress card while a download is running. `data-status` is the stage (`waiting`, `downloading`, `extracting-audio`, `merging`, `done`). |
@@ -138,5 +165,5 @@ Suggested GUI steps for this fixture:
 ## Local check
 
 ```bash
-npm run test:unit -- tests/infrastructure/e2e/e2e-test-hook.test.ts tests/infrastructure/e2e/e2e-fixture-ytdlp-real.test.ts tests/unit/e2e-fixture-download.test.ts tests/interface/e2e-fixture-analyze.test.ts packages/renderer/tests/components/e2e-testids.test.tsx tests/infrastructure/youtube/ytdlp-download-and-gateway.test.ts
+npm run test:unit -- tests/infrastructure/e2e/e2e-test-hook.test.ts tests/infrastructure/e2e/e2e-fixture-ytdlp-real.test.ts tests/infrastructure/youtube/fixture-generic-mp4-row.test.ts tests/unit/e2e-fixture-download.test.ts tests/interface/e2e-fixture-analyze.test.ts packages/renderer/tests/components/e2e-testids.test.tsx tests/infrastructure/youtube/ytdlp-download-and-gateway.test.ts
 ```
