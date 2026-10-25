@@ -7,6 +7,7 @@ import {
   COVERAGE_FLOORS,
   DUPLICATION_CEILING,
   ELECTRON_SECURITY_FLOOR,
+  FIND_DUPES_MAX,
   MUTATION_BREAK,
   MUTATION_SURVIVOR_LIMIT,
   complexityFloorLabel,
@@ -46,6 +47,11 @@ export const BLOCK_GATES = [
     floor: `0 critical, <= ${AUDIT_HIGH_MAX} high`,
   },
   {
+    job: 'find-dupes',
+    gate: 'Dependency tree (npm find-dupes)',
+    floor: `<= ${FIND_DUPES_MAX} packages`,
+  },
+  {
     job: 'electron-security',
     gate: 'Electron security',
     floor: ELECTRON_SECURITY_FLOOR,
@@ -63,7 +69,6 @@ export const INFO_GATES = [];
 // affect Overall. They stay out of INFO_GATES so a missing row cannot fail a
 // run that already passed every wired gate.
 export const NOT_WIRED_GATES = [
-  { job: 'find-dupes', gate: 'Dependency tree (npm find-dupes)' },
   { job: 'windows-smoke', gate: 'Windows build smoke' },
   { job: 'bundled-binaries', gate: 'Bundled binaries' },
   { job: 'accessibility', gate: 'Accessibility (cypress-axe)' },
@@ -852,6 +857,7 @@ export function evidenceForJob(job, env = process.env) {
       'deadcode',
       'architecture',
       'audit',
+      'find-dupes',
       'electron-security',
     ].includes(job)
   ) {

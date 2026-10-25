@@ -9,6 +9,7 @@ import {
   REQUIRED_JOBS,
   buildReport,
 } from '../../scripts/ci/check-ci-readiness.mjs';
+import { dependencyTreeEvidence } from '../../scripts/ci/check-find-dupes.mjs';
 import {
   BLOCK_GATES,
   NOT_WIRED_GATES,
@@ -690,6 +691,19 @@ describe('quality report sections', () => {
         `${row.gate}: Not wired yet. Does not change Overall.`,
       );
     }
+    expect(markdown).toContain('| Dependency tree (npm find-dupes) |');
+    expect(markdown).not.toContain(
+      'Dependency tree (npm find-dupes): Not wired yet.',
+    );
+    for (const gate of [
+      'Windows build smoke',
+      'Bundled binaries',
+      'Accessibility (cypress-axe)',
+    ]) {
+      expect(markdown).toContain(
+        `${gate}: Not wired yet. Does not change Overall.`,
+      );
+    }
     expect(markdown).toContain('**Overall: PASS**');
     expect(qualityReportExitCode(displayOverall(report))).toBe(0);
   });
@@ -928,5 +942,54 @@ describe('quality report sections', () => {
         join(dir, 'mismatch'),
       ),
     ).toThrow(/does not match/);
+  });
+
+  it('hashes the dependency tree report inside the gate artifact', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-dupes-'));
+    const payload = dependencyTreeEvidence([
+      { name: 'once', versions: ['1.0.0', '2.0.0'] },
+    ]);
+    const exact = join(dir, 'lockfile-duplicates.json');
+    writeFileSync(exact, payload);
+    const digest = sha256Text(payload);
+    const resultPath = join(dir, 'find-dupes.json');
+    writeFileSync(
+      resultPath,
+      `${JSON.stringify({
+        status: 'PASS',
+        value: '1 packages resolved at more than one version',
+        floor: '<= 134 packages',
+        evidenceSha256: digest,
+        evidencePath: exact,
+      })}\n`,
+    );
+    const extra = evidenceForJob('find-dupes', { GATE_RESULT: resultPath });
+    expect(extra.evidencePath).toBe(exact);
+    expect(extra.evidenceSha256).toBe(digest);
+    const receipt = buildGateReceipt({
+      job: 'find-dupes',
+      outcome: 'success',
+      sha: 'abc',
+      extra,
+    });
+    const gatesRoot = join(dir, 'gates');
+    stageHashedEvidence(receipt, extra.evidencePath, gatesRoot);
+    writeGateReceipt(receipt, gatesRoot);
+    const artifactDir = join(gatesRoot, 'find-dupes');
+    const stored = JSON.parse(
+      readFileSync(join(artifactDir, 'gate.json'), 'utf8'),
+    );
+    expect(stored.evidenceFile).toBe('lockfile-duplicates.json');
+    const row = buildQualityRows({
+      needs: { 'find-dupes': { result: 'success' } },
+      gates: { 'find-dupes': stored },
+    }).find((item) => item.job === 'find-dupes');
+    expect(row.gate).toBe('Dependency tree (npm find-dupes)');
+    expect(sha256File(join(artifactDir, stored.evidenceFile))).toBe(
+      row.evidenceSha256,
+    );
+    expect(sha256File(join(artifactDir, 'gate.json'))).not.toBe(
+      row.evidenceSha256,
+    );
   });
 });
