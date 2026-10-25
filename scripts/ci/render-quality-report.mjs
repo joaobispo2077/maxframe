@@ -280,6 +280,38 @@ function cell(value) {
     .replace(/\r?\n/g, ' ');
 }
 
+function coverageCell(value) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? `${value.toFixed(2)}%`
+    : 'unavailable';
+}
+
+function crapCell(value) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value.toFixed(2)
+    : 'unavailable';
+}
+
+export function crapTopSection(rows) {
+  const row = (rows ?? []).find((item) => item?.job === 'crap');
+  const top = row?.metrics?.top10;
+  if (!Array.isArray(top) || top.length === 0) return [];
+  const lines = [
+    '<details>',
+    '<summary>CRAP top 10</summary>',
+    '',
+    '| Function | Complexity | Coverage | CRAP |',
+    '| --- | --- | --- | --- |',
+  ];
+  for (const item of top.slice(0, 10)) {
+    lines.push(
+      `| ${cell(`${item?.file}:${item?.name}`)} | ${cell(item?.complexity)} | ${cell(coverageCell(item?.coverage))} | ${cell(crapCell(item?.crap))} |`,
+    );
+  }
+  lines.push('', '</details>', '');
+  return lines;
+}
+
 function sectionHeading(unwired) {
   return [
     '### Not wired yet',
@@ -379,6 +411,7 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
     }
     lines.push('');
   }
+  lines.push(...crapTopSection(rows));
   lines.push(
     CHART_START,
     buildChartMarkdown(report, overall).trimEnd(),

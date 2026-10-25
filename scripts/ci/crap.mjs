@@ -3,8 +3,13 @@ import { join, relative } from 'node:path';
 
 import { COMPLEXITY_MAX, CRAP_MAX } from './quality-floors.mjs';
 
-const COMPLEXITY_MESSAGE =
-  /^(?:Async\s+)?(?:Arrow function|Function|Method|Constructor)(?:\s+'([^']*)')?\s+has a complexity of (\d+)/;
+const COMPLEXITY_MESSAGE = /^(.*?) has a complexity of (\d+)\b/;
+
+const FUNCTION_TYPES = new Set([
+  'FunctionDeclaration',
+  'FunctionExpression',
+  'ArrowFunctionExpression',
+]);
 
 export function crapScore(complexity, coveragePct) {
   const cov = Math.min(100, Math.max(0, Number(coveragePct) || 0)) / 100;
@@ -14,10 +19,27 @@ export function crapScore(complexity, coveragePct) {
 export function parseComplexityMessage(message) {
   const match = String(message ?? '').match(COMPLEXITY_MESSAGE);
   if (!match) return null;
-  return {
-    name: match[1] || '(anonymous)',
-    complexity: Number(match[2]),
-  };
+  const kind = match[1].trim();
+  if (!kind) return null;
+  const complexity = Number(match[2]);
+  if (!Number.isInteger(complexity)) return null;
+  const quoted = kind.match(/'([^']*)'/);
+  let name = '(anonymous)';
+  if (quoted) name = quoted[1] || '(anonymous)';
+  else {
+    const privateName = kind.match(/#([A-Za-z0-9_$]+)/);
+    if (privateName) name = `#${privateName[1]}`;
+    else if (/\bConstructor\b/.test(kind)) name = 'constructor';
+  }
+  return { name, complexity };
+}
+
+export function readReportedComplexity(message) {
+  if (!message || message.fatal) return { fatal: true };
+  if (message.ruleId !== 'complexity') return { ignore: true };
+  const parsed = parseComplexityMessage(message.message);
+  if (!parsed) return { error: String(message.message ?? '') };
+  return { parsed };
 }
 
 function walkSources(root) {
@@ -62,8 +84,9 @@ function walkSources(root) {
   }));
 }
 
-export function functionCoverage(fileCov, line, endLine) {
+export function functionCoverage(fileCov, startLine, endLine, nested = []) {
   if (!fileCov) return 0;
+  if (typeof startLine !== 'number' || typeof endLine !== 'number') return 0;
   const statementMap = fileCov.statementMap ?? {};
   const hits = fileCov.s ?? {};
   let total = 0;
@@ -71,8 +94,17 @@ export function functionCoverage(fileCov, line, endLine) {
   for (const [id, loc] of Object.entries(statementMap)) {
     const start = loc?.start?.line;
     if (typeof start !== 'number') continue;
-    if (start < line) continue;
-    if (endLine != null && start > endLine) continue;
+    if (start < startLine || start > endLine) continue;
+    if (
+      nested.some(
+        (span) =>
+          start >= span.start &&
+          start <= span.end &&
+          (span.start > startLine || span.end < endLine),
+      )
+    ) {
+      continue;
+    }
     total += 1;
     if (Number(hits[id] ?? 0) > 0) covered += 1;
   }
@@ -80,12 +112,90 @@ export function functionCoverage(fileCov, line, endLine) {
   return (covered / total) * 100;
 }
 
-function coverageForPath(coverage, rel) {
+export function coverageForPath(coverage, rel) {
   if (!coverage) return null;
-  const match = Object.entries(coverage).find(([file]) =>
-    file.replaceAll('\\', '/').endsWith(rel),
+  const suffix = `/${rel}`;
+  const matches = Object.entries(coverage).filter(([file]) => {
+    const normal = file.replaceAll('\\', '/');
+    return normal === rel || normal.endsWith(suffix);
+  });
+  if (matches.length === 0) return null;
+  matches.sort((left, right) => left[0].length - right[0].length);
+  return matches[0][1];
+}
+
+function collectSpans(ast) {
+  const spans = [];
+  const visit = (node) => {
+    if (!node || typeof node.type !== 'string') return;
+    if (
+      FUNCTION_TYPES.has(node.type) ||
+      node.type === 'StaticBlock' ||
+      node.type === 'PropertyDefinition'
+    ) {
+      const start = node.loc?.start?.line;
+      const end = node.loc?.end?.line;
+      if (typeof start === 'number' && typeof end === 'number') {
+        spans.push({
+          start,
+          end,
+          function:
+            FUNCTION_TYPES.has(node.type) || node.type === 'StaticBlock',
+        });
+      }
+    }
+    for (const key of Object.keys(node)) {
+      if (key === 'parent') continue;
+      const value = node[key];
+      if (Array.isArray(value)) {
+        for (const child of value) {
+          if (child && typeof child.type === 'string') visit(child);
+        }
+      } else if (value && typeof value.type === 'string') {
+        visit(value);
+      }
+    }
+  };
+  visit(ast);
+  return spans;
+}
+
+function fnMapRange(fileCov, line) {
+  const fnMap = fileCov?.fnMap;
+  if (!fnMap || typeof fnMap !== 'object') return null;
+  const hits = [];
+  for (const fn of Object.values(fnMap)) {
+    const declLine = fn?.decl?.start?.line;
+    const locStart = fn?.loc?.start?.line;
+    const locEnd = fn?.loc?.end?.line;
+    if (typeof locEnd !== 'number') continue;
+    if (declLine === line || locStart === line) {
+      const start = typeof locStart === 'number' ? locStart : declLine;
+      hits.push({ start, end: locEnd });
+    }
+  }
+  if (hits.length === 0) return null;
+  hits.sort(
+    (left, right) =>
+      left.end - left.start - (right.end - right.start) ||
+      right.start - left.start,
   );
-  return match ? match[1] : null;
+  return hits[0];
+}
+
+function astRange(spans, line) {
+  const hits = spans.filter((span) => span.start <= line && line <= span.end);
+  if (hits.length === 0) return null;
+  hits.sort(
+    (left, right) =>
+      left.end - left.start - (right.end - right.start) ||
+      right.start - left.start,
+  );
+  return { start: hits[0].start, end: hits[0].end };
+}
+
+export function functionRange(fileCov, spans, line) {
+  return fnMapRange(fileCov, line) ?? astRange(spans, line);
 }
 
 export async function measureFunctions(root = process.cwd(), coverage = null) {
@@ -124,17 +234,49 @@ export async function measureFunctions(root = process.cwd(), coverage = null) {
       continue;
     }
     const fileCov = coverageForPath(coverage, file.rel);
+    let spans = [];
+    try {
+      const parsedAst = parser.parseForESLint(file.text, {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+        loc: true,
+        range: true,
+        ecmaFeatures: { jsx: true },
+      });
+      spans = collectSpans(parsedAst.ast);
+    } catch (error) {
+      parseErrors.push(`${file.rel}: ${error.message}`);
+      continue;
+    }
     for (const message of messages) {
-      if (message.fatal) {
+      const read = readReportedComplexity(message);
+      if (read.fatal) {
         parseErrors.push(`${file.rel}:${message.line || 0} ${message.message}`);
         continue;
       }
-      const parsed = parseComplexityMessage(message.message);
-      if (!parsed) continue;
+      if (read.ignore) continue;
+      if (read.error) {
+        parseErrors.push(
+          `${file.rel}:${message.line || 0} unparsed complexity message: ${read.error}`,
+        );
+        continue;
+      }
+      const parsed = read.parsed;
       const line = message.line ?? 0;
-      const endLine = message.endLine ?? null;
+      const range = functionRange(fileCov, spans, line);
+      if (!range) {
+        parseErrors.push(
+          `${file.rel}:${line} ${parsed.name} complexity report has no function range`,
+        );
+        continue;
+      }
       const coveragePct = coverage
-        ? functionCoverage(fileCov, line, endLine)
+        ? functionCoverage(
+            fileCov,
+            range.start,
+            range.end,
+            spans.filter((span) => span.function),
+          )
         : null;
       const crap =
         coveragePct == null ? null : crapScore(parsed.complexity, coveragePct);
@@ -142,6 +284,8 @@ export async function measureFunctions(root = process.cwd(), coverage = null) {
         file: file.rel,
         name: parsed.name,
         line,
+        startLine: range.start,
+        endLine: range.end,
         complexity: parsed.complexity,
         coveragePct,
         crap,
