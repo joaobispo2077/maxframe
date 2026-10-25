@@ -45,6 +45,17 @@ export const AUDIT_HIGH_MAX = 40;
  */
 export const FIND_DUPES_MAX = 134;
 
+/**
+ * axe-core violation nodes on the built renderer.
+ * Summed across analyze, analyze-results, queue, and settings.
+ * Measured 4 critical and 1 serious on develop at e481844.
+ * The scan waits out the 300ms reveal and forces reduced motion
+ * so contrast is the settled color. These ceilings only move down.
+ * Moderate and minor are reported and do not block.
+ */
+export const A11Y_CRITICAL_MAX = 4;
+export const A11Y_SERIOUS_MAX = 1;
+
 export const MUTATION_SURVIVOR_LIMIT = 10;
 
 export const ELECTRON_SECURITY_FLOOR =

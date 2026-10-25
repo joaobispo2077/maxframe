@@ -313,25 +313,38 @@ describe('ci workflow contract', () => {
     expect(audit).not.toContain('audit-one-critical');
   });
 
-  it('wires the dependency tree gate and leaves the other planned gates unwired', () => {
-    const body = jobBody(workflow, 'find-dupes').join('\n');
-    expect(body).toContain('name: Dependency tree');
-    expect(body).toContain('run: node scripts/ci/check-find-dupes.mjs');
-    expect(body).toContain('GATE_JOB: find-dupes');
-    expect(body).toContain('path: reports/quality/gates/find-dupes\n');
-    expect(body).not.toContain(
+  it('wires the dependency tree and accessibility gates and leaves the other planned gates unwired', () => {
+    const dupes = jobBody(workflow, 'find-dupes').join('\n');
+    expect(dupes).toContain('name: Dependency tree');
+    expect(dupes).toContain('run: node scripts/ci/check-find-dupes.mjs');
+    expect(dupes).toContain('GATE_JOB: find-dupes');
+    expect(dupes).toContain('path: reports/quality/gates/find-dupes\n');
+    expect(dupes).not.toContain(
       'path: reports/quality/gates/find-dupes/gate.json',
     );
     expect(REQUIRED_JOBS).toContain('find-dupes');
+
+    const accessibility = jobBody(workflow, 'accessibility').join('\n');
+    expect(accessibility).toContain('name: Accessibility (cypress-axe)');
+    expect(accessibility).toContain('command: npm run test:a11y');
+    expect(accessibility).toContain(
+      'run: node scripts/ci/check-accessibility.mjs',
+    );
+    expect(accessibility).toContain('GATE_JOB: accessibility');
+    expect(accessibility).toContain(
+      'path: reports/quality/gates/accessibility\n',
+    );
+    expect(accessibility).not.toContain(
+      'path: reports/quality/gates/accessibility/gate.json',
+    );
+    expect(REQUIRED_JOBS).toContain('accessibility');
     expect(NOT_WIRED_GATES.map((gate) => gate.job)).toEqual([
       'windows-smoke',
       'bundled-binaries',
-      'accessibility',
     ]);
     expect(NOT_WIRED_GATES.map((gate) => gate.gate)).toEqual([
       'Windows build smoke',
       'Bundled binaries',
-      'Accessibility (cypress-axe)',
     ]);
     for (const spec of NOT_WIRED_GATES) {
       expect(jobBody(workflow, spec.job)).toEqual([]);
@@ -633,6 +646,73 @@ describe('ci readiness', () => {
     expect(row?.mode).toBe('BLOCK');
     expect(row?.value).toContain('is above 134');
     expect(row?.status).not.toBe('PASS');
+  });
+
+  it('fails CI readiness when the accessibility job is skipped or cancelled', () => {
+    for (const result of ['skipped', 'cancelled'] as const) {
+      const needs = successfulNeeds();
+      needs.accessibility = { result };
+      const failures = evaluateReadiness({
+        needs,
+        gates: passingGates('abc'),
+        sha: 'abc',
+      });
+      expect(failures).toContain(
+        `accessibility: expected success, received "${result}"`,
+      );
+      const report = buildReport({
+        needs,
+        gates: passingGates('abc'),
+        failures,
+        env: { GITHUB_SHA: 'abc' },
+      });
+      expect(report.status).toBe('FAIL');
+      const row = report.rows.find((item) => item.job === 'accessibility');
+      expect(row?.mode).toBe('BLOCK');
+      expect(row?.status).toBe('FAIL');
+      expect(row?.gate).toBe('Accessibility (cypress-axe)');
+      expect(row?.value).toContain(
+        result === 'skipped' ? 'Skipped' : 'Cancelled',
+      );
+      expect(row?.status).not.toBe('PASS');
+    }
+  });
+
+  it('fails CI readiness when accessibility is over the ceiling', () => {
+    const sha = 'abc';
+    const needs = successfulNeeds();
+    needs.accessibility = { result: 'failure' };
+    const gates = passingGates(sha);
+    gates.accessibility = buildGateReceipt({
+      job: 'accessibility',
+      outcome: 'failure',
+      sha,
+      extra: {
+        value:
+          'Accessibility: FAIL. 1 critical, 0 serious, 0 moderate, 0 minor. 1 critical is above 0. image-alt on analyze',
+        floor: '<= 0 critical, <= 0 serious',
+        gateStatus: 'FAIL',
+        metrics: { critical: 1, serious: 0, moderate: 0, minor: 0 },
+      },
+    });
+    const failures = evaluateReadiness({ needs, gates, sha });
+    expect(failures).toContain(
+      'accessibility: expected success, received "failure"',
+    );
+    expect(failures).toContain('accessibility: gate.json status is "FAIL"');
+    const failed = buildReport({
+      needs,
+      gates,
+      failures,
+      env: { GITHUB_SHA: sha },
+    });
+    expect(failed.status).toBe('FAIL');
+    const failedRow = failed.rows.find((item) => item.job === 'accessibility');
+    expect(failedRow?.gate).toBe('Accessibility (cypress-axe)');
+    expect(failedRow?.status).toBe('FAIL');
+    expect(failedRow?.mode).toBe('BLOCK');
+    expect(failedRow?.value).toContain('image-alt on analyze');
+    expect(failedRow?.status).not.toBe('PASS');
   });
 
   it('fails when any job in needs is skipped or cancelled', () => {

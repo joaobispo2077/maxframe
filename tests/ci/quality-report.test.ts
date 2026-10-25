@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { AXE_EVIDENCE_PATH } from '../../scripts/ci/check-accessibility.mjs';
 import {
   REQUIRED_JOBS,
   buildReport,
@@ -695,11 +696,11 @@ describe('quality report sections', () => {
     expect(markdown).not.toContain(
       'Dependency tree (npm find-dupes): Not wired yet.',
     );
-    for (const gate of [
-      'Windows build smoke',
-      'Bundled binaries',
-      'Accessibility (cypress-axe)',
-    ]) {
+    expect(markdown).toContain('| Accessibility (cypress-axe) |');
+    expect(markdown).not.toContain(
+      'Accessibility (cypress-axe): Not wired yet.',
+    );
+    for (const gate of ['Windows build smoke', 'Bundled binaries']) {
       expect(markdown).toContain(
         `${gate}: Not wired yet. Does not change Overall.`,
       );
@@ -985,6 +986,61 @@ describe('quality report sections', () => {
       gates: { 'find-dupes': stored },
     }).find((item) => item.job === 'find-dupes');
     expect(row.gate).toBe('Dependency tree (npm find-dupes)');
+    expect(sha256File(join(artifactDir, stored.evidenceFile))).toBe(
+      row.evidenceSha256,
+    );
+    expect(sha256File(join(artifactDir, 'gate.json'))).not.toBe(
+      row.evidenceSha256,
+    );
+  });
+
+  it('hashes the accessibility report inside the gate artifact', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-a11y-'));
+    const payload = `${JSON.stringify({
+      scans: [
+        { screen: 'analyze', violations: [], incomplete: [] },
+        { screen: 'analyze-results', violations: [], incomplete: [] },
+        { screen: 'queue', violations: [], incomplete: [] },
+        { screen: 'settings', violations: [], incomplete: [] },
+      ],
+    })}\n`;
+    const exact = join(dir, 'axe-results.json');
+    writeFileSync(exact, payload);
+    const digest = sha256Text(payload);
+    const resultPath = join(dir, 'accessibility.json');
+    writeFileSync(
+      resultPath,
+      `${JSON.stringify({
+        status: 'PASS',
+        value: '0 critical, 0 serious, 0 moderate, 0 minor',
+        floor: '<= 0 critical, <= 0 serious',
+        evidenceSha256: digest,
+        evidencePath: exact,
+      })}\n`,
+    );
+    const extra = evidenceForJob('accessibility', { GATE_RESULT: resultPath });
+    expect(extra.evidencePath).toBe(exact);
+    expect(extra.evidenceSha256).toBe(digest);
+    const receipt = buildGateReceipt({
+      job: 'accessibility',
+      outcome: 'success',
+      sha: 'abc',
+      extra,
+    });
+    const gatesRoot = join(dir, 'gates');
+    stageHashedEvidence(receipt, extra.evidencePath, gatesRoot);
+    writeGateReceipt(receipt, gatesRoot);
+    const artifactDir = join(gatesRoot, 'accessibility');
+    const stored = JSON.parse(
+      readFileSync(join(artifactDir, 'gate.json'), 'utf8'),
+    );
+    expect(stored.evidenceFile).toBe('axe-results.json');
+    expect(AXE_EVIDENCE_PATH.endsWith('axe-results.json')).toBe(true);
+    const row = buildQualityRows({
+      needs: { accessibility: { result: 'success' } },
+      gates: { accessibility: stored },
+    }).find((item) => item.job === 'accessibility');
+    expect(row.gate).toBe('Accessibility (cypress-axe)');
     expect(sha256File(join(artifactDir, stored.evidenceFile))).toBe(
       row.evidenceSha256,
     );
