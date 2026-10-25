@@ -40,6 +40,7 @@ export function AnalyzeView({
         </Field.HelperText>
         <Textarea
           id="unified-queue-urls"
+          data-testid="link-input"
           value={analyze.urlsText}
           onChange={(e) => analyze.setUrlsText(e.target.value)}
           placeholder={'https://www.youtube.com/watch?v=…\nhttps://youtu.be/…'}
@@ -64,6 +65,7 @@ export function AnalyzeView({
       <HStack gap={3} flexWrap="wrap" align="stretch">
         <Button
           flex={{ base: '1', sm: 'initial' }}
+          data-testid="check-quality-button"
           colorPalette="purple"
           variant="surface"
           onClick={() => void onAnalyze()}

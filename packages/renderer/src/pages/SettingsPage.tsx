@@ -114,7 +114,13 @@ export function SettingsPage({
             <Text fontWeight="medium" fontSize="sm">
               Last save folder
             </Text>
-            <Text fontSize="xs" color="fg.muted" mt={1} wordBreak="break-all">
+            <Text
+              fontSize="xs"
+              color="fg.muted"
+              mt={1}
+              wordBreak="break-all"
+              data-testid="output-folder"
+            >
               {lastOutputFolder ??
                 'No downloads yet. Completed files will show their folder here.'}
             </Text>

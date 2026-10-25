@@ -25,7 +25,7 @@ export function AnalyzeErrorBanner({
 
   return (
     <>
-      <Text role="alert" color="red.300">
+      <Text role="alert" data-testid="error-state" color="red.300">
         {error}
       </Text>
       {debugMode && diagnosticsReport ? (
