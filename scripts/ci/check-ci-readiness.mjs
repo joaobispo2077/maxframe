@@ -376,23 +376,61 @@ function wholeAttempt(value) {
   return Number.isInteger(attempt) && attempt > 0 ? attempt : 0;
 }
 
-// The receipt that counts is the one from the latest attempt in which that
-// job ran. Jobs that were not re-run keep the earlier attempt's artifact.
-// When the job list has no execution, stay on the current attempt so a
-// missing receipt fails closed instead of borrowing an older file.
-export function receiptAttemptForJob(runJobs, jobId, currentAttempt) {
+// Place a job by its start time against each attempt's run_started_at.
+// The jobs API run_attempt field is not used: a re-run copies carried-over
+// jobs with a new id and the new attempt number, while their timestamps
+// stay on the attempt that actually ran them.
+export function attemptForTimestamp(timestamp, attempts) {
+  const at = Date.parse(timestamp ?? '');
+  if (!Number.isFinite(at)) return 0;
+  const windows = [];
+  for (const item of Array.isArray(attempts) ? attempts : []) {
+    const attempt = wholeAttempt(item?.run_attempt ?? item?.attempt);
+    const started = Date.parse(item?.run_started_at || item?.created_at || '');
+    if (attempt < 1 || !Number.isFinite(started)) continue;
+    windows.push({ attempt, started });
+  }
+  windows.sort(
+    (left, right) =>
+      left.started - right.started || left.attempt - right.attempt,
+  );
+  let chosen = 0;
+  for (const window of windows) {
+    if (window.started <= at) chosen = window.attempt;
+    else break;
+  }
+  return chosen;
+}
+
+// The receipt that counts is the latest attempt whose window contains the
+// job's started_at. A job that started in this attempt must use this
+// attempt's artifact. An older passing receipt does not replace it. When
+// the job list or the timestamps cannot be placed, stay on the current
+// attempt so a missing receipt fails closed.
+export function receiptAttemptForJob(
+  runJobs,
+  jobId,
+  currentAttempt,
+  attempts = [],
+) {
   const current = wholeAttempt(currentAttempt);
   if (current === 0) return '';
   if (current === 1) return '1';
   const name = JOB_DISPLAY_NAMES[jobId];
   let best = 0;
+  let saw = false;
   for (const job of Array.isArray(runJobs) ? runJobs : []) {
     if (!job || job.name !== name) continue;
-    const attempt = wholeAttempt(job.run_attempt);
-    if (attempt < 1 || attempt > current) continue;
-    if (attempt > best) best = attempt;
+    saw = true;
+    const placed = attemptForTimestamp(
+      job.started_at || job.completed_at,
+      attempts,
+    );
+    if (placed < 1 || placed > current) continue;
+    if (placed > best) best = placed;
   }
-  return best > 0 ? String(best) : String(current);
+  if (!saw || best < 1) return String(current);
+  return String(best);
 }
 
 export function selectNamedArtifact(artifacts, name) {
@@ -446,6 +484,22 @@ async function listRunJobs(fetchImpl, repo, token, runId) {
   );
 }
 
+async function listRunAttempts(fetchImpl, repo, token, runId, currentAttempt) {
+  const attempts = [];
+  const current = wholeAttempt(currentAttempt);
+  for (let attempt = 1; attempt <= current; attempt += 1) {
+    const response = await fetchImpl(
+      `https://api.github.com/repos/${repo}/actions/runs/${runId}/attempts/${attempt}`,
+      { headers: authHeaders(token) },
+    );
+    if (!response.ok) {
+      throw new Error(`run attempt list failed: ${response.status}`);
+    }
+    attempts.push(await response.json());
+  }
+  return attempts;
+}
+
 export async function collectGateReceipts({
   fetchImpl = globalThis.fetch,
   repo,
@@ -462,13 +516,16 @@ export async function collectGateReceipts({
     );
   }
   const artifacts = await listRunArtifacts(fetchImpl, repo, token, runId);
+  const current = wholeAttempt(attempt);
   const runJobs =
-    wholeAttempt(attempt) > 1
-      ? await listRunJobs(fetchImpl, repo, token, runId)
+    current > 1 ? await listRunJobs(fetchImpl, repo, token, runId) : [];
+  const runAttempts =
+    current > 1
+      ? await listRunAttempts(fetchImpl, repo, token, runId, attempt)
       : [];
   const gates = {};
   for (const job of jobs) {
-    const resolved = receiptAttemptForJob(runJobs, job, attempt);
+    const resolved = receiptAttemptForJob(runJobs, job, attempt, runAttempts);
     if (resolved && attempt && resolved !== String(attempt)) {
       console.log(
         `${job}: using gate receipt from attempt ${resolved} of this run`,

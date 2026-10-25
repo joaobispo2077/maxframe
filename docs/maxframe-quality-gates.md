@@ -71,6 +71,8 @@ Steps inside the job default to `success()`, which is false when the run is canc
 
 `scripts/ci/check-ci-readiness.mjs` reads every job in `needs`. `cancelled` is a failure. `skipped` is a failure. A failed job and a missing `gate.json` stay failures. A `failure` result whose receipt is `UNKNOWN` does not add a second hard failure line. The UNKNOWN row still blocks.
 
+On a re-run, each gate receipt comes from the attempt whose `run_started_at` window contains that job's `started_at`. The jobs API `run_attempt` is not used, because a carried-over job is copied with the new attempt number and its old timestamps. A job that started in the current attempt must have that attempt's `gate-<job>` artifact. An older passing receipt does not replace a missing or failed one. A job whose timestamps belong to an earlier attempt keeps that attempt's artifact. The Software metrics rows use those same receipts.
+
 No required job is skipped on purpose. The workflow has no path filters and no branch filters. `INTENTIONAL_SKIP_JOBS` is empty. A `skipped` result can pass only when the job is not a required job, its id is in that set, and this section names the job. `cancelled` is never waived. A required job cannot be waived by that set.
 
 `coverage` and `complexity` use `if: always() && !cancelled()` so they stop after a cancelled run. That skip is not a success. Readiness fails. Step conditions (Stryker cache restore, pull request comments) do not skip the job. `quality-comments` may skip when the run is cancelled. It is not the required check.

@@ -880,11 +880,35 @@ describe('ci readiness', () => {
   });
 });
 
-function jobExecution(job, runAttempt, conclusion = 'success') {
+const ATTEMPT_STARTS = {
+  1: '2026-10-25T11:52:17Z',
+  2: '2026-10-25T14:05:47Z',
+  3: '2026-10-25T16:00:00Z',
+  4: '2026-10-25T18:00:00Z',
+};
+
+const ATTEMPT_JOB_STARTS = {
+  1: '2026-10-25T11:52:30Z',
+  2: '2026-10-25T14:05:52Z',
+  3: '2026-10-25T16:00:05Z',
+  4: '2026-10-25T18:00:05Z',
+};
+
+function runAttempts(upTo = 2) {
+  return Array.from({ length: upTo }, (_, index) => ({
+    run_attempt: index + 1,
+    run_started_at: ATTEMPT_STARTS[index + 1],
+  }));
+}
+
+function jobExecution(job, runAttempt, conclusion = 'success', startedAt) {
+  const started = startedAt ?? ATTEMPT_JOB_STARTS[runAttempt];
   return {
     name: JOB_DISPLAY_NAMES[job],
     run_attempt: runAttempt,
     conclusion,
+    started_at: started,
+    completed_at: started,
     html_url: `https://github.com/example/job/${job}/${runAttempt}`,
   };
 }
@@ -939,6 +963,13 @@ async function collectAttempt({ attempt, artifacts, executions }) {
         })),
       });
     }
+    if (url.includes('/attempts/')) {
+      const attempt = Number(url.match(/\/attempts\/(\d+)/)?.[1]);
+      return jsonResponse({
+        run_attempt: attempt,
+        run_started_at: ATTEMPT_STARTS[attempt],
+      });
+    }
     if (url.includes('/jobs?')) {
       return jsonResponse({ jobs: executions });
     }
@@ -985,18 +1016,44 @@ function readinessReport(gates, sha = 'abc', attempt = '1') {
 describe('ci readiness across run attempts', () => {
   it('uses attempt 1 on the first run and ignores a later execution', () => {
     expect(receiptAttemptForJob([], 'lint', '1')).toBe('1');
-    expect(receiptAttemptForJob([jobExecution('lint', 4)], 'lint', '1')).toBe(
-      '1',
-    );
+    expect(
+      receiptAttemptForJob(
+        [jobExecution('lint', 4)],
+        'lint',
+        '1',
+        runAttempts(4),
+      ),
+    ).toBe('1');
     expect(receiptAttemptForJob([], 'lint', '')).toBe('');
     expect(
       receiptAttemptForJob(
         [jobExecution('lint', 3), jobExecution('lint', 1)],
         'lint',
         '2',
+        runAttempts(3),
       ),
     ).toBe('1');
-    expect(receiptAttemptForJob([], 'lint', '2')).toBe('2');
+    expect(receiptAttemptForJob([], 'lint', '2', runAttempts(2))).toBe('2');
+  });
+
+  it('ignores the jobs API run_attempt and uses the attempt window', () => {
+    const attempts = runAttempts(2);
+    const carried = {
+      name: JOB_DISPLAY_NAMES.lint,
+      run_attempt: 2,
+      started_at: ATTEMPT_JOB_STARTS[1],
+      completed_at: '2026-10-25T11:53:22Z',
+    };
+    expect(receiptAttemptForJob([carried], 'lint', '2', attempts)).toBe('1');
+    const rerun = {
+      name: JOB_DISPLAY_NAMES.lint,
+      run_attempt: 1,
+      started_at: ATTEMPT_JOB_STARTS[2],
+      completed_at: '2026-10-25T14:06:03Z',
+    };
+    expect(receiptAttemptForJob([carried, rerun], 'lint', '2', attempts)).toBe(
+      '2',
+    );
   });
 
   it('passes on the first attempt when every gate receipt is from that attempt', async () => {
@@ -1017,6 +1074,34 @@ describe('ci readiness across run attempts', () => {
     expect(gates.lint.artifactUrl).toBe(
       `https://github.com/joaobispo2077/maxframe/actions/runs/99/artifacts/${lint}`,
     );
+    expect(report.rows.find((row) => row.job === 'lint').artifactUrl).toBe(
+      gates.lint.artifactUrl,
+    );
+  });
+
+  it('passes carried-over jobs from attempt 1 when the jobs API says attempt 2', async () => {
+    const artifacts = [];
+    const executions = [];
+    let id = 1;
+    for (const job of REQUIRED_JOBS) {
+      artifacts.push(storedArtifact(id, job, 1, receiptFor(job)));
+      executions.push(jobExecution(job, 2, 'success', ATTEMPT_JOB_STARTS[1]));
+      id += 1;
+    }
+    const { gates, zipIds } = await collectAttempt({
+      attempt: '2',
+      artifacts,
+      executions,
+    });
+    for (const job of REQUIRED_JOBS) {
+      expect(gates[job]?.status).toBe('PASS');
+      expect(gates[job]?.artifactName).toBe(`gate-${job}-attempt-1`);
+    }
+    expect(zipIds).toHaveLength(REQUIRED_JOBS.length);
+    const { failures, report } = readinessReport(gates, 'abc', '2');
+    expect(failures).toEqual([]);
+    expect(report.status).toBe('PASS');
+    expect(report.rows.find((row) => row.job === 'lint').status).toBe('PASS');
     expect(report.rows.find((row) => row.job === 'lint').artifactUrl).toBe(
       gates.lint.artifactUrl,
     );
@@ -1223,6 +1308,7 @@ describe('ci readiness across run attempts', () => {
     const fetchImpl = async (url) => {
       if (url.includes('/artifacts?')) return jsonResponse({ artifacts: [] });
       if (url.includes('/jobs?')) return jsonResponse({}, 500);
+      if (url.includes('/attempts/')) return jsonResponse({}, 500);
       throw new Error(url);
     };
     await expect(
