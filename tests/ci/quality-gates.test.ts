@@ -338,6 +338,15 @@ describe('ci workflow contract', () => {
       'path: reports/quality/gates/accessibility/gate.json',
     );
     expect(REQUIRED_JOBS).toContain('accessibility');
+
+    const crap = jobBody(workflow, 'crap').join('\n');
+    expect(crap).toContain('name: CRAP top 10');
+    expect(crap).toContain('run: node scripts/ci/check-crap.mjs');
+    expect(crap).toContain('GATE_JOB: crap');
+    expect(crap).toContain('path: reports/quality/gates/crap\n');
+    expect(crap).not.toContain('path: reports/quality/gates/crap/gate.json');
+    expect(crap).toContain('unit-coverage-attempt-');
+    expect(REQUIRED_JOBS).toContain('crap');
     expect(NOT_WIRED_GATES.map((gate) => gate.job)).toEqual([
       'windows-smoke',
       'bundled-binaries',
@@ -712,6 +721,71 @@ describe('ci readiness', () => {
     expect(failedRow?.status).toBe('FAIL');
     expect(failedRow?.mode).toBe('BLOCK');
     expect(failedRow?.value).toContain('image-alt on analyze');
+    expect(failedRow?.status).not.toBe('PASS');
+  });
+
+  it('fails CI readiness when the CRAP top 10 job is skipped or cancelled', () => {
+    for (const result of ['skipped', 'cancelled'] as const) {
+      const needs = successfulNeeds();
+      needs.crap = { result };
+      const failures = evaluateReadiness({
+        needs,
+        gates: passingGates('abc'),
+        sha: 'abc',
+      });
+      expect(failures).toContain(
+        `crap: expected success, received "${result}"`,
+      );
+      const report = buildReport({
+        needs,
+        gates: passingGates('abc'),
+        failures,
+        env: { GITHUB_SHA: 'abc' },
+      });
+      expect(report.status).toBe('FAIL');
+      const row = report.rows.find((item) => item.job === 'crap');
+      expect(row?.mode).toBe('BLOCK');
+      expect(row?.status).toBe('FAIL');
+      expect(row?.gate).toBe('CRAP top 10');
+      expect(row?.value).toContain(
+        result === 'skipped' ? 'Skipped' : 'Cancelled',
+      );
+      expect(row?.status).not.toBe('PASS');
+    }
+  });
+
+  it('fails CI readiness when CRAP top 10 is over the ceiling', () => {
+    const sha = 'abc';
+    const needs = successfulNeeds();
+    needs.crap = { result: 'failure' };
+    const gates = passingGates(sha);
+    gates.crap = buildGateReceipt({
+      job: 'crap',
+      outcome: 'failure',
+      sha,
+      extra: {
+        value:
+          'CRAP top 10: FAIL. worst 182.00, 27 above 30. worst 182.00 is above 156. 27 above 30 is above 26',
+        floor: 'worst <= 156, above 30 <= 26',
+        gateStatus: 'FAIL',
+        metrics: { worst: 182, above: 27, top10: [] },
+      },
+    });
+    const failures = evaluateReadiness({ needs, gates, sha });
+    expect(failures).toContain('crap: expected success, received "failure"');
+    expect(failures).toContain('crap: gate.json status is "FAIL"');
+    const failed = buildReport({
+      needs,
+      gates,
+      failures,
+      env: { GITHUB_SHA: sha },
+    });
+    expect(failed.status).toBe('FAIL');
+    const failedRow = failed.rows.find((item) => item.job === 'crap');
+    expect(failedRow?.gate).toBe('CRAP top 10');
+    expect(failedRow?.status).toBe('FAIL');
+    expect(failedRow?.mode).toBe('BLOCK');
+    expect(failedRow?.value).toContain('is above 156');
     expect(failedRow?.status).not.toBe('PASS');
   });
 
