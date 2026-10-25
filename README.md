@@ -30,6 +30,7 @@ For real analyze/download on your machine you still need:
 ### Tests and CI
 
 - **Tests / CI without yt-dlp** — Set **`MAXFRAME_FAKE_VIDEO_METADATA=1`** so analyze uses deterministic in-memory metadata (default for the `unit-tests` job in `.github/workflows/ci.yml`).
+- **Packaged GUI test hook** — `MAXFRAME_E2E=1` plus `MAXFRAME_E2E_FIXTURE` points analyze and download at a local file. See [docs/e2e-ac15-test-hooks.md](docs/e2e-ac15-test-hooks.md). A fixture path without test mode does nothing.
 - **Optional real-tool smoke** — Use the manual workflow [yt-dlp smoke](.github/workflows/yt-dlp-smoke.yml) (`workflow_dispatch`) when you want a maintainer-only check with network and upstream binaries (not part of default PR CI).
 
 ## CI Workflows
