@@ -3,7 +3,11 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { attemptLine, buildQualityRows } from './gate-metrics.mjs';
+import {
+  attemptLine,
+  buildQualityRows,
+  unwiredGateRows,
+} from './gate-metrics.mjs';
 
 export const REQUIRED_JOBS = [
   'typecheck',
@@ -17,6 +21,7 @@ export const REQUIRED_JOBS = [
   'deadcode',
   'architecture',
   'audit',
+  'find-dupes',
   'electron-security',
   'mutation-tests',
   'scheduled-workflow',
@@ -55,6 +60,7 @@ export const JOB_DISPLAY_NAMES = {
   deadcode: 'Dead code',
   architecture: 'Architecture',
   audit: 'Dependency audit',
+  'find-dupes': 'Dependency tree',
   'electron-security': 'Electron security',
   'mutation-tests': 'Mutation Tests (Stryker)',
   'scheduled-workflow': 'Scheduled workflow state',
@@ -221,6 +227,46 @@ export function jobUrlsFromList(jobs) {
   return urls;
 }
 
+function plainToken(value) {
+  const text = String(value || '');
+  if (!/^[A-Za-z0-9._:-]+$/.test(text)) return null;
+  return text;
+}
+
+function plainRef(value) {
+  const text = String(value || '');
+  if (!/^[A-Za-z0-9._/-]+$/.test(text)) return null;
+  return text;
+}
+
+export function gateArtifactUrl(repo, runId, artifactId) {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(String(repo || ''))) {
+    return null;
+  }
+  if (!/^[1-9]\d*$/.test(String(runId || ''))) return null;
+  if (!/^[1-9]\d*$/.test(String(artifactId || ''))) return null;
+  return `https://github.com/${repo}/actions/runs/${runId}/artifacts/${artifactId}`;
+}
+
+export function pullRequestFromEnv(env) {
+  const repository = plainRef(env.GITHUB_REPOSITORY || '')?.includes('/')
+    ? String(env.GITHUB_REPOSITORY)
+    : '';
+  const validRepo = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository);
+  const number = String(env.PR_NUMBER || '');
+  const validNumber = /^[1-9]\d*$/.test(number);
+  return {
+    number: validNumber ? number : null,
+    url:
+      validRepo && validNumber
+        ? `https://github.com/${repository}/pull/${number}`
+        : null,
+    headSha: plainToken(env.PR_HEAD_SHA),
+    baseSha: plainToken(env.PR_BASE_SHA),
+    baseRef: plainRef(env.PR_BASE_REF),
+  };
+}
+
 export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
   const jobs = {};
   for (const job of REQUIRED_JOBS) {
@@ -276,6 +322,8 @@ export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
     survivors: mutationGate?.survivors ?? null,
     mutationScope: mutationGate?.mutationScope ?? null,
     attemptLine: attemptLine(runAttempt),
+    unwired: unwiredGateRows(),
+    pullRequest: pullRequestFromEnv(env),
   };
 }
 
@@ -439,7 +487,16 @@ export async function collectGateReceipts({
     const zipPath = join(dir, 'gate.zip');
     writeFileSync(zipPath, bytes);
     unpack(zipPath, dir);
-    gates[job] = readGateFile(dir);
+    const receipt = readGateFile(dir);
+    if (isObject(receipt)) {
+      const artifactUrl = gateArtifactUrl(repo, runId, artifact.id);
+      if (artifactUrl) {
+        receipt.artifactUrl = artifactUrl;
+        receipt.artifactName = name;
+        receipt.artifactId = artifact.id;
+      }
+    }
+    gates[job] = receipt;
   }
   return gates;
 }

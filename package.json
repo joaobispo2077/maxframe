@@ -30,6 +30,7 @@
     "gate:deadcode": "node scripts/ci/check-deadcode.mjs",
     "gate:architecture": "node scripts/ci/check-architecture.mjs",
     "gate:audit": "node scripts/ci/check-audit.mjs",
+    "gate:find-dupes": "node scripts/ci/check-find-dupes.mjs",
     "gate:electron": "node scripts/ci/check-electron-security.mjs",
     "test:unit:watch": "vitest -c vitest.config.ts",
     "test:e2e": "cypress run --component",

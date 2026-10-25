@@ -23,6 +23,7 @@ import {
 } from '../../scripts/ci/check-deadcode.mjs';
 import { evaluateDuplication } from '../../scripts/ci/check-duplication.mjs';
 import { evaluateElectronSecurity } from '../../scripts/ci/check-electron-security.mjs';
+import { evaluateDependencyTree } from '../../scripts/ci/check-find-dupes.mjs';
 import {
   allowKey,
   crapScore,
@@ -152,6 +153,21 @@ describe('other blocking gates', () => {
     });
     expect(overHigh.status).toBe('FAIL');
     expect(overHigh.value).toContain('41 high is above 40');
+  });
+
+  it('fails a dependency tree over the duplicate package ceiling', () => {
+    const one = [{ name: 'semver', versions: ['6.0.0', '7.0.0'] }];
+    expect(evaluateDependencyTree(one, 1).status).toBe('PASS');
+    const over = evaluateDependencyTree(
+      [...one, { name: 'once', versions: ['1.0.0', '2.0.0'] }],
+      1,
+    );
+    expect(over.status).toBe('FAIL');
+    expect(over.value).toContain(
+      '2 packages resolved at more than one version is above 1',
+    );
+    expect(over.status).not.toBe('PASS');
+    expect(evaluateDependencyTree(null).status).toBe('UNKNOWN');
   });
 
   it('fails Electron windows that are not sandboxed', () => {
