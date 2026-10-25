@@ -26,6 +26,7 @@
     "test:unit:coverage": "vitest run -c vitest.config.ts --coverage --coverage.reporter=json-summary --coverage.reporter=json --coverage.reporter=cobertura",
     "gate:coverage": "node scripts/ci/check-coverage.mjs",
     "gate:complexity": "node scripts/ci/check-complexity.mjs",
+    "gate:crap": "node scripts/ci/check-crap.mjs",
     "gate:duplication": "node scripts/ci/check-duplication.mjs",
     "gate:deadcode": "node scripts/ci/check-deadcode.mjs",
     "gate:architecture": "node scripts/ci/check-architecture.mjs",

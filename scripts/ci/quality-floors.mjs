@@ -28,6 +28,20 @@ export const DUPLICATION_CEILING = 2;
 /** Max CRAP for a function that is not on the allowlist. Only moves down. */
 export const CRAP_MAX = 30;
 
+/**
+ * Worst function CRAP on develop at ae12db5.
+ * ESLint modified complexity joined with unit coverage-final.json.
+ * QualityResultsPanel and SettingsPage both score 156 at 0% coverage.
+ * This ceiling only moves down.
+ */
+export const CRAP_MAX_SCORE = 156;
+
+/**
+ * Functions with CRAP above 30 on that same develop measurement.
+ * A score of exactly 30 is not counted. This ceiling only moves down.
+ */
+export const CRAP_OVER_30_MAX = 26;
+
 /** ESLint modified cyclomatic complexity max. Do not raise. */
 export const COMPLEXITY_MAX = 12;
 
@@ -71,4 +85,11 @@ export function mutationFloorLabel(floor = MUTATION_BREAK) {
 
 export function complexityFloorLabel() {
   return `complexity <= ${COMPLEXITY_MAX}, CRAP <= ${CRAP_MAX}, 0 new over the line`;
+}
+
+export function crapTopFloorLabel(
+  scoreMax = CRAP_MAX_SCORE,
+  overMax = CRAP_OVER_30_MAX,
+) {
+  return `worst <= ${scoreMax}, above ${CRAP_MAX} <= ${overMax}`;
 }
