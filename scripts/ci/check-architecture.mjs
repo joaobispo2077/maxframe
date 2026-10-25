@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { createHash } from 'node:crypto';
@@ -98,9 +98,16 @@ if (isDirectRun()) {
   }
   const result = evaluateArchitecture(report);
   if (run.stdout) {
+    const evidencePath = join(
+      'reports/quality/evidence',
+      'dependency-cruiser.json',
+    );
+    mkdirSync(dirname(evidencePath), { recursive: true });
+    writeFileSync(evidencePath, run.stdout);
     result.evidenceSha256 = createHash('sha256')
       .update(run.stdout)
       .digest('hex');
+    result.evidencePath = evidencePath;
   }
   process.exit(finishGate('architecture', result));
 }

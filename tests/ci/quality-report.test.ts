@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -20,8 +20,10 @@ import {
   mutationMetrics,
   parseReuseLine,
   parseSizeLimit,
+  evidenceForJob,
   readCoverageTotals,
   readEslintCounts,
+  sha256File,
   sha256Text,
 } from '../../scripts/ci/gate-metrics.mjs';
 import {
@@ -41,6 +43,8 @@ import {
 import {
   buildGateReceipt,
   publishGateLog,
+  stageHashedEvidence,
+  writeGateReceipt,
 } from '../../scripts/ci/write-gate-json.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -831,5 +835,98 @@ describe('quality report sections', () => {
         `${spec.gate}: Not wired yet. Does not change Overall.`,
       );
     }
+  });
+
+  it('hashes the evidence file inside the gate artifact, not gate.json', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-artifact-'));
+    const eslintPath = join(dir, 'eslint.json');
+    writeFileSync(
+      eslintPath,
+      `${JSON.stringify([{ errorCount: 0, warningCount: 1 }])}\n`,
+    );
+    const extra = evidenceForJob('lint', { GATE_ESLINT_JSON: eslintPath });
+    const receipt = buildGateReceipt({
+      job: 'lint',
+      outcome: 'success',
+      sha: 'abc',
+      extra,
+    });
+    const gatesRoot = join(dir, 'gates');
+    stageHashedEvidence(receipt, extra.evidencePath, gatesRoot);
+    writeGateReceipt(receipt, gatesRoot);
+    const artifactDir = join(gatesRoot, 'lint');
+    expect(readdirSync(artifactDir).sort()).toEqual([
+      'eslint.json',
+      'gate.json',
+    ]);
+    const stored = JSON.parse(
+      readFileSync(join(artifactDir, 'gate.json'), 'utf8'),
+    );
+    const row = buildQualityRows({
+      needs: { lint: { result: 'success' } },
+      gates: { lint: stored },
+    }).find((item) => item.job === 'lint');
+    const evidenceFile = join(artifactDir, stored.evidenceFile);
+    expect(sha256File(evidenceFile)).toBe(row.evidenceSha256);
+    expect(sha256File(evidenceFile)).toBe(extra.evidenceSha256);
+    expect(sha256File(join(artifactDir, 'gate.json'))).not.toBe(
+      row.evidenceSha256,
+    );
+  });
+
+  it('stages the exact hashed bytes when a pretty report would not match', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-bytes-'));
+    const report = { issues: [] };
+    const payload = JSON.stringify(report);
+    const pretty = join(dir, 'knip.json');
+    writeFileSync(pretty, `${JSON.stringify(report, null, 2)}\n`);
+    const exact = join(dir, 'knip-report.json');
+    writeFileSync(exact, payload);
+    const digest = sha256Text(payload);
+    expect(sha256File(pretty)).not.toBe(digest);
+    const resultPath = join(dir, 'deadcode.json');
+    writeFileSync(
+      resultPath,
+      `${JSON.stringify({
+        status: 'PASS',
+        value: 'Dead code: PASS. 0 unwaived',
+        floor: '0 unwaived',
+        evidenceSha256: digest,
+        evidencePath: exact,
+      })}\n`,
+    );
+    const extra = evidenceForJob('deadcode', { GATE_RESULT: resultPath });
+    expect(extra.evidencePath).toBe(exact);
+    expect(extra.evidenceSha256).toBe(digest);
+    const receipt = buildGateReceipt({
+      job: 'deadcode',
+      outcome: 'success',
+      sha: 'abc',
+      extra,
+    });
+    const gatesRoot = join(dir, 'gates');
+    stageHashedEvidence(receipt, extra.evidencePath, gatesRoot);
+    writeGateReceipt(receipt, gatesRoot);
+    const artifactDir = join(gatesRoot, 'deadcode');
+    const stored = JSON.parse(
+      readFileSync(join(artifactDir, 'gate.json'), 'utf8'),
+    );
+    const row = buildQualityRows({
+      needs: { deadcode: { result: 'success' } },
+      gates: { deadcode: stored },
+    }).find((item) => item.job === 'deadcode');
+    expect(sha256File(join(artifactDir, stored.evidenceFile))).toBe(
+      row.evidenceSha256,
+    );
+    expect(sha256File(join(artifactDir, 'gate.json'))).not.toBe(
+      row.evidenceSha256,
+    );
+    expect(() =>
+      stageHashedEvidence(
+        { job: 'deadcode', evidenceSha256: digest },
+        pretty,
+        join(dir, 'mismatch'),
+      ),
+    ).toThrow(/does not match/);
   });
 });

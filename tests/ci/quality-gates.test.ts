@@ -349,6 +349,33 @@ describe('ci workflow contract', () => {
       'utf8',
     );
     expect(sizeLimit).toContain('header: size-limit-report');
+    expect(sizeLimit).toContain('recreate: true');
+  });
+
+  it('uploads each hashed evidence file beside gate.json', () => {
+    for (const job of REQUIRED_JOBS) {
+      const body = jobBody(workflow, job).join('\n');
+      expect(body).toContain(`path: reports/quality/gates/${job}\n`);
+      expect(body).not.toContain(
+        `path: reports/quality/gates/${job}/gate.json`,
+      );
+    }
+  });
+
+  it('updates the software metrics sticky in place', () => {
+    const comments = workflow.slice(workflow.indexOf('  quality-comments:\n'));
+    const software = comments.slice(
+      comments.indexOf('Publish Software metrics comment'),
+      comments.indexOf('Publish Mutation tests comment'),
+    );
+    expect(software).toContain('header: quality-gates-report');
+    expect(software).not.toContain('recreate:');
+    const mutation = comments.slice(
+      comments.indexOf('Publish Mutation tests comment'),
+      comments.indexOf('Remove superseded maxframe quality comment'),
+    );
+    expect(mutation).toContain('header: mutation-report');
+    expect(mutation).toContain('recreate: true');
   });
 
   it('removes npm ci --force from every workflow', () => {

@@ -682,6 +682,8 @@ function resultEvidence(job, env) {
     gateStatus: parsed.status,
     metrics: parsed.metrics ?? null,
     evidenceSha256: parsed.evidenceSha256 ?? null,
+    evidencePath:
+      typeof parsed.evidencePath === 'string' ? parsed.evidencePath : null,
     logLines: [`${spec?.gate || job}: ${parsed.status}. ${parsed.value ?? ''}`],
   };
 }
@@ -699,6 +701,7 @@ export function evidenceForJob(job, env = process.env) {
       value: errors == null ? 'error count unavailable' : `${errors} errors`,
       floor: '0 errors',
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       logLines: [
         errors == null
           ? 'Typecheck: error count unavailable'
@@ -723,6 +726,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: lintFloorLabel(),
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       metrics: counts,
       logLines: [`Lint: ${value} vs threshold ${lintFloorLabel()}`],
     };
@@ -736,6 +740,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: '0 files',
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       logLines: [`Format: ${value} vs threshold 0 files`],
     };
   }
@@ -763,6 +768,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: 'tests pass',
       evidenceSha256: hashIfPresent(vitestPath),
+      evidencePath: existsSync(vitestPath) ? vitestPath : null,
       metrics: counts,
       coverage,
       logLines,
@@ -779,6 +785,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: 'tests pass',
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       metrics: counts,
       logLines: [`E2E: ${value}`],
     };
@@ -800,6 +807,7 @@ export function evidenceForJob(job, env = process.env) {
       cacheDecision: decision,
     });
     const evidenceSha256 = hashIfPresent(jsonPath);
+    const evidencePath = existsSync(jsonPath) ? jsonPath : null;
     if (metrics) metrics.evidenceSha256 = evidenceSha256;
     const row = buildStrykerRow({
       metrics,
@@ -812,6 +820,7 @@ export function evidenceForJob(job, env = process.env) {
       floor: row.floor,
       gateStatus: row.status === 'PASS' ? undefined : row.status,
       evidenceSha256,
+      evidencePath,
       stryker: metrics,
       survivors: topSurvivors(report),
       mutationScope,
@@ -831,6 +840,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: 'workflow state readable',
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       logLines: [`Scheduled workflow: ${value}`],
     };
   }
@@ -855,6 +865,7 @@ export function evidenceForJob(job, env = process.env) {
       value: parsed.value,
       floor: parsed.floor,
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       informational: true,
       status: parsed.status,
       logLines: [`Size limit: ${parsed.value}`, `Floor: ${parsed.floor}`],

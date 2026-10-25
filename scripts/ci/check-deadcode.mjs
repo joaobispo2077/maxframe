@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -171,9 +177,12 @@ if (isDirectRun()) {
     if (run.stderr) console.error(run.stderr);
   }
   if (report) {
-    result.evidenceSha256 = createHash('sha256')
-      .update(JSON.stringify(report))
-      .digest('hex');
+    const payload = JSON.stringify(report);
+    const evidencePath = join('reports/quality/evidence', 'knip-report.json');
+    mkdirSync(dirname(evidencePath), { recursive: true });
+    writeFileSync(evidencePath, payload);
+    result.evidenceSha256 = createHash('sha256').update(payload).digest('hex');
+    result.evidencePath = evidencePath;
   }
   process.exit(finishGate('deadcode', result));
 }
