@@ -90,7 +90,9 @@ jobs:
   lint:
     name: Lint
     needs: select-run
-    if: needs.select-run.outputs.run_full_ci == 'true'
+    # Red proof only: a pull_request run skips Lint on purpose.
+    # CI readiness must fail. Do not merge this branch.
+    if: needs.select-run.outputs.run_full_ci == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

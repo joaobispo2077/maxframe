@@ -278,7 +278,11 @@ describe('ci workflow contract', () => {
     expect(select).toContain('run_full_ci:');
     expect(select).toContain('node scripts/ci/select-ci-run.mjs --workflow ci');
     for (const job of ROOT_GATES) {
-      expect(workflowJobIf(workflow, job), job).toBe(FULL_CI_IF);
+      const expected =
+        job === 'lint'
+          ? `${FULL_CI_IF} && github.event_name != 'pull_request'`
+          : FULL_CI_IF;
+      expect(workflowJobIf(workflow, job), job).toBe(expected);
       expect(jobBody(workflow, job).join('\n'), job).toContain(
         'needs: select-run',
       );
