@@ -7,6 +7,7 @@ import {
   COVERAGE_FLOORS,
   DUPLICATION_CEILING,
   ELECTRON_SECURITY_FLOOR,
+  FIND_DUPES_MAX,
   MUTATION_BREAK,
   MUTATION_SURVIVOR_LIMIT,
   complexityFloorLabel,
@@ -46,6 +47,11 @@ export const BLOCK_GATES = [
     floor: `0 critical, <= ${AUDIT_HIGH_MAX} high`,
   },
   {
+    job: 'find-dupes',
+    gate: 'Dependency tree (npm find-dupes)',
+    floor: `<= ${FIND_DUPES_MAX} packages`,
+  },
+  {
     job: 'electron-security',
     gate: 'Electron security',
     floor: ELECTRON_SECURITY_FLOOR,
@@ -63,7 +69,6 @@ export const INFO_GATES = [];
 // affect Overall. They stay out of INFO_GATES so a missing row cannot fail a
 // run that already passed every wired gate.
 export const NOT_WIRED_GATES = [
-  { job: 'find-dupes', gate: 'Dependency tree (npm find-dupes)' },
   { job: 'windows-smoke', gate: 'Windows build smoke' },
   { job: 'bundled-binaries', gate: 'Bundled binaries' },
   { job: 'accessibility', gate: 'Accessibility (cypress-axe)' },
@@ -682,6 +687,8 @@ function resultEvidence(job, env) {
     gateStatus: parsed.status,
     metrics: parsed.metrics ?? null,
     evidenceSha256: parsed.evidenceSha256 ?? null,
+    evidencePath:
+      typeof parsed.evidencePath === 'string' ? parsed.evidencePath : null,
     logLines: [`${spec?.gate || job}: ${parsed.status}. ${parsed.value ?? ''}`],
   };
 }
@@ -699,6 +706,7 @@ export function evidenceForJob(job, env = process.env) {
       value: errors == null ? 'error count unavailable' : `${errors} errors`,
       floor: '0 errors',
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       logLines: [
         errors == null
           ? 'Typecheck: error count unavailable'
@@ -723,6 +731,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: lintFloorLabel(),
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       metrics: counts,
       logLines: [`Lint: ${value} vs threshold ${lintFloorLabel()}`],
     };
@@ -736,6 +745,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: '0 files',
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       logLines: [`Format: ${value} vs threshold 0 files`],
     };
   }
@@ -763,6 +773,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: 'tests pass',
       evidenceSha256: hashIfPresent(vitestPath),
+      evidencePath: existsSync(vitestPath) ? vitestPath : null,
       metrics: counts,
       coverage,
       logLines,
@@ -779,6 +790,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: 'tests pass',
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       metrics: counts,
       logLines: [`E2E: ${value}`],
     };
@@ -800,6 +812,7 @@ export function evidenceForJob(job, env = process.env) {
       cacheDecision: decision,
     });
     const evidenceSha256 = hashIfPresent(jsonPath);
+    const evidencePath = existsSync(jsonPath) ? jsonPath : null;
     if (metrics) metrics.evidenceSha256 = evidenceSha256;
     const row = buildStrykerRow({
       metrics,
@@ -812,6 +825,7 @@ export function evidenceForJob(job, env = process.env) {
       floor: row.floor,
       gateStatus: row.status === 'PASS' ? undefined : row.status,
       evidenceSha256,
+      evidencePath,
       stryker: metrics,
       survivors: topSurvivors(report),
       mutationScope,
@@ -831,6 +845,7 @@ export function evidenceForJob(job, env = process.env) {
       value,
       floor: 'workflow state readable',
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       logLines: [`Scheduled workflow: ${value}`],
     };
   }
@@ -842,6 +857,7 @@ export function evidenceForJob(job, env = process.env) {
       'deadcode',
       'architecture',
       'audit',
+      'find-dupes',
       'electron-security',
     ].includes(job)
   ) {
@@ -855,6 +871,7 @@ export function evidenceForJob(job, env = process.env) {
       value: parsed.value,
       floor: parsed.floor,
       evidenceSha256: hashIfPresent(path),
+      evidencePath: path && existsSync(path) ? path : null,
       informational: true,
       status: parsed.status,
       logLines: [`Size limit: ${parsed.value}`, `Floor: ${parsed.floor}`],

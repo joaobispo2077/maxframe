@@ -32,6 +32,7 @@ import {
   checkScheduledWorkflow,
   warningForWorkflowState,
 } from '../../scripts/ci/check-scheduled-workflow.mjs';
+import { NOT_WIRED_GATES } from '../../scripts/ci/gate-metrics.mjs';
 import { buildGateReceipt } from '../../scripts/ci/write-gate-json.mjs';
 import {
   assertPrefixRestoreHasNoScore,
@@ -312,6 +313,32 @@ describe('ci workflow contract', () => {
     expect(audit).not.toContain('audit-one-critical');
   });
 
+  it('wires the dependency tree gate and leaves the other planned gates unwired', () => {
+    const body = jobBody(workflow, 'find-dupes').join('\n');
+    expect(body).toContain('name: Dependency tree');
+    expect(body).toContain('run: node scripts/ci/check-find-dupes.mjs');
+    expect(body).toContain('GATE_JOB: find-dupes');
+    expect(body).toContain('path: reports/quality/gates/find-dupes\n');
+    expect(body).not.toContain(
+      'path: reports/quality/gates/find-dupes/gate.json',
+    );
+    expect(REQUIRED_JOBS).toContain('find-dupes');
+    expect(NOT_WIRED_GATES.map((gate) => gate.job)).toEqual([
+      'windows-smoke',
+      'bundled-binaries',
+      'accessibility',
+    ]);
+    expect(NOT_WIRED_GATES.map((gate) => gate.gate)).toEqual([
+      'Windows build smoke',
+      'Bundled binaries',
+      'Accessibility (cypress-axe)',
+    ]);
+    for (const spec of NOT_WIRED_GATES) {
+      expect(jobBody(workflow, spec.job)).toEqual([]);
+      expect(REQUIRED_JOBS).not.toContain(spec.job);
+    }
+  });
+
   it('restores the Stryker PR cache only on an exact key', () => {
     const cacheStart = workflow.indexOf(
       'Cache Stryker incremental report (exact key only)',
@@ -349,6 +376,33 @@ describe('ci workflow contract', () => {
       'utf8',
     );
     expect(sizeLimit).toContain('header: size-limit-report');
+    expect(sizeLimit).toContain('recreate: true');
+  });
+
+  it('uploads each hashed evidence file beside gate.json', () => {
+    for (const job of REQUIRED_JOBS) {
+      const body = jobBody(workflow, job).join('\n');
+      expect(body).toContain(`path: reports/quality/gates/${job}\n`);
+      expect(body).not.toContain(
+        `path: reports/quality/gates/${job}/gate.json`,
+      );
+    }
+  });
+
+  it('updates the software metrics sticky in place', () => {
+    const comments = workflow.slice(workflow.indexOf('  quality-comments:\n'));
+    const software = comments.slice(
+      comments.indexOf('Publish Software metrics comment'),
+      comments.indexOf('Publish Mutation tests comment'),
+    );
+    expect(software).toContain('header: quality-gates-report');
+    expect(software).not.toContain('recreate:');
+    const mutation = comments.slice(
+      comments.indexOf('Publish Mutation tests comment'),
+      comments.indexOf('Remove superseded maxframe quality comment'),
+    );
+    expect(mutation).toContain('header: mutation-report');
+    expect(mutation).toContain('recreate: true');
   });
 
   it('removes npm ci --force from every workflow', () => {
@@ -512,6 +566,73 @@ describe('ci readiness', () => {
     expect(writtenAudit.status).toBe('FAIL');
     expect(writtenAudit.gate).toBe('Dependency audit');
     expect(readFileSync(outputPath, 'utf8')).toContain('status=FAIL');
+  });
+
+  it('fails CI readiness when the dependency tree job is skipped or cancelled', () => {
+    for (const result of ['skipped', 'cancelled'] as const) {
+      const needs = successfulNeeds();
+      needs['find-dupes'] = { result };
+      const failures = evaluateReadiness({
+        needs,
+        gates: passingGates('abc'),
+        sha: 'abc',
+      });
+      expect(failures).toContain(
+        `find-dupes: expected success, received "${result}"`,
+      );
+      const report = buildReport({
+        needs,
+        gates: passingGates('abc'),
+        failures,
+        env: { GITHUB_SHA: 'abc' },
+      });
+      expect(report.status).toBe('FAIL');
+      const row = report.rows.find((item) => item.job === 'find-dupes');
+      expect(row?.mode).toBe('BLOCK');
+      expect(row?.status).toBe('FAIL');
+      expect(row?.gate).toBe('Dependency tree (npm find-dupes)');
+      expect(row?.value).toContain(
+        result === 'skipped' ? 'Skipped' : 'Cancelled',
+      );
+      expect(row?.status).not.toBe('PASS');
+    }
+  });
+
+  it('fails CI readiness when the dependency tree count is over the ceiling', () => {
+    const sha = 'abc';
+    const needs = successfulNeeds();
+    needs['find-dupes'] = { result: 'failure' };
+    const gates = passingGates(sha);
+    gates['find-dupes'] = buildGateReceipt({
+      job: 'find-dupes',
+      outcome: 'failure',
+      sha,
+      extra: {
+        value:
+          'Dependency tree: FAIL. 135 packages resolved at more than one version is above 134',
+        floor: '<= 134 packages',
+        gateStatus: 'FAIL',
+        metrics: { duplicatePackages: 135 },
+      },
+    });
+    const failures = evaluateReadiness({ needs, gates, sha });
+    expect(failures).toContain(
+      'find-dupes: expected success, received "failure"',
+    );
+    expect(failures).toContain('find-dupes: gate.json status is "FAIL"');
+    const report = buildReport({
+      needs,
+      gates,
+      failures,
+      env: { GITHUB_SHA: sha },
+    });
+    expect(report.status).toBe('FAIL');
+    const row = report.rows.find((item) => item.job === 'find-dupes');
+    expect(row?.gate).toBe('Dependency tree (npm find-dupes)');
+    expect(row?.status).toBe('FAIL');
+    expect(row?.mode).toBe('BLOCK');
+    expect(row?.value).toContain('is above 134');
+    expect(row?.status).not.toBe('PASS');
   });
 
   it('fails when any job in needs is skipped or cancelled', () => {

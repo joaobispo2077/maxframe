@@ -38,6 +38,13 @@ export const COMPLEXITY_MAX = 12;
  */
 export const AUDIT_HIGH_MAX = 40;
 
+/**
+ * Package names resolved at more than one version.
+ * Measured 134 on develop at eb4b007f from package-lock.json.
+ * This ceiling only moves down.
+ */
+export const FIND_DUPES_MAX = 134;
+
 export const MUTATION_SURVIVOR_LIMIT = 10;
 
 export const ELECTRON_SECURITY_FLOOR =
