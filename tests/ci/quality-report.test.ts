@@ -686,6 +686,19 @@ describe('quality report sections', () => {
         `${row.gate}: Not wired yet. Does not change Overall.`,
       );
     }
+    expect(markdown).toContain('| Dependency tree (npm find-dupes) |');
+    expect(markdown).not.toContain(
+      'Dependency tree (npm find-dupes): Not wired yet.',
+    );
+    for (const gate of [
+      'Windows build smoke',
+      'Bundled binaries',
+      'Accessibility (cypress-axe)',
+    ]) {
+      expect(markdown).toContain(
+        `${gate}: Not wired yet. Does not change Overall.`,
+      );
+    }
     expect(markdown).toContain('**Overall: PASS**');
     expect(qualityReportExitCode(displayOverall(report))).toBe(0);
   });
