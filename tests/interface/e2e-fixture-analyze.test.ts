@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -69,7 +70,7 @@ describe('analyzeVideoHandler e2e fixture hook', () => {
 
     const result = await analyzeVideoHandler('https://youtu.be/dQw4w9WgXcQ');
 
-    expect(analyzeVideo).toHaveBeenCalledWith(fixturePath);
+    expect(analyzeVideo).toHaveBeenCalledWith(pathToFileURL(fixturePath).href);
     expect(result.title).toBe('fixture-title');
     expect(result.videoId).toBe('dQw4w9WgXcQ');
   });

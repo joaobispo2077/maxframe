@@ -1,6 +1,6 @@
 import { statSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /**
  * Test-only media source for the packaged-app GUI check (issue 85, AC15).
@@ -14,6 +14,12 @@ import { fileURLToPath } from 'node:url';
 export const E2E_TEST_MODE_ENV = 'MAXFRAME_E2E';
 export const E2E_FIXTURE_ENV = 'MAXFRAME_E2E_FIXTURE';
 export const E2E_OUTPUT_DIR_ENV = 'MAXFRAME_E2E_OUTPUT_DIR';
+
+/**
+ * yt-dlp rejects `file:` URLs unless this flag is present.
+ * Passed only while the fixture hook is active.
+ */
+export const YTDLP_ENABLE_FILE_URLS_ARG = '--enable-file-urls';
 
 export class E2eTestHookError extends Error {
   constructor(message: string) {
@@ -59,6 +65,18 @@ function readTrimmed(env: NodeJS.ProcessEnv, key: string): string | undefined {
 
 function isWindowsAbsolute(value: string): boolean {
   return /^[a-zA-Z]:[\\/]/.test(value) || value.startsWith('\\\\');
+}
+
+/**
+ * `file:///` URL for a local fixture path.
+ * `pathToFileURL` keeps POSIX paths and Windows drive or UNC paths from
+ * being parsed as a URL scheme (`C:\...` would otherwise be scheme `c:`).
+ */
+function fixturePathToFileUrl(localPath: string): string {
+  if (isWindowsAbsolute(localPath)) {
+    return pathToFileURL(localPath, { windows: true }).href;
+  }
+  return pathToFileURL(localPath).href;
 }
 
 function pathFromFileUrl(raw: string, envName: string): string {
@@ -140,7 +158,7 @@ export function resolveE2eFixture(
   return { active: true, fixturePath };
 }
 
-/** YouTube URL, or the local fixture path when the test hook is active. */
+/** YouTube URL, or a `file:///` URL for the fixture when the test hook is active. */
 export function resolveYtdlpMediaUrl(
   originalUrl: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -150,7 +168,22 @@ export function resolveYtdlpMediaUrl(
   if (!fixture.active) {
     return originalUrl;
   }
-  return fixture.fixturePath;
+  return fixturePathToFileUrl(fixture.fixturePath);
+}
+
+/**
+ * yt-dlp arguments required for the fixture URL.
+ * Empty unless the fixture hook is active, so normal downloads never receive
+ * `--enable-file-urls`.
+ */
+export function e2eYtdlpFileUrlArgs(
+  env: NodeJS.ProcessEnv = process.env,
+  fs: E2eTestHookFs = defaultFs,
+): string[] {
+  if (!resolveE2eFixture(env, fs).active) {
+    return [];
+  }
+  return [YTDLP_ENABLE_FILE_URLS_ARG];
 }
 
 /**
