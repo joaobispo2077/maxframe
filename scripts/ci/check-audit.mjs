@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { AUDIT_HIGH_MAX } from './quality-floors.mjs';
@@ -143,9 +145,13 @@ function readAuditReport(run) {
 function auditFromNpmRun(run, maxHigh = AUDIT_HIGH_MAX) {
   const result = evaluateAudit(readAuditReport(run), maxHigh);
   if (run?.stdout) {
+    const evidencePath = join('reports/quality/evidence', 'npm-audit.json');
+    mkdirSync(dirname(evidencePath), { recursive: true });
+    writeFileSync(evidencePath, run.stdout);
     result.evidenceSha256 = createHash('sha256')
       .update(run.stdout)
       .digest('hex');
+    result.evidencePath = evidencePath;
   }
   return result;
 }

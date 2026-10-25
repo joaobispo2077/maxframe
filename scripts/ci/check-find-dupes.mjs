@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { FIND_DUPES_MAX } from './quality-floors.mjs';
@@ -106,9 +107,15 @@ if (isDirectRun()) {
   const duplicates = lock ? duplicatesFromLock(lock) : null;
   const result = evaluateDependencyTree(duplicates);
   if (Array.isArray(duplicates)) {
-    result.evidenceSha256 = createHash('sha256')
-      .update(dependencyTreeEvidence(duplicates))
-      .digest('hex');
+    const payload = dependencyTreeEvidence(duplicates);
+    const evidencePath = join(
+      'reports/quality/evidence',
+      'lockfile-duplicates.json',
+    );
+    mkdirSync(dirname(evidencePath), { recursive: true });
+    writeFileSync(evidencePath, payload);
+    result.evidenceSha256 = createHash('sha256').update(payload).digest('hex');
+    result.evidencePath = evidencePath;
   }
   process.exit(finishGate('find-dupes', result));
 }

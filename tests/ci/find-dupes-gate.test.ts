@@ -61,6 +61,7 @@ function runScript(lock: unknown) {
     value: string;
     floor: string;
     evidenceSha256: string | null;
+    evidencePath?: string | null;
     metrics: { duplicatePackages: number } | null;
   };
   return { result, written };
@@ -138,6 +139,14 @@ describe('dependency tree gate', () => {
     expect(overRun.written.evidenceSha256).toBe(
       createHash('sha256').update(dependencyTreeEvidence(over)).digest('hex'),
     );
+    expect(overRun.written.evidencePath).toBe(
+      'reports/quality/evidence/lockfile-duplicates.json',
+    );
+    expect(
+      createHash('sha256')
+        .update(readFileSync(join(root, overRun.written.evidencePath), 'utf8'))
+        .digest('hex'),
+    ).toBe(overRun.written.evidenceSha256);
   });
 
   it('does not pass when the lockfile cannot be read', () => {

@@ -1,8 +1,18 @@
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import {
+  appendFileSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+} from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { evidenceForJob, logLinesForReceipt } from './gate-metrics.mjs';
+import {
+  evidenceForJob,
+  logLinesForReceipt,
+  sha256File,
+} from './gate-metrics.mjs';
 
 const OUTCOMES = {
   success: { status: 'PASS', result: 'success', exitCode: 0 },
@@ -75,6 +85,40 @@ export function gateJsonPath(job, root = 'reports/quality/gates') {
   return join(root, job, 'gate.json');
 }
 
+export function evidenceArtifactName(sourcePath) {
+  const name = basename(String(sourcePath || ''));
+  if (!name || name === '.' || name === '..' || name === 'gate.json') {
+    return 'evidence.bin';
+  }
+  return name;
+}
+
+// Copies the file that was hashed into the same directory as gate.json.
+// The digest is not recomputed into a new status. A mismatch fails the write.
+export function stageHashedEvidence(
+  receipt,
+  sourcePath,
+  root = 'reports/quality/gates',
+) {
+  if (!receipt?.evidenceSha256) return receipt;
+  if (!sourcePath || !existsSync(sourcePath)) {
+    throw new Error(`${receipt.job}: hashed evidence file is missing`);
+  }
+  const dir = dirname(gateJsonPath(receipt.job, root));
+  mkdirSync(dir, { recursive: true });
+  const name = evidenceArtifactName(sourcePath);
+  const dest = join(dir, name);
+  if (resolve(sourcePath) !== resolve(dest)) copyFileSync(sourcePath, dest);
+  const actual = sha256File(dest);
+  if (actual !== receipt.evidenceSha256) {
+    throw new Error(
+      `${receipt.job}: staged ${name} sha256 does not match the receipt`,
+    );
+  }
+  receipt.evidenceFile = name;
+  return receipt;
+}
+
 export function writeGateReceipt(receipt, root = 'reports/quality/gates') {
   const path = gateJsonPath(receipt.job, root);
   mkdirSync(dirname(path), { recursive: true });
@@ -131,6 +175,12 @@ if (isDirectRun()) {
     name: process.env.GATE_NAME || job,
     extra,
   });
+  try {
+    stageHashedEvidence(receipt, extra.evidencePath, process.env.GATE_ROOT);
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
   const path = writeGateReceipt(receipt, process.env.GATE_ROOT);
   publishGateLog(receipt, process.env);
   console.log(`Wrote ${path} (${receipt.status})`);
