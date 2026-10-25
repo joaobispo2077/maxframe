@@ -9,7 +9,12 @@ import { pathToFileURL } from 'node:url';
 
 import { REQUIRED_JOBS } from './check-ci-readiness.mjs';
 import { withQualityGateHeader } from './comment-header.mjs';
-import { BLOCK_GATES, INFO_GATES, sha256Text } from './gate-metrics.mjs';
+import {
+  BLOCK_GATES,
+  INFO_GATES,
+  sha256Text,
+  unwiredGateRows,
+} from './gate-metrics.mjs';
 import {
   CHART_END,
   CHART_START,
@@ -96,21 +101,218 @@ function overallLine(overall) {
   return '**Overall: PASS**';
 }
 
+function plainGate(name) {
+  const text = String(name || '').trim();
+  if (!/^[A-Za-z0-9 .()/_+-]+$/.test(text) || text.length > 80) return null;
+  return text;
+}
+
+export function presentUnwired(report) {
+  const source = Array.isArray(report?.unwired)
+    ? report.unwired
+    : unwiredGateRows();
+  const rows = [];
+  for (const row of source) {
+    const gate = plainGate(row?.gate);
+    if (!gate) continue;
+    rows.push({
+      gate,
+      job: plainGate(row?.job) || gate,
+      mode: 'UNWIRED',
+      status: 'NOT_WIRED',
+      value: `${gate}: Not wired yet. Does not change Overall.`,
+      floor: 'none',
+      runUrl: null,
+      artifactUrl: null,
+      evidenceSha256: null,
+    });
+  }
+  return rows;
+}
+
+const MISSING_EVIDENCE =
+  /Unavailable: no evidence from this run|Skipped, no evidence from this run|Cancelled, no evidence from this run|No gate\.json from this run|Counts unavailable/i;
+
+export function evidenceClass(row) {
+  if (!row || row.mode === 'UNWIRED' || row.status === 'NOT_WIRED') return null;
+  const value = String(row.value ?? '').trim();
+  const hasHash =
+    typeof row.evidenceSha256 === 'string' &&
+    /^[a-f0-9]{64}$/i.test(row.evidenceSha256);
+  const missing = value === '' || MISSING_EVIDENCE.test(value);
+  if (missing) return 'unavailable';
+  if (hasHash) return 'measured';
+  return 'partial';
+}
+
+export function evidenceCompletenessLine(rows) {
+  const counts = { measured: 0, partial: 0, unavailable: 0 };
+  for (const row of rows ?? []) {
+    const kind = evidenceClass(row);
+    if (kind) counts[kind] += 1;
+  }
+  return `Evidence completeness: ${counts.measured} measured, ${counts.partial} partial, ${counts.unavailable} unavailable.`;
+}
+
+export function gatesWiredLine(rows, unwired) {
+  const wired = (rows ?? []).filter(
+    (row) => row?.mode !== 'UNWIRED' && row?.status !== 'NOT_WIRED',
+  ).length;
+  return `${wired} of ${wired + unwired.length} gates wired.`;
+}
+
+function failedGateNames(report) {
+  const fromRows = (report?.rows ?? [])
+    .filter((row) => row?.mode !== 'UNWIRED' && row?.status === 'FAIL')
+    .map((row) => plainGate(row.gate))
+    .filter(Boolean);
+  if (fromRows.length > 0) return fromRows;
+  const names = [];
+  for (const failure of report?.failures ?? []) {
+    const job = String(failure).split(':')[0];
+    const spec = BLOCK_GATES.find((gate) => gate.job === job);
+    const gate = spec?.gate || (job === 'mutation-tests' ? 'Mutation' : null);
+    if (gate && !names.includes(gate)) names.push(gate);
+  }
+  return names;
+}
+
+export function summaryLine(overall, report, unwired) {
+  const pending = unwired.map((row) => row.gate);
+  const pendingText = pending.length > 0 ? pending.join(', ') : 'none';
+  if (overall === 'PASS') {
+    return `All wired gates passed. ${pending.length} gates not wired yet.`;
+  }
+  if (overall === 'FAIL') {
+    const failed = failedGateNames(report);
+    const failedText = failed.length > 0 ? failed.join(', ') : 'CI readiness';
+    return `Failed: ${failedText}. Not wired yet: ${pendingText}.`;
+  }
+  return `This is not a pass. Not wired yet: ${pendingText}.`;
+}
+
+function safeActionsUrl(url) {
+  if (typeof url !== 'string') return null;
+  if (
+    !/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/actions\/runs\/[1-9]\d*(\/(artifacts|jobs?)\/[1-9]\d*)?$/.test(
+      url,
+    )
+  ) {
+    return null;
+  }
+  return url;
+}
+
+function safePullUrl(url) {
+  if (typeof url !== 'string') return null;
+  if (
+    !/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/[1-9]\d*$/.test(
+      url,
+    )
+  ) {
+    return null;
+  }
+  return url;
+}
+
+export function evidenceLink(row) {
+  const artifact = safeActionsUrl(row?.artifactUrl);
+  if (artifact && /\/artifacts\/[1-9]\d*$/.test(artifact)) {
+    return `[artifact](${artifact})`;
+  }
+  const job = safeActionsUrl(row?.runUrl);
+  if (job && /\/jobs?\/[1-9]\d*$/.test(job)) return `[job](${job})`;
+  if (job) return `[run](${job})`;
+  return 'unavailable';
+}
+
+function identityLines(report) {
+  const pr = isObject(report?.pullRequest) ? report.pullRequest : {};
+  const url = safePullUrl(pr.url);
+  const number = /^[1-9]\d*$/.test(String(pr.number || '')) ? pr.number : null;
+  const head = plainGate(pr.headSha);
+  const baseSha = plainGate(pr.baseSha);
+  const baseRef = plainGate(pr.baseRef);
+  const tested = plainGate(report?.sha);
+  let base = 'PR base: unavailable';
+  if (baseSha && baseRef) base = `PR base: \`${baseSha}\` (${baseRef})`;
+  else if (baseSha) base = `PR base: \`${baseSha}\``;
+  else if (baseRef) base = `PR base: ${baseRef}`;
+  return [
+    number && url ? `PR: [#${number}](${url})` : 'PR: unavailable',
+    head ? `PR head: \`${head}\`` : 'PR head: unavailable',
+    base,
+    tested ? `Tested revision: \`${tested}\`` : 'Tested revision: unavailable',
+  ];
+}
+
+function countCell(value) {
+  return Number.isFinite(value) ? String(value) : 'unavailable';
+}
+
+function executedTestLines(rows) {
+  const suites = [
+    { job: 'unit-tests', suite: 'Unit (Vitest)' },
+    { job: 'e2e-tests', suite: 'E2E (Cypress)' },
+  ];
+  const lines = [
+    '### Executed test evidence',
+    '',
+    "Passed, failed, and skipped counts come from this run's Vitest and Cypress receipts.",
+    '',
+    '| Suite | Passed | Failed | Skipped | Result | Evidence |',
+    '|---|---|---|---|---|---|',
+  ];
+  for (const spec of suites) {
+    const row = (rows ?? []).find((item) => item?.job === spec.job);
+    const metrics = row?.metrics;
+    const status = row?.status || 'UNKNOWN';
+    lines.push(
+      `| ${spec.suite} | ${countCell(metrics?.passed)} | ${countCell(metrics?.failed)} | ${countCell(metrics?.skipped)} | ${cell(status)} | ${cell(evidenceLink(row))} |`,
+    );
+  }
+  return lines;
+}
+
 function cell(value) {
   return String(value ?? 'unavailable')
     .replace(/\|/g, '\\|')
     .replace(/\r?\n/g, ' ');
 }
 
+function sectionHeading(unwired) {
+  return [
+    '### Not wired yet',
+    '',
+    ...unwired.map((row) => `- ${row.value}`),
+    '',
+  ];
+}
+
 export function unknownQualityMarkdown(reason) {
+  const unwired = presentUnwired(null);
   const markdown = [
     '## Software metrics',
     '',
+    'Gates wired: unavailable.',
+    '',
     overallLine('UNKNOWN'),
+    '',
+    summaryLine('UNKNOWN', null, unwired),
     '',
     reason,
     '',
-    'This is not a pass.',
+    'PR: unavailable',
+    'PR head: unavailable',
+    'PR base: unavailable',
+    'Tested revision: unavailable',
+    '',
+    'Evidence completeness: unavailable.',
+    '',
+    ...sectionHeading(unwired),
+    '### Executed test evidence',
+    '',
+    'Executed test counts are unavailable for this run.',
     '',
     CHART_START,
     '## KPI charts',
@@ -139,28 +341,40 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
   if (!isObject(report)) {
     return unknownQualityMarkdown('ci-readiness.json is unreadable.');
   }
-  const lines = ['## Software metrics', '', overallLine(overall), ''];
-  const hasRows = Array.isArray(report.rows) && report.rows.length > 0;
+  const rows = Array.isArray(report.rows) ? report.rows : [];
+  const unwired = presentUnwired(report);
+  const lines = [
+    '## Software metrics',
+    '',
+    gatesWiredLine(rows, unwired),
+    '',
+    overallLine(overall),
+    '',
+    summaryLine(overall, report, unwired),
+    '',
+    ...identityLines(report),
+    '',
+  ];
+  if (typeof report.attemptLine === 'string' && report.attemptLine) {
+    lines.push(report.attemptLine, '');
+  }
+  lines.push(evidenceCompletenessLine(rows), '');
   if (
     overall === 'UNKNOWN' &&
-    !hasRows &&
+    rows.length === 0 &&
     report.status !== 'FAIL' &&
     report.status !== 'PASS'
   ) {
-    lines.push(
-      'ci-readiness.json is unreadable.',
-      '',
-      'This is not a pass.',
-      '',
-    );
-  } else if (overall === 'UNKNOWN') {
-    lines.push('This is not a pass.', '');
+    lines.push('ci-readiness.json is unreadable.', '');
   }
-  if (Array.isArray(report.rows) && report.rows.length > 0) {
-    lines.push('| Gate | Value | Floor | Result |', '|---|---|---|---|');
-    for (const row of report.rows) {
+  if (rows.length > 0) {
+    lines.push(
+      '| Gate | Value | Floor | Result | Evidence |',
+      '|---|---|---|---|---|',
+    );
+    for (const row of rows) {
       lines.push(
-        `| ${cell(row?.gate)} | ${cell(row?.value)} | ${cell(row?.floor)} | ${cell(row?.status)} |`,
+        `| ${cell(row?.gate)} | ${cell(row?.value)} | ${cell(row?.floor)} | ${cell(row?.status)} | ${cell(evidenceLink(row))} |`,
       );
     }
     lines.push('');
@@ -170,12 +384,22 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
     buildChartMarkdown(report, overall).trimEnd(),
     CHART_END,
     '',
+    ...sectionHeading(unwired),
+    ...executedTestLines(rows),
+    '',
   );
-  const evidence = (report.rows ?? []).filter((row) => row?.evidenceSha256);
+  const evidence = rows.filter(
+    (row) => row?.evidenceSha256 || row?.artifactUrl,
+  );
   if (evidence.length > 0) {
     lines.push('Evidence SHA-256:');
     for (const row of evidence) {
-      lines.push(`- ${row.gate}: \`${row.evidenceSha256}\``);
+      const link = evidenceLink(row);
+      const sha = row.evidenceSha256
+        ? `\`${row.evidenceSha256}\``
+        : 'no SHA-256';
+      const prefix = link === 'unavailable' ? sha : `${link} ${sha}`;
+      lines.push(`- ${cell(row.gate)}: ${prefix}`);
     }
     lines.push('');
   }
@@ -184,11 +408,10 @@ export function renderQualityMarkdown(report, { artifactSha256 = null } = {}) {
     for (const failure of report.failures) lines.push(`- ${failure}`);
     lines.push('');
   }
-  if (typeof report.attemptLine === 'string' && report.attemptLine) {
-    lines.push(report.attemptLine, '');
-  }
   const sha = report.sha || 'unavailable';
-  const run = report.runUrl ? `[run](${report.runUrl})` : 'unavailable';
+  const run = safeActionsUrl(report.runUrl)
+    ? `[run](${report.runUrl})`
+    : 'unavailable';
   const digest = artifactSha256 || 'unavailable';
   lines.push(`Commit: \`${sha}\``);
   if (report.headSha) lines.push(`Head: \`${report.headSha}\``);

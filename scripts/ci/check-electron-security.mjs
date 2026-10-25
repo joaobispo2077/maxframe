@@ -1,5 +1,13 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeSync,
+} from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { createHash } from 'node:crypto';
@@ -130,7 +138,19 @@ if (isDirectRun()) {
   const files = readSecuritySources();
   const result = evaluateElectronSecurity(files);
   const hash = createHash('sha256');
-  for (const file of files) hash.update(file.path).update(file.text);
+  const evidencePath = join('reports/quality/evidence', 'electron-sources.txt');
+  mkdirSync(dirname(evidencePath), { recursive: true });
+  const evidence = openSync(evidencePath, 'w');
+  try {
+    for (const file of files) {
+      hash.update(file.path).update(file.text);
+      writeSync(evidence, file.path);
+      writeSync(evidence, file.text);
+    }
+  } finally {
+    closeSync(evidence);
+  }
   result.evidenceSha256 = hash.digest('hex');
+  result.evidencePath = evidencePath;
   process.exit(finishGate('electron-security', result));
 }

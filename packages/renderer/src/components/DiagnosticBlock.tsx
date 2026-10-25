@@ -35,7 +35,7 @@ function ToolRow({
         variant="solid"
         size="sm"
       >
-        {found ? 'FOUND' : 'NOT FOUND'}
+        {found ? 'Found' : 'Missing'}
       </Badge>
     </HStack>
   );
@@ -101,7 +101,7 @@ export function DiagnosticBlock({
         colorPalette="cyan"
         onClick={onCopy}
       >
-        {copied ? 'Copied!' : 'Copy report'}
+        {copied ? 'Copied' : 'Copy report'}
       </Button>
     </Box>
   );

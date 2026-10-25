@@ -119,10 +119,10 @@ describe('App — output format selector', () => {
       .mockResolvedValue(BASE_ANALYZE_RESULT);
     render(<App />);
 
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
@@ -138,10 +138,10 @@ describe('App — output format selector', () => {
     fireEvent.change(screen.getByLabelText('Output format'), {
       target: { value: 'mp3' },
     });
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('160kbps')).toBeInTheDocument();
@@ -158,10 +158,10 @@ describe('App — output format selector', () => {
     window.maxframeApi.downloadVideo = downloadVideo;
 
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
@@ -192,10 +192,10 @@ describe('App — output format selector', () => {
     fireEvent.change(screen.getByLabelText('Output format'), {
       target: { value: 'mp3' },
     });
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
       expect(screen.getByText('160kbps')).toBeInTheDocument();
@@ -213,7 +213,7 @@ describe('App — output format selector', () => {
     });
   });
 
-  it('shows Ranked #1 (app) badge for best audio quality in mp3 mode', async () => {
+  it('shows Best in this list badge for best audio quality in mp3 mode', async () => {
     window.maxframeApi.analyzeVideoUrl = vi
       .fn()
       .mockResolvedValue(BASE_ANALYZE_RESULT);
@@ -222,13 +222,13 @@ describe('App — output format selector', () => {
     fireEvent.change(screen.getByLabelText('Output format'), {
       target: { value: 'mp3' },
     });
-    fireEvent.change(screen.getByLabelText('Video URLs'), {
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
       target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Analyze quality' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check quality' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Ranked #1 (app)')).toBeInTheDocument();
+      expect(screen.getByText('Best in this list')).toBeInTheDocument();
     });
   });
 });

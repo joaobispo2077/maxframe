@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { evaluateAccessibility } from '../../scripts/ci/check-accessibility.mjs';
 import { evaluateArchitecture } from '../../scripts/ci/check-architecture.mjs';
 import { evaluateAudit } from '../../scripts/ci/check-audit.mjs';
 import {
@@ -23,6 +24,7 @@ import {
 } from '../../scripts/ci/check-deadcode.mjs';
 import { evaluateDuplication } from '../../scripts/ci/check-duplication.mjs';
 import { evaluateElectronSecurity } from '../../scripts/ci/check-electron-security.mjs';
+import { evaluateDependencyTree } from '../../scripts/ci/check-find-dupes.mjs';
 import {
   allowKey,
   crapScore,
@@ -152,6 +154,63 @@ describe('other blocking gates', () => {
     });
     expect(overHigh.status).toBe('FAIL');
     expect(overHigh.value).toContain('41 high is above 40');
+  });
+
+  it('fails accessibility when a critical or serious node is over the ceiling', () => {
+    const scans = ['analyze', 'analyze-results', 'queue', 'settings'].map(
+      (screen) => ({
+        screen,
+        violations:
+          screen === 'analyze'
+            ? [
+                {
+                  id: 'image-alt',
+                  impact: 'critical',
+                  nodes: [{ impact: 'critical' }],
+                },
+              ]
+            : [],
+      }),
+    );
+    const failed = evaluateAccessibility({ scans }, 0, 0);
+    expect(failed.status).toBe('FAIL');
+    expect(failed.value).toContain('1 critical is above 0');
+    expect(failed.value).toContain('image-alt on analyze');
+    expect(failed.status).not.toBe('PASS');
+    expect(evaluateAccessibility({ scans: [] }, 0, 0).status).toBe('UNKNOWN');
+    const moderate = {
+      scans: ['analyze', 'analyze-results', 'queue', 'settings'].map(
+        (screen) => ({
+          screen,
+          violations:
+            screen === 'settings'
+              ? [
+                  {
+                    id: 'region',
+                    impact: 'moderate',
+                    nodes: [{ impact: 'moderate' }],
+                  },
+                ]
+              : [],
+        }),
+      ),
+    };
+    expect(evaluateAccessibility(moderate, 0, 0).status).toBe('PASS');
+  });
+
+  it('fails a dependency tree over the duplicate package ceiling', () => {
+    const one = [{ name: 'semver', versions: ['6.0.0', '7.0.0'] }];
+    expect(evaluateDependencyTree(one, 1).status).toBe('PASS');
+    const over = evaluateDependencyTree(
+      [...one, { name: 'once', versions: ['1.0.0', '2.0.0'] }],
+      1,
+    );
+    expect(over.status).toBe('FAIL');
+    expect(over.value).toContain(
+      '2 packages resolved at more than one version is above 1',
+    );
+    expect(over.status).not.toBe('PASS');
+    expect(evaluateDependencyTree(null).status).toBe('UNKNOWN');
   });
 
   it('fails Electron windows that are not sandboxed', () => {

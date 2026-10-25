@@ -3,7 +3,11 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { attemptLine, buildQualityRows } from './gate-metrics.mjs';
+import {
+  attemptLine,
+  buildQualityRows,
+  unwiredGateRows,
+} from './gate-metrics.mjs';
 
 export const REQUIRED_JOBS = [
   'typecheck',
@@ -11,16 +15,39 @@ export const REQUIRED_JOBS = [
   'format',
   'unit-tests',
   'e2e-tests',
+  'accessibility',
   'coverage',
   'complexity',
   'duplication',
   'deadcode',
   'architecture',
   'audit',
+  'find-dupes',
   'electron-security',
   'mutation-tests',
   'scheduled-workflow',
 ];
+
+/**
+ * The only `ci-readiness` job `if` that still runs when the workflow is
+ * cancelled. `always()` is true in that case. `always() && !cancelled()`
+ * and `success() || failure()` are not: GitHub skips the job, and a skipped
+ * required check counts as a pass.
+ */
+export const CI_READINESS_IF = 'always()';
+
+/**
+ * Jobs in `needs` that may be `skipped` without failing readiness.
+ * Required jobs are never included: this workflow has no path filters and
+ * no branch filters on them. `cancelled` is never waived. The set is empty.
+ * A future non-required path filter must be added here and named in
+ * docs/maxframe-quality-gates.md before a skip can pass.
+ */
+export const INTENTIONAL_SKIP_JOBS = new Set();
+
+export function readinessIfSkipsOnCancellation(expression) {
+  return String(expression ?? '').trim() !== CI_READINESS_IF;
+}
 
 export const JOB_DISPLAY_NAMES = {
   typecheck: 'Typecheck',
@@ -28,12 +55,14 @@ export const JOB_DISPLAY_NAMES = {
   format: 'Format',
   'unit-tests': 'Unit Tests',
   'e2e-tests': 'E2E Tests (Cypress Component)',
+  accessibility: 'Accessibility (cypress-axe)',
   coverage: 'Coverage',
   complexity: 'CRAP / complexity',
   duplication: 'Duplication',
   deadcode: 'Dead code',
   architecture: 'Architecture',
   audit: 'Dependency audit',
+  'find-dupes': 'Dependency tree',
   'electron-security': 'Electron security',
   'mutation-tests': 'Mutation Tests (Stryker)',
   'scheduled-workflow': 'Scheduled workflow state',
@@ -56,13 +85,49 @@ export function jobResult(needs, job) {
   return typeof evidence.result === 'string' ? evidence.result : null;
 }
 
-export function resultFailures(needs, gates = null) {
+function needsJobIds(needs) {
+  const extras = Object.keys(needs)
+    .filter((job) => !REQUIRED_JOBS.includes(job))
+    .sort();
+  return [...REQUIRED_JOBS, ...extras];
+}
+
+/**
+ * A `skipped` result is by design only for a non-required job listed in
+ * `intentionalSkips`. Required jobs and every `cancelled` result stay red.
+ */
+export function skipIsByDesign(
+  job,
+  result,
+  intentionalSkips = INTENTIONAL_SKIP_JOBS,
+) {
+  return (
+    result === 'skipped' &&
+    !REQUIRED_JOBS.includes(job) &&
+    intentionalSkips.has(job)
+  );
+}
+
+export function resultFailures(
+  needs,
+  gates = null,
+  intentionalSkips = INTENTIONAL_SKIP_JOBS,
+) {
   if (!isObject(needs)) {
     return ['mandatory job results must be a JSON object'];
   }
   const failures = [];
-  for (const job of REQUIRED_JOBS) {
+  for (const job of needsJobIds(needs)) {
     const result = jobResult(needs, job);
+    if (skipIsByDesign(job, result, intentionalSkips)) continue;
+    // Cancelled and skipped are failures even when gate.json is UNKNOWN.
+    // The UNKNOWN waiver below applies only to result === 'failure'.
+    if (result === 'cancelled' || result === 'skipped') {
+      failures.push(
+        `${job}: expected success, received ${formatReceived(result)}`,
+      );
+      continue;
+    }
     if (result !== 'success') {
       // A failed job whose receipt is UNKNOWN is not a second hard failure.
       // The UNKNOWN BLOCK row still keeps readiness from passing.
@@ -139,8 +204,13 @@ export function gateFailures(job, receipt, sha) {
   return failures;
 }
 
-export function evaluateReadiness({ needs, gates, sha = '' }) {
-  const failures = resultFailures(needs, gates);
+export function evaluateReadiness({
+  needs,
+  gates,
+  sha = '',
+  intentionalSkips = INTENTIONAL_SKIP_JOBS,
+}) {
+  const failures = resultFailures(needs, gates, intentionalSkips);
   if (isObject(needs)) {
     for (const job of REQUIRED_JOBS) {
       failures.push(...gateFailures(job, gates?.[job] ?? null, sha));
@@ -157,6 +227,46 @@ export function jobUrlsFromList(jobs) {
     if (match) urls[id] = match.html_url;
   }
   return urls;
+}
+
+function plainToken(value) {
+  const text = String(value || '');
+  if (!/^[A-Za-z0-9._:-]+$/.test(text)) return null;
+  return text;
+}
+
+function plainRef(value) {
+  const text = String(value || '');
+  if (!/^[A-Za-z0-9._/-]+$/.test(text)) return null;
+  return text;
+}
+
+export function gateArtifactUrl(repo, runId, artifactId) {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(String(repo || ''))) {
+    return null;
+  }
+  if (!/^[1-9]\d*$/.test(String(runId || ''))) return null;
+  if (!/^[1-9]\d*$/.test(String(artifactId || ''))) return null;
+  return `https://github.com/${repo}/actions/runs/${runId}/artifacts/${artifactId}`;
+}
+
+export function pullRequestFromEnv(env) {
+  const repository = plainRef(env.GITHUB_REPOSITORY || '')?.includes('/')
+    ? String(env.GITHUB_REPOSITORY)
+    : '';
+  const validRepo = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository);
+  const number = String(env.PR_NUMBER || '');
+  const validNumber = /^[1-9]\d*$/.test(number);
+  return {
+    number: validNumber ? number : null,
+    url:
+      validRepo && validNumber
+        ? `https://github.com/${repository}/pull/${number}`
+        : null,
+    headSha: plainToken(env.PR_HEAD_SHA),
+    baseSha: plainToken(env.PR_BASE_SHA),
+    baseRef: plainRef(env.PR_BASE_REF),
+  };
 }
 
 export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
@@ -214,6 +324,8 @@ export function buildReport({ needs, gates, failures, env, jobUrls = {} }) {
     survivors: mutationGate?.survivors ?? null,
     mutationScope: mutationGate?.mutationScope ?? null,
     attemptLine: attemptLine(runAttempt),
+    unwired: unwiredGateRows(),
+    pullRequest: pullRequestFromEnv(env),
   };
 }
 
@@ -261,6 +373,68 @@ export function gateArtifactName(job, attempt) {
   return attempt ? `gate-${job}-attempt-${attempt}` : `gate-${job}`;
 }
 
+function wholeAttempt(value) {
+  const attempt = Number(value);
+  return Number.isInteger(attempt) && attempt > 0 ? attempt : 0;
+}
+
+// Place a job by its start time against each attempt's run_started_at.
+// The jobs API run_attempt field is not used: a re-run copies carried-over
+// jobs with a new id and the new attempt number, while their timestamps
+// stay on the attempt that actually ran them.
+export function attemptForTimestamp(timestamp, attempts) {
+  const at = Date.parse(timestamp ?? '');
+  if (!Number.isFinite(at)) return 0;
+  const windows = [];
+  for (const item of Array.isArray(attempts) ? attempts : []) {
+    const attempt = wholeAttempt(item?.run_attempt ?? item?.attempt);
+    const started = Date.parse(item?.run_started_at || item?.created_at || '');
+    if (attempt < 1 || !Number.isFinite(started)) continue;
+    windows.push({ attempt, started });
+  }
+  windows.sort(
+    (left, right) =>
+      left.started - right.started || left.attempt - right.attempt,
+  );
+  let chosen = 0;
+  for (const window of windows) {
+    if (window.started <= at) chosen = window.attempt;
+    else break;
+  }
+  return chosen;
+}
+
+// The receipt that counts is the latest attempt whose window contains the
+// job's started_at. A job that started in this attempt must use this
+// attempt's artifact. An older passing receipt does not replace it. When
+// the job list or the timestamps cannot be placed, stay on the current
+// attempt so a missing receipt fails closed.
+export function receiptAttemptForJob(
+  runJobs,
+  jobId,
+  currentAttempt,
+  attempts = [],
+) {
+  const current = wholeAttempt(currentAttempt);
+  if (current === 0) return '';
+  if (current === 1) return '1';
+  const name = JOB_DISPLAY_NAMES[jobId];
+  let best = 0;
+  let saw = false;
+  for (const job of Array.isArray(runJobs) ? runJobs : []) {
+    if (!job || job.name !== name) continue;
+    saw = true;
+    const placed = attemptForTimestamp(
+      job.started_at || job.completed_at,
+      attempts,
+    );
+    if (placed < 1 || placed > current) continue;
+    if (placed > best) best = placed;
+  }
+  if (!saw || best < 1) return String(current);
+  return String(best);
+}
+
 export function selectNamedArtifact(artifacts, name) {
   const matches = (Array.isArray(artifacts) ? artifacts : []).filter(
     (item) => item && item.name === name && item.expired !== true,
@@ -273,20 +447,59 @@ export function selectNamedArtifact(artifacts, name) {
   return matches[0] ?? null;
 }
 
-async function listRunArtifacts(fetchImpl, repo, token, runId) {
-  const artifacts = [];
-  for (let page = 1; page <= 10; page += 1) {
-    const listUrl = `https://api.github.com/repos/${repo}/actions/runs/${runId}/artifacts?per_page=100&page=${page}`;
-    const listed = await fetchImpl(listUrl, { headers: authHeaders(token) });
+async function listPaged(fetchImpl, token, urlForPage, field, failure) {
+  const items = [];
+  for (let page = 1; page <= 20; page += 1) {
+    const listed = await fetchImpl(urlForPage(page), {
+      headers: authHeaders(token),
+    });
     if (!listed.ok) {
-      throw new Error(`gate artifact list failed: ${listed.status}`);
+      throw new Error(`${failure}: ${listed.status}`);
     }
     const body = await listed.json();
-    const batch = Array.isArray(body.artifacts) ? body.artifacts : [];
-    artifacts.push(...batch);
+    const batch = Array.isArray(body[field]) ? body[field] : [];
+    items.push(...batch);
     if (batch.length < 100) break;
   }
-  return artifacts;
+  return items;
+}
+
+async function listRunArtifacts(fetchImpl, repo, token, runId) {
+  return listPaged(
+    fetchImpl,
+    token,
+    (page) =>
+      `https://api.github.com/repos/${repo}/actions/runs/${runId}/artifacts?per_page=100&page=${page}`,
+    'artifacts',
+    'gate artifact list failed',
+  );
+}
+
+async function listRunJobs(fetchImpl, repo, token, runId) {
+  return listPaged(
+    fetchImpl,
+    token,
+    (page) =>
+      `https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs?filter=all&per_page=100&page=${page}`,
+    'jobs',
+    'job attempt list failed',
+  );
+}
+
+async function listRunAttempts(fetchImpl, repo, token, runId, currentAttempt) {
+  const attempts = [];
+  const current = wholeAttempt(currentAttempt);
+  for (let attempt = 1; attempt <= current; attempt += 1) {
+    const response = await fetchImpl(
+      `https://api.github.com/repos/${repo}/actions/runs/${runId}/attempts/${attempt}`,
+      { headers: authHeaders(token) },
+    );
+    if (!response.ok) {
+      throw new Error(`run attempt list failed: ${response.status}`);
+    }
+    attempts.push(await response.json());
+  }
+  return attempts;
 }
 
 export async function collectGateReceipts({
@@ -305,9 +518,22 @@ export async function collectGateReceipts({
     );
   }
   const artifacts = await listRunArtifacts(fetchImpl, repo, token, runId);
+  const current = wholeAttempt(attempt);
+  const runJobs =
+    current > 1 ? await listRunJobs(fetchImpl, repo, token, runId) : [];
+  const runAttempts =
+    current > 1
+      ? await listRunAttempts(fetchImpl, repo, token, runId, attempt)
+      : [];
   const gates = {};
   for (const job of jobs) {
-    const name = gateArtifactName(job, attempt);
+    const resolved = receiptAttemptForJob(runJobs, job, attempt, runAttempts);
+    if (resolved && attempt && resolved !== String(attempt)) {
+      console.log(
+        `${job}: using gate receipt from attempt ${resolved} of this run`,
+      );
+    }
+    const name = gateArtifactName(job, resolved);
     const artifact = selectNamedArtifact(artifacts, name);
     if (!artifact) {
       gates[job] = null;
@@ -320,7 +546,16 @@ export async function collectGateReceipts({
     const zipPath = join(dir, 'gate.zip');
     writeFileSync(zipPath, bytes);
     unpack(zipPath, dir);
-    gates[job] = readGateFile(dir);
+    const receipt = readGateFile(dir);
+    if (isObject(receipt)) {
+      const artifactUrl = gateArtifactUrl(repo, runId, artifact.id);
+      if (artifactUrl) {
+        receipt.artifactUrl = artifactUrl;
+        receipt.artifactName = name;
+        receipt.artifactId = artifact.id;
+      }
+    }
+    gates[job] = receipt;
   }
   return gates;
 }

@@ -1,15 +1,19 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { AXE_EVIDENCE_PATH } from '../../scripts/ci/check-accessibility.mjs';
 import {
   REQUIRED_JOBS,
   buildReport,
 } from '../../scripts/ci/check-ci-readiness.mjs';
+import { dependencyTreeEvidence } from '../../scripts/ci/check-find-dupes.mjs';
 import {
+  BLOCK_GATES,
+  NOT_WIRED_GATES,
   buildQualityRows,
   buildStrykerRow,
   formatCoverageValue,
@@ -18,8 +22,10 @@ import {
   mutationMetrics,
   parseReuseLine,
   parseSizeLimit,
+  evidenceForJob,
   readCoverageTotals,
   readEslintCounts,
+  sha256File,
   sha256Text,
 } from '../../scripts/ci/gate-metrics.mjs';
 import {
@@ -29,6 +35,8 @@ import {
 } from '../../scripts/ci/render-mutation-report.mjs';
 import {
   displayOverall,
+  evidenceClass,
+  evidenceCompletenessLine,
   qualityReportExitCode,
   renderQualityMarkdown,
   renderQualityReportFile,
@@ -37,6 +45,8 @@ import {
 import {
   buildGateReceipt,
   publishGateLog,
+  stageHashedEvidence,
+  writeGateReceipt,
 } from '../../scripts/ci/write-gate-json.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -639,5 +649,403 @@ describe('quality report process exit', () => {
     const markdown = readFileSync(markdownPath, 'utf8');
     expect(markdown).toContain('Overall: FAIL');
     expect(markdown).not.toContain('Overall: PASS');
+  });
+});
+
+describe('quality report sections', () => {
+  const head = 'a'.repeat(40);
+  const base = 'b'.repeat(40);
+  const artifact =
+    'https://github.com/joaobispo2077/maxframe/actions/runs/9/artifacts/44';
+  const jobUrl =
+    'https://github.com/joaobispo2077/maxframe/actions/runs/9/job/8';
+
+  function rowLine(markdown, gate) {
+    return markdown.split('\n').find((line) => line.startsWith(`| ${gate} |`));
+  }
+
+  it('lists planned gates as not wired and does not change a passing overall', () => {
+    const report = passingReport();
+    expect(report.status).toBe('PASS');
+    expect(displayOverall(report)).toBe('PASS');
+    expect(report.unwired).toHaveLength(NOT_WIRED_GATES.length);
+    for (const spec of NOT_WIRED_GATES) {
+      expect(REQUIRED_JOBS).not.toContain(spec.job);
+      expect(BLOCK_GATES.map((gate) => gate.job)).not.toContain(spec.job);
+      expect(report.rows.some((row) => row.job === spec.job)).toBe(false);
+    }
+    const markdown = renderQualityMarkdown(report);
+    expect(markdown).toContain(
+      `${REQUIRED_JOBS.length} of ${REQUIRED_JOBS.length + NOT_WIRED_GATES.length} gates wired.`,
+    );
+    expect(markdown).toContain(
+      `All wired gates passed. ${NOT_WIRED_GATES.length} gates not wired yet.`,
+    );
+    expect(markdown).toContain('Evidence completeness:');
+    expect(markdown).toContain('### Executed test evidence');
+    expect(markdown).toContain(
+      '| Suite | Passed | Failed | Skipped | Result | Evidence |',
+    );
+    for (const row of report.unwired) {
+      expect(row.status).not.toBe('PASS');
+      expect(markdown).toContain(
+        `${row.gate}: Not wired yet. Does not change Overall.`,
+      );
+    }
+    expect(markdown).toContain('| Dependency tree (npm find-dupes) |');
+    expect(markdown).not.toContain(
+      'Dependency tree (npm find-dupes): Not wired yet.',
+    );
+    expect(markdown).toContain('| Accessibility (cypress-axe) |');
+    expect(markdown).not.toContain(
+      'Accessibility (cypress-axe): Not wired yet.',
+    );
+    for (const gate of ['Windows build smoke', 'Bundled binaries']) {
+      expect(markdown).toContain(
+        `${gate}: Not wired yet. Does not change Overall.`,
+      );
+    }
+    expect(markdown).toContain('**Overall: PASS**');
+    expect(qualityReportExitCode(displayOverall(report))).toBe(0);
+  });
+
+  it('links each measured row to its artifact and prints the pull request', () => {
+    const report = passingReport();
+    const digest = 'c'.repeat(64);
+    for (const row of report.rows) {
+      row.evidenceSha256 = digest;
+      row.artifactUrl = artifact;
+    }
+    report.rows.find((row) => row.job === 'unit-tests').metrics = {
+      passed: 394,
+      failed: 0,
+      skipped: 2,
+    };
+    report.rows.find((row) => row.job === 'e2e-tests').metrics = {
+      passed: 12,
+      failed: 0,
+      skipped: 1,
+    };
+    report.pullRequest = {
+      number: '53',
+      url: 'https://github.com/joaobispo2077/maxframe/pull/53',
+      headSha: head,
+      baseSha: base,
+      baseRef: 'develop',
+    };
+    const markdown = renderQualityMarkdown(report, { artifactSha256: digest });
+    expect(evidenceCompletenessLine(report.rows)).toBe(
+      `Evidence completeness: ${report.rows.length} measured, 0 partial, 0 unavailable.`,
+    );
+    expect(markdown).toContain(
+      `Evidence completeness: ${report.rows.length} measured, 0 partial, 0 unavailable.`,
+    );
+    expect(markdown).toContain(
+      'PR: [#53](https://github.com/joaobispo2077/maxframe/pull/53)',
+    );
+    expect(markdown).toContain(`PR head: \`${head}\``);
+    expect(markdown).toContain(`PR base: \`${base}\` (develop)`);
+    expect(markdown).toContain('Tested revision: `abc`');
+    const unit = rowLine(markdown, 'Unit');
+    expect(unit).toContain(`[artifact](${artifact})`);
+    expect(unit).toContain('PASS');
+    expect(markdown).toContain(`- Unit: [artifact](${artifact}) \`${digest}\``);
+    expect(markdown).toContain('| Unit (Vitest) | 394 | 0 | 2 | PASS |');
+    expect(markdown).toContain('| E2E (Cypress) | 12 | 0 | 1 | PASS |');
+    expect(displayOverall(report)).toBe('PASS');
+  });
+
+  it('does not render PASS when the job failed or was skipped', () => {
+    const failedNeeds = successfulNeeds();
+    failedNeeds.format = { result: 'failure' };
+    const failedGates = passingGates();
+    failedGates.format = buildGateReceipt({
+      job: 'format',
+      outcome: 'success',
+      sha: 'abc',
+      extra: {
+        value: '0 files',
+        floor: '0 files',
+        evidenceSha256: 'd'.repeat(64),
+      },
+    });
+    failedGates.format.artifactUrl = artifact;
+    expect(failedGates.format.status).toBe('PASS');
+    const failed = buildReport({
+      needs: failedNeeds,
+      gates: failedGates,
+      failures: ['format: expected success, received "failure"'],
+      env: {
+        GITHUB_SHA: 'abc',
+        GITHUB_REPOSITORY: 'joaobispo2077/maxframe',
+        GITHUB_RUN_ID: '9',
+        PR_NUMBER: '80',
+        PR_BASE_REF: 'develop',
+        PR_BASE_SHA: base,
+        PR_HEAD_SHA: head,
+      },
+      jobUrls: { format: jobUrl },
+    });
+    expect(failed.status).toBe('FAIL');
+    const format = failed.rows.find((row) => row.job === 'format');
+    expect(format.status).toBe('FAIL');
+    expect(format.artifactUrl).toBe(artifact);
+    expect(evidenceClass(format)).toBe('measured');
+    const failedMarkdown = renderQualityMarkdown(failed);
+    expect(displayOverall(failed)).toBe('FAIL');
+    expect(failedMarkdown).toContain('**Overall: FAIL**');
+    expect(failedMarkdown).not.toContain('**Overall: PASS**');
+    expect(failedMarkdown).not.toContain('All wired gates passed.');
+    expect(failedMarkdown).toContain('Failed: Format.');
+    const failedLine = rowLine(failedMarkdown, 'Format');
+    expect(failedLine).toContain('FAIL');
+    expect(failedLine).toContain(`[artifact](${artifact})`);
+    expect(failedLine).not.toContain('PASS');
+
+    const skippedNeeds = successfulNeeds();
+    skippedNeeds['unit-tests'] = { result: 'skipped' };
+    const skippedGates = passingGates();
+    skippedGates['unit-tests'].artifactUrl = artifact;
+    expect(skippedGates['unit-tests'].status).toBe('PASS');
+    const skipped = buildReport({
+      needs: skippedNeeds,
+      gates: skippedGates,
+      failures: ['unit-tests: expected success, received "skipped"'],
+      env: { GITHUB_SHA: 'abc' },
+      jobUrls: { 'unit-tests': jobUrl },
+    });
+    const unit = skipped.rows.find((row) => row.job === 'unit-tests');
+    expect(unit.status).toBe('FAIL');
+    expect(unit.artifactUrl).toBeNull();
+    expect(unit.value).toBe('Unit: FAIL. Skipped, no evidence from this run.');
+    expect(evidenceClass(unit)).toBe('unavailable');
+    const skippedMarkdown = renderQualityMarkdown(skipped);
+    const unitLine = rowLine(skippedMarkdown, 'Unit');
+    expect(unitLine).toContain('FAIL');
+    expect(unitLine).toContain(`[job](${jobUrl})`);
+    expect(unitLine).not.toContain(artifact);
+    expect(unitLine).not.toContain('PASS');
+    expect(skippedMarkdown).not.toContain(artifact);
+    expect(skippedMarkdown).toContain(
+      '| Unit (Vitest) | unavailable | unavailable | unavailable | FAIL |',
+    );
+    expect(skippedMarkdown).not.toContain('**Overall: PASS**');
+  });
+
+  it('keeps the section headings when the readiness file is missing', () => {
+    const missing = renderQualityReportFile(
+      join(tmpdir(), 'missing-sections.json'),
+    );
+    expect(missing.overall).toBe('UNKNOWN');
+    expect(missing.markdown).toContain('Gates wired: unavailable.');
+    expect(missing.markdown).toContain('Evidence completeness: unavailable.');
+    expect(missing.markdown).toContain('PR: unavailable');
+    expect(missing.markdown).toContain('PR base: unavailable');
+    expect(missing.markdown).toContain('### Executed test evidence');
+    expect(missing.markdown).toContain('This is not a pass.');
+    expect(missing.markdown).not.toContain('All wired gates passed.');
+    expect(missing.markdown).not.toContain('**Overall: PASS**');
+    for (const spec of NOT_WIRED_GATES) {
+      expect(missing.markdown).toContain(
+        `${spec.gate}: Not wired yet. Does not change Overall.`,
+      );
+    }
+  });
+
+  it('hashes the evidence file inside the gate artifact, not gate.json', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-artifact-'));
+    const eslintPath = join(dir, 'eslint.json');
+    writeFileSync(
+      eslintPath,
+      `${JSON.stringify([{ errorCount: 0, warningCount: 1 }])}\n`,
+    );
+    const extra = evidenceForJob('lint', { GATE_ESLINT_JSON: eslintPath });
+    const receipt = buildGateReceipt({
+      job: 'lint',
+      outcome: 'success',
+      sha: 'abc',
+      extra,
+    });
+    const gatesRoot = join(dir, 'gates');
+    stageHashedEvidence(receipt, extra.evidencePath, gatesRoot);
+    writeGateReceipt(receipt, gatesRoot);
+    const artifactDir = join(gatesRoot, 'lint');
+    expect(readdirSync(artifactDir).sort()).toEqual([
+      'eslint.json',
+      'gate.json',
+    ]);
+    const stored = JSON.parse(
+      readFileSync(join(artifactDir, 'gate.json'), 'utf8'),
+    );
+    const row = buildQualityRows({
+      needs: { lint: { result: 'success' } },
+      gates: { lint: stored },
+    }).find((item) => item.job === 'lint');
+    const evidenceFile = join(artifactDir, stored.evidenceFile);
+    expect(sha256File(evidenceFile)).toBe(row.evidenceSha256);
+    expect(sha256File(evidenceFile)).toBe(extra.evidenceSha256);
+    expect(sha256File(join(artifactDir, 'gate.json'))).not.toBe(
+      row.evidenceSha256,
+    );
+  });
+
+  it('stages the exact hashed bytes when a pretty report would not match', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-bytes-'));
+    const report = { issues: [] };
+    const payload = JSON.stringify(report);
+    const pretty = join(dir, 'knip.json');
+    writeFileSync(pretty, `${JSON.stringify(report, null, 2)}\n`);
+    const exact = join(dir, 'knip-report.json');
+    writeFileSync(exact, payload);
+    const digest = sha256Text(payload);
+    expect(sha256File(pretty)).not.toBe(digest);
+    const resultPath = join(dir, 'deadcode.json');
+    writeFileSync(
+      resultPath,
+      `${JSON.stringify({
+        status: 'PASS',
+        value: 'Dead code: PASS. 0 unwaived',
+        floor: '0 unwaived',
+        evidenceSha256: digest,
+        evidencePath: exact,
+      })}\n`,
+    );
+    const extra = evidenceForJob('deadcode', { GATE_RESULT: resultPath });
+    expect(extra.evidencePath).toBe(exact);
+    expect(extra.evidenceSha256).toBe(digest);
+    const receipt = buildGateReceipt({
+      job: 'deadcode',
+      outcome: 'success',
+      sha: 'abc',
+      extra,
+    });
+    const gatesRoot = join(dir, 'gates');
+    stageHashedEvidence(receipt, extra.evidencePath, gatesRoot);
+    writeGateReceipt(receipt, gatesRoot);
+    const artifactDir = join(gatesRoot, 'deadcode');
+    const stored = JSON.parse(
+      readFileSync(join(artifactDir, 'gate.json'), 'utf8'),
+    );
+    const row = buildQualityRows({
+      needs: { deadcode: { result: 'success' } },
+      gates: { deadcode: stored },
+    }).find((item) => item.job === 'deadcode');
+    expect(sha256File(join(artifactDir, stored.evidenceFile))).toBe(
+      row.evidenceSha256,
+    );
+    expect(sha256File(join(artifactDir, 'gate.json'))).not.toBe(
+      row.evidenceSha256,
+    );
+    expect(() =>
+      stageHashedEvidence(
+        { job: 'deadcode', evidenceSha256: digest },
+        pretty,
+        join(dir, 'mismatch'),
+      ),
+    ).toThrow(/does not match/);
+  });
+
+  it('hashes the dependency tree report inside the gate artifact', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-dupes-'));
+    const payload = dependencyTreeEvidence([
+      { name: 'once', versions: ['1.0.0', '2.0.0'] },
+    ]);
+    const exact = join(dir, 'lockfile-duplicates.json');
+    writeFileSync(exact, payload);
+    const digest = sha256Text(payload);
+    const resultPath = join(dir, 'find-dupes.json');
+    writeFileSync(
+      resultPath,
+      `${JSON.stringify({
+        status: 'PASS',
+        value: '1 packages resolved at more than one version',
+        floor: '<= 134 packages',
+        evidenceSha256: digest,
+        evidencePath: exact,
+      })}\n`,
+    );
+    const extra = evidenceForJob('find-dupes', { GATE_RESULT: resultPath });
+    expect(extra.evidencePath).toBe(exact);
+    expect(extra.evidenceSha256).toBe(digest);
+    const receipt = buildGateReceipt({
+      job: 'find-dupes',
+      outcome: 'success',
+      sha: 'abc',
+      extra,
+    });
+    const gatesRoot = join(dir, 'gates');
+    stageHashedEvidence(receipt, extra.evidencePath, gatesRoot);
+    writeGateReceipt(receipt, gatesRoot);
+    const artifactDir = join(gatesRoot, 'find-dupes');
+    const stored = JSON.parse(
+      readFileSync(join(artifactDir, 'gate.json'), 'utf8'),
+    );
+    expect(stored.evidenceFile).toBe('lockfile-duplicates.json');
+    const row = buildQualityRows({
+      needs: { 'find-dupes': { result: 'success' } },
+      gates: { 'find-dupes': stored },
+    }).find((item) => item.job === 'find-dupes');
+    expect(row.gate).toBe('Dependency tree (npm find-dupes)');
+    expect(sha256File(join(artifactDir, stored.evidenceFile))).toBe(
+      row.evidenceSha256,
+    );
+    expect(sha256File(join(artifactDir, 'gate.json'))).not.toBe(
+      row.evidenceSha256,
+    );
+  });
+
+  it('hashes the accessibility report inside the gate artifact', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-a11y-'));
+    const payload = `${JSON.stringify({
+      scans: [
+        { screen: 'analyze', violations: [], incomplete: [] },
+        { screen: 'analyze-results', violations: [], incomplete: [] },
+        { screen: 'queue', violations: [], incomplete: [] },
+        { screen: 'settings', violations: [], incomplete: [] },
+      ],
+    })}\n`;
+    const exact = join(dir, 'axe-results.json');
+    writeFileSync(exact, payload);
+    const digest = sha256Text(payload);
+    const resultPath = join(dir, 'accessibility.json');
+    writeFileSync(
+      resultPath,
+      `${JSON.stringify({
+        status: 'PASS',
+        value: '0 critical, 0 serious, 0 moderate, 0 minor',
+        floor: '<= 0 critical, <= 0 serious',
+        evidenceSha256: digest,
+        evidencePath: exact,
+      })}\n`,
+    );
+    const extra = evidenceForJob('accessibility', { GATE_RESULT: resultPath });
+    expect(extra.evidencePath).toBe(exact);
+    expect(extra.evidenceSha256).toBe(digest);
+    const receipt = buildGateReceipt({
+      job: 'accessibility',
+      outcome: 'success',
+      sha: 'abc',
+      extra,
+    });
+    const gatesRoot = join(dir, 'gates');
+    stageHashedEvidence(receipt, extra.evidencePath, gatesRoot);
+    writeGateReceipt(receipt, gatesRoot);
+    const artifactDir = join(gatesRoot, 'accessibility');
+    const stored = JSON.parse(
+      readFileSync(join(artifactDir, 'gate.json'), 'utf8'),
+    );
+    expect(stored.evidenceFile).toBe('axe-results.json');
+    expect(AXE_EVIDENCE_PATH.endsWith('axe-results.json')).toBe(true);
+    const row = buildQualityRows({
+      needs: { accessibility: { result: 'success' } },
+      gates: { accessibility: stored },
+    }).find((item) => item.job === 'accessibility');
+    expect(row.gate).toBe('Accessibility (cypress-axe)');
+    expect(sha256File(join(artifactDir, stored.evidenceFile))).toBe(
+      row.evidenceSha256,
+    );
+    expect(sha256File(join(artifactDir, 'gate.json'))).not.toBe(
+      row.evidenceSha256,
+    );
   });
 });
