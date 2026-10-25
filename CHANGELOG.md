@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/joaobispo2077/maxframe/compare/v1.8.0...v1.8.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* measure every function body in the CRAP gate ([f289846](https://github.com/joaobispo2077/maxframe/commit/f289846fa251a2cb2e7900071801cf3ab9956d06))
+
 # [1.8.0](https://github.com/joaobispo2077/maxframe/compare/v1.7.2...v1.8.0) (2026-10-24)
 
 
