@@ -31,17 +31,28 @@ export function roundCrap(value) {
   return Math.round(number * 100) / 100;
 }
 
-export function rankFunctions(functions) {
-  const ranked = [];
-  for (const item of Array.isArray(functions) ? functions : []) {
-    if (item?.coveragePct == null) continue;
+export function rankProblem(functions) {
+  if (!Array.isArray(functions)) return 'counts unavailable';
+  for (const item of functions) {
+    if (item?.coveragePct == null) return 'a function has no coverage';
     const crap = roundCrap(item?.crap);
     const coverage = roundCrap(item.coveragePct);
     const complexity = item?.complexity;
-    if (crap == null || coverage == null) continue;
-    if (typeof complexity !== 'number' || !Number.isFinite(complexity)) {
-      continue;
+    if (crap == null || coverage == null) {
+      return 'a function has a non-finite CRAP or coverage';
     }
+    if (typeof complexity !== 'number' || !Number.isFinite(complexity)) {
+      return 'a function has a non-finite complexity';
+    }
+  }
+  return null;
+}
+
+export function rankFunctions(functions) {
+  const ranked = [];
+  for (const item of Array.isArray(functions) ? functions : []) {
+    const crap = roundCrap(item?.crap);
+    const coverage = roundCrap(item.coveragePct);
     ranked.push({
       file: String(item.file ?? ''),
       name: String(item.name ?? ''),
@@ -113,6 +124,9 @@ export function evaluateCrapTop(measurement, options = {}) {
       metrics: null,
     };
   }
+  if (rankProblem(measurement.functions)) {
+    return unknownResult(UNKNOWN_COUNTS, scoreMax, overMax);
+  }
   const ranked = rankFunctions(measurement.functions);
   if (ranked.length === 0) {
     return unknownResult(UNKNOWN_COUNTS, scoreMax, overMax);
@@ -160,6 +174,7 @@ function loadCoverage(path) {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return null;
     }
+    if (Object.keys(parsed).length === 0) return null;
     return parsed;
   } catch {
     return null;

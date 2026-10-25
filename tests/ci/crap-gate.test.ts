@@ -44,7 +44,7 @@ function fn(
   name: string,
   crap: number,
   complexity = 6,
-  coveragePct = 0,
+  coveragePct: number | null = 0,
   file = 'src/a.ts',
 ) {
   return { file, name, line: 1, complexity, coveragePct, crap };
@@ -75,7 +75,11 @@ function runScript(options: {
     options.source ?? 'export const label = "plain";\n',
   );
   if (options.coverage !== 'missing') {
-    writeFileSync(coveragePath, options.coverage ?? '{}\n');
+    writeFileSync(
+      coveragePath,
+      options.coverage ??
+        `${JSON.stringify({ '/virtual/unrelated.ts': { statementMap: {}, s: {} } })}\n`,
+    );
   }
   const result = spawnSync(process.execPath, ['scripts/ci/check-crap.mjs'], {
     cwd: root,
@@ -108,27 +112,33 @@ function runScript(options: {
 
 describe('CRAP top 10 gate', () => {
   it('locks the measured develop ceilings', () => {
-    expect(CRAP_MAX_SCORE).toBe(156);
-    expect(CRAP_OVER_30_MAX).toBe(26);
-    expect(crapTopFloorLabel()).toBe('worst <= 156, above 30 <= 26');
+    expect(CRAP_MAX_SCORE).toBe(72);
+    expect(CRAP_OVER_30_MAX).toBe(3);
+    expect(crapTopFloorLabel()).toBe(
+      `worst <= ${CRAP_MAX_SCORE}, above 30 <= ${CRAP_OVER_30_MAX}`,
+    );
     expect(roundCrap(156.004)).toBe(156);
     expect(roundCrap(156.005)).toBe(156.01);
   });
 
   it('fails when the worst score or the count above 30 exceeds the ceiling', () => {
-    const onScore = evaluateCrapTop(
-      measured([fn('top', CRAP_MAX_SCORE, 12), fn('next', 42)]),
-    );
+    const aboveAtCeiling = CRAP_MAX_SCORE > 30 ? 1 : 0;
+    const onScore = evaluateCrapTop(measured([fn('top', CRAP_MAX_SCORE, 12)]));
     expect(onScore.status).toBe('PASS');
-    expect(onScore.value).toBe('worst 156.00, 2 above 30');
-    expect(onScore.floor).toBe('worst <= 156, above 30 <= 26');
-
-    const overScore = evaluateCrapTop(
-      measured([fn('hot', CRAP_MAX_SCORE + 0.01, 13)]),
+    expect(onScore.value).toBe(
+      `worst ${CRAP_MAX_SCORE.toFixed(2)}, ${aboveAtCeiling} above 30`,
     );
+    expect(onScore.floor).toBe(
+      `worst <= ${CRAP_MAX_SCORE}, above 30 <= ${CRAP_OVER_30_MAX}`,
+    );
+
+    const bumped = roundCrap(CRAP_MAX_SCORE + 0.01) ?? CRAP_MAX_SCORE + 0.01;
+    const overScore = evaluateCrapTop(measured([fn('hot', bumped, 13)]));
     expect(overScore.status).toBe('FAIL');
     expect(overScore.status).not.toBe('PASS');
-    expect(overScore.value).toContain('worst 156.01 is above 156');
+    expect(overScore.value).toContain(
+      `worst ${bumped.toFixed(2)} is above ${CRAP_MAX_SCORE}`,
+    );
 
     const overCount = Array.from({ length: CRAP_OVER_30_MAX + 1 }, (_, i) =>
       fn(`fn${i}`, 42, 6, 0, `src/f${i}.ts`),
@@ -136,8 +146,12 @@ describe('CRAP top 10 gate', () => {
     const counted = evaluateCrapTop(measured(overCount));
     expect(counted.status).toBe('FAIL');
     expect(counted.status).not.toBe('PASS');
-    expect(counted.value).toContain('27 above 30 is above 26');
-    expect(counted.metrics?.top10).toHaveLength(10);
+    expect(counted.value).toContain(
+      `${CRAP_OVER_30_MAX + 1} above 30 is above ${CRAP_OVER_30_MAX}`,
+    );
+    expect(counted.metrics?.top10).toHaveLength(
+      Math.min(10, CRAP_OVER_30_MAX + 1),
+    );
 
     const exact = evaluateCrapTop(measured([fn('edge', 30, 5)]));
     expect(exact.status).toBe('PASS');
@@ -156,7 +170,7 @@ describe('CRAP top 10 gate', () => {
     expect(evaluateCrapTop(null).status).toBe('UNKNOWN');
     expect(evaluateCrapTop(measured([])).status).toBe('UNKNOWN');
 
-    for (const coverage of ['missing', '{', '[]'] as const) {
+    for (const coverage of ['missing', '{', '[]', '{}'] as const) {
       const { result, written } = runScript({ coverage });
       expect(result.status).not.toBe(0);
       expect(written.status).toBe('UNKNOWN');
@@ -172,6 +186,20 @@ describe('CRAP top 10 gate', () => {
     expect(empty.written.status).toBe('UNKNOWN');
     expect(empty.written.value).toContain('Counts unavailable');
     expect(empty.written.evidenceSha256 ?? null).toBeNull();
+
+    const missingCoverage = evaluateCrapTop(measured([fn('gap', 12, 3, null)]));
+    expect(missingCoverage.status).toBe('UNKNOWN');
+    expect(missingCoverage.status).not.toBe('PASS');
+    const nonFiniteCrap = evaluateCrapTop(
+      measured([fn('gap', Number.NaN, 3, 0)]),
+    );
+    expect(nonFiniteCrap.status).toBe('UNKNOWN');
+    expect(nonFiniteCrap.status).not.toBe('PASS');
+    const nonFiniteComplexity = evaluateCrapTop(
+      measured([fn('gap', 12, Number.POSITIVE_INFINITY, 0)]),
+    );
+    expect(nonFiniteComplexity.status).toBe('UNKNOWN');
+    expect(nonFiniteComplexity.status).not.toBe('PASS');
   });
 
   it('hashes the evidence file and not the gate receipt', () => {
@@ -181,7 +209,7 @@ describe('CRAP top 10 gate', () => {
     const run = runScript({ source: hotSource(20) });
     expect(run.result.status).not.toBe(0);
     expect(run.written.status).toBe('FAIL');
-    expect(run.written.value).toContain('is above 156');
+    expect(run.written.value).toContain(`is above ${CRAP_MAX_SCORE}`);
     const payload = readFileSync(run.evidencePath);
     const digest = createHash('sha256').update(payload).digest('hex');
     expect(run.written.evidenceSha256).toBe(digest);

@@ -1,31 +1,8 @@
 {
   "items": [
-    "packages/renderer/src/App.tsx:App",
-    "packages/renderer/src/lib/crapProofSpike.ts:crapProofSpike",
-    "packages/renderer/src/components/DownloadProgressCard.tsx:DownloadProgressCard",
-    "packages/renderer/src/components/QualityResultRow.tsx:QualityResultRow",
-    "packages/renderer/src/components/QualityResultsPanel.tsx:AnalyzeBestSummary",
-    "packages/renderer/src/components/QualityResultsPanel.tsx:QualityResultsPanel",
-    "packages/renderer/src/components/VideoPreviewCard.tsx:VideoPreviewCard",
-    "packages/renderer/src/lib/qualityTransparency.ts:describeQualityAgainstBest",
-    "packages/renderer/src/lib/resolveBestDownload.ts:resolveBestDownload",
-    "packages/renderer/src/pages/SettingsPage.tsx:SettingsPage",
-    "packages/renderer/src/views/AnalyzeView.tsx:AnalyzeView",
-    "src/domain/download-queue/model.ts:canReorderJob",
-    "src/domain/download-queue/model.ts:countOpenJobs",
-    "src/domain/download-queue/model.ts:selectNextAction",
-    "src/domain/progress/parseYtdlpProgressLine.ts:parsePostprocessLine",
-    "src/domain/video/youtubeVideoId.ts:parseYoutubeVideoId",
-    "src/infrastructure/ffmpeg/resolveFfmpegExecutable.ts:resolveFfmpegExecutable",
-    "src/infrastructure/youtube/YtdlpVideoMetadataGateway.ts:throwFromYtdlpExecError",
-    "src/infrastructure/youtube/YtdlpVideoMetadataGateway.ts:parseStdoutToVideoAnalysis",
-    "src/infrastructure/youtube/feedYtdlpStreamLines.ts:feedYtdlpStreamLines",
-    "src/infrastructure/youtube/findYtdlpOutputFile.ts:findYtdlpOutputFile",
-    "src/infrastructure/youtube/mapYtdlpAudioFormatsToQualityOptions.ts:tryAudioRowFromFormatEntry",
-    "src/infrastructure/youtube/mapYtdlpAudioFormatsToQualityOptions.ts:mapYtdlpAudioFormatsToQualityOptions",
-    "src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions.ts:resolutionLabelFromHeight",
-    "src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions.ts:qualityOptionFromVideoEntry",
-    "src/infrastructure/youtube/mapYtdlpFormatsToQualityOptions.ts:mapYtdlpFormatsToQualityOptions",
-    "src/infrastructure/youtube/resolveYtdlpExecutable.ts:resolveYtdlpExecutable"
+    "packages/main/src/index.ts:initApp",
+    "packages/main/src/modules/AutoUpdater.ts:runAutoUpdater",
+    "packages/main/src/modules/WindowManager.ts:restoreOrCreateWindow",
+    "packages/renderer/src/lib/crapProofSpike.ts:crapProofSpike"
   ]
 }
