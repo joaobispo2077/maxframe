@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
+import { crc32 } from 'node:zlib';
 
 import { describe, expect, it } from 'vitest';
 
+import {
+  assertReleaseTipBeforeTag,
+  tipFromLsRemote,
+} from '../../scripts/ci/assert-release-tip-before-tag.mjs';
 import { PUSH_SKIP_READINESS_NAME } from '../../scripts/ci/check-ci-readiness.mjs';
 import {
   CI_READINESS_CHECK_NAME,
@@ -15,6 +20,7 @@ const SHA = 'a'.repeat(40);
 const OTHER = 'b'.repeat(40);
 const HEAD = 'e'.repeat(40);
 const BASE = 'f'.repeat(40);
+const MERGE = 'c'.repeat(40);
 const REPO = 'joaobispo2077/maxframe';
 const RED_SHA = 'e4542f7500324a76972f7204f4a98a3f78f48e54';
 const GREEN_SHA = '4f62c8929d088883dae7508434dc14182169e7f7';
@@ -39,6 +45,17 @@ type Run = {
   event: string;
   path?: string;
   head_sha?: string;
+  run_attempt?: number;
+};
+
+type ReadinessReport = {
+  sha: string;
+  pullRequest: {
+    number: string;
+    headSha: string;
+    baseSha: string;
+    baseRef: string;
+  };
 };
 
 function check(overrides: Partial<Check> = {}): Check {
@@ -58,8 +75,60 @@ function workflowRun(overrides: Run = {}) {
     event: 'pull_request',
     path: '.github/workflows/ci.yml',
     head_sha: SHA,
+    run_attempt: 1,
     ...overrides,
   };
+}
+
+function readinessReport(
+  overrides: {
+    number?: number;
+    headSha?: string;
+    baseSha?: string;
+    mergeSha?: string;
+  } = {},
+): ReadinessReport {
+  return {
+    sha: overrides.mergeSha ?? MERGE,
+    pullRequest: {
+      number: String(overrides.number ?? 134),
+      headSha: overrides.headSha ?? HEAD,
+      baseSha: overrides.baseSha ?? BASE,
+      baseRef: 'release',
+    },
+  };
+}
+
+function zipStored(name: string, text: string) {
+  const data = Buffer.from(text);
+  const nameBuf = Buffer.from(name);
+  const crc = crc32(data) >>> 0;
+  const local = Buffer.alloc(30 + nameBuf.length);
+  local.writeUInt32LE(0x04034b50, 0);
+  local.writeUInt16LE(20, 4);
+  local.writeUInt16LE(0, 8);
+  local.writeUInt32LE(crc, 14);
+  local.writeUInt32LE(data.length, 18);
+  local.writeUInt32LE(data.length, 22);
+  local.writeUInt16LE(nameBuf.length, 26);
+  nameBuf.copy(local, 30);
+  const central = Buffer.alloc(46 + nameBuf.length);
+  central.writeUInt32LE(0x02014b50, 0);
+  central.writeUInt16LE(20, 4);
+  central.writeUInt16LE(20, 6);
+  central.writeUInt32LE(crc, 16);
+  central.writeUInt32LE(data.length, 20);
+  central.writeUInt32LE(data.length, 24);
+  central.writeUInt16LE(nameBuf.length, 28);
+  central.writeUInt32LE(0, 42);
+  nameBuf.copy(central, 46);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(1, 8);
+  end.writeUInt16LE(1, 10);
+  end.writeUInt32LE(central.length, 12);
+  end.writeUInt32LE(local.length + data.length, 16);
+  return Buffer.concat([local, data, central, end]);
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -94,7 +163,7 @@ function workflowRunResponse(
   href: string,
   runs: Record<string, Run | { status: number }>,
 ) {
-  const runMatch = href.match(/\/actions\/runs\/(\d+)/);
+  const runMatch = href.match(/\/actions\/runs\/(\d+)(?:\?|$)/);
   if (!runMatch) return null;
   const body = runs[runMatch[1]];
   if (!body) return jsonResponse({}, 404);
@@ -108,7 +177,12 @@ function releaseTipResponse(href: string, tip: string, failTip: boolean) {
   return jsonResponse({ object: { sha: tip, type: 'commit' } });
 }
 
-function pullResponse(href: string, pulls: Pull[], parents: string[]) {
+function pullResponse(
+  href: string,
+  pulls: Pull[],
+  parents: string[],
+  commits: Record<string, string[]>,
+) {
   if (href.includes('/commits/') && href.includes('/pulls')) {
     return jsonResponse(pulls);
   }
@@ -117,13 +191,31 @@ function pullResponse(href: string, pulls: Pull[], parents: string[]) {
     const pull = pulls.find((item) => String(item.number) === pullMatch[1]);
     return pull ? jsonResponse(pull) : jsonResponse({}, 404);
   }
-  if (/\/commits\/[0-9a-f]{40}(?:\?|$)/.test(href)) {
+  const commitMatch = href.match(/\/commits\/([0-9a-f]{40})(?:\?|$)/);
+  if (commitMatch) {
+    const listed = commits[commitMatch[1]] || parents;
     return jsonResponse({
-      sha: SHA,
-      parents: parents.map((parent) => ({ sha: parent })),
+      sha: commitMatch[1],
+      parents: listed.map((parent) => ({ sha: parent })),
     });
   }
   return null;
+}
+
+function artifactResponse(href: string, zip: Buffer | null) {
+  if (!zip) return null;
+  if (href.includes('/artifacts?')) {
+    return jsonResponse({
+      artifacts: [{ id: 77, name: 'ci-readiness-attempt-1', expired: false }],
+    });
+  }
+  if (!href.includes('/artifacts/77/zip')) return null;
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: () => null },
+    arrayBuffer: async () => zip,
+  };
 }
 
 function github({
@@ -133,6 +225,8 @@ function github({
   failTip = false,
   pulls = [fastForwardPull()],
   parents = [BASE, SHA],
+  commits = {},
+  report = null,
 }: {
   pages: Pages;
   runs?: Record<string, Run | { status: number }>;
@@ -140,16 +234,22 @@ function github({
   failTip?: boolean;
   pulls?: Pull[];
   parents?: string[];
+  commits?: Record<string, string[]>;
+  report?: ReadinessReport | null;
 }) {
   const requested: string[] = [];
+  const zip = report
+    ? zipStored('ci-readiness.json', JSON.stringify(report))
+    : null;
   const fetchImpl = async (url: URL | string) => {
     const href = String(url);
     requested.push(href);
     return (
       checkRunsResponse(href, pages) ||
+      artifactResponse(href, zip) ||
       workflowRunResponse(href, runs) ||
       releaseTipResponse(href, tip, failTip) ||
-      pullResponse(href, pulls, parents) ||
+      pullResponse(href, pulls, parents, commits) ||
       jsonResponse({}, 404)
     );
   };
@@ -273,7 +373,13 @@ describe('require release CI readiness', () => {
       pages: [{ runs: [check()], total: 1 }],
       tip: OTHER,
     });
-    await expect(gate(state, { skipReleaseTipCheck: true })).resolves.toEqual({
+    await expect(
+      gate(state, {
+        skipReleaseTipCheck: true,
+        eventName: 'pull_request',
+        workflowName: 'Release gate dry run',
+      }),
+    ).resolves.toEqual({
       publish: true,
       sha: SHA,
       headSha: SHA,
@@ -282,6 +388,55 @@ describe('require release CI readiness', () => {
     expect(
       state.requested.some((url) => url.includes('/git/ref/heads/release')),
     ).toBe(false);
+  });
+
+  it('still refuses a red check when the tip skip flag is set', async () => {
+    const state = github({
+      pages: [{ runs: [check({ conclusion: 'failure' })], total: 1 }],
+    });
+    await expect(gate(state, { skipReleaseTipCheck: true })).rejects.toThrow(
+      /conclusion failure/,
+    );
+    expect(
+      state.requested.some((url) => url.includes('/git/ref/heads/release')),
+    ).toBe(false);
+  });
+
+  it('still refuses a missing check when the tip skip flag is set', async () => {
+    const state = github({
+      pages: [{ runs: [check({ name: 'Lint', id: 4 })], total: 1 }],
+    });
+    await expect(gate(state, { skipReleaseTipCheck: true })).rejects.toThrow(
+      /missing/,
+    );
+    expect(
+      state.requested.some((url) => url.includes('/git/ref/heads/release')),
+    ).toBe(false);
+  });
+
+  it('refuses the tip skip flag for push, workflow_dispatch, and Release', async () => {
+    const fetchImpl = async () => {
+      throw new Error('fetch should not run');
+    };
+    const base = {
+      fetchImpl,
+      repo: REPO,
+      token: 'token',
+      sha: SHA,
+      ref: 'refs/heads/release',
+      timeoutMs: 0,
+      intervalMs: 1000,
+      skipReleaseTipCheck: true,
+    };
+    await expect(
+      evaluateReleaseGate({ ...base, eventName: 'push' }),
+    ).rejects.toThrow(/GITHUB_EVENT_NAME is push/);
+    await expect(
+      evaluateReleaseGate({ ...base, eventName: 'workflow_dispatch' }),
+    ).rejects.toThrow(/workflow_dispatch/);
+    await expect(
+      evaluateReleaseGate({ ...base, workflowName: 'Release' }),
+    ).rejects.toThrow(/GITHUB_WORKFLOW is Release/);
   });
 
   it('allows publish when pull_request CI readiness succeeded and the tip matches', async () => {
@@ -333,6 +488,7 @@ describe('require release CI readiness', () => {
       ],
       parents: [BASE, HEAD],
       tip: SHA,
+      report: readinessReport(),
     });
     await expect(gate(state)).resolves.toMatchObject({
       publish: true,
@@ -344,6 +500,46 @@ describe('require release CI readiness', () => {
         url.includes(`/commits/${HEAD}/check-runs`),
       ),
     ).toBe(true);
+  });
+
+  it('blocks a merge commit when the CI merge ref base disagrees', async () => {
+    const state = github({
+      pages: [{ runs: [check()], total: 1 }],
+      runs: { '10': workflowRun({ head_sha: HEAD }) },
+      pulls: [
+        {
+          number: 134,
+          merged: true,
+          base: { ref: 'release', sha: BASE },
+          head: { sha: HEAD },
+          merge_commit_sha: SHA,
+        },
+      ],
+      parents: [BASE, HEAD],
+      commits: { [MERGE]: [OTHER, HEAD] },
+      report: readinessReport(),
+    });
+    await expect(gate(state)).rejects.toThrow(/base mismatch for run 10/);
+  });
+
+  it('blocks a merge commit when CI tested an older release base', async () => {
+    const state = github({
+      pages: [{ runs: [check()], total: 1 }],
+      runs: { '10': workflowRun({ head_sha: HEAD }) },
+      pulls: [
+        {
+          number: 134,
+          merged: true,
+          base: { ref: 'release', sha: OTHER },
+          head: { sha: HEAD },
+          merge_commit_sha: SHA,
+        },
+      ],
+      parents: [OTHER, HEAD],
+      commits: { [MERGE]: [BASE, HEAD] },
+      report: readinessReport({ baseSha: BASE }),
+    });
+    await expect(gate(state)).rejects.toThrow(/stale base/);
   });
 
   it('blocks a merge commit when the pull request head is red', async () => {
@@ -625,13 +821,11 @@ describe('require release CI readiness', () => {
   it('accepts only an explicit dry-run tip skip', () => {
     expect(skipReleaseTipCheckFromEnv(undefined)).toBe(false);
     expect(skipReleaseTipCheckFromEnv('')).toBe(false);
-    expect(skipReleaseTipCheckFromEnv('0')).toBe(false);
-    expect(skipReleaseTipCheckFromEnv('false')).toBe(false);
     expect(skipReleaseTipCheckFromEnv('1')).toBe(true);
-    expect(skipReleaseTipCheckFromEnv('true')).toBe(true);
-    expect(() => skipReleaseTipCheckFromEnv('yes')).toThrow(
-      /CI_READINESS_SKIP_RELEASE_TIP_CHECK/,
-    );
+    expect(() => skipReleaseTipCheckFromEnv('true')).toThrow(/exact value 1/);
+    expect(() => skipReleaseTipCheckFromEnv('0')).toThrow(/exact value 1/);
+    expect(() => skipReleaseTipCheckFromEnv('false')).toThrow(/exact value 1/);
+    expect(() => skipReleaseTipCheckFromEnv('yes')).toThrow(/exact value 1/);
   });
 });
 
@@ -663,7 +857,14 @@ describe('release workflow contract', () => {
     expect(publish.slice(0, scriptAt)).toContain(
       'TARGET_SHA: ${{ github.sha }}',
     );
-    expect(release).not.toMatch(/CI_READINESS_SKIP_RELEASE_TIP_CHECK\s*:/);
+    expect(publish.slice(0, scriptAt)).toContain(
+      "CI_READINESS_SKIP_RELEASE_TIP_CHECK: ''",
+    );
+    const releaseConfig = readFileSync('release.config.mjs', 'utf8');
+    const gitAt = releaseConfig.lastIndexOf('@semantic-release/git');
+    const guardAt = releaseConfig.lastIndexOf('assertReleaseTipBeforeTag');
+    expect(releaseConfig).toContain('assert-release-tip-before-tag.mjs');
+    expect(guardAt).toBeGreaterThan(gitAt);
     const checkouts = release.match(/uses: actions\/checkout@v6/g) || [];
     const refs = release.match(/ref: \$\{\{ github\.sha \}\}/g) || [];
     expect(refs).toHaveLength(checkouts.length);
@@ -690,5 +891,59 @@ describe('release workflow contract', () => {
     expect(proof.slice(redAt)).not.toContain(
       'CI_READINESS_SKIP_RELEASE_TIP_CHECK',
     );
+  });
+});
+
+describe('release tip before tag', () => {
+  const validated = SHA;
+  const bump = OTHER;
+
+  it('allows the validated commit when the tip is still that commit', () => {
+    expect(
+      assertReleaseTipBeforeTag({
+        head: validated,
+        parent: '',
+        tip: validated,
+        validated,
+      }),
+    ).toEqual({ sha: validated, validated });
+  });
+
+  it('allows the version-bump commit whose parent is the validated sha', () => {
+    expect(
+      assertReleaseTipBeforeTag({
+        head: bump,
+        parent: validated,
+        tip: bump,
+        validated,
+      }),
+    ).toEqual({ sha: bump, validated });
+  });
+
+  it('blocks a tag when nothing was committed and release moved', () => {
+    expect(() =>
+      assertReleaseTipBeforeTag({
+        head: validated,
+        parent: '',
+        tip: OTHER,
+        validated,
+      }),
+    ).toThrow(/aborting before tag/);
+  });
+
+  it('blocks a tag when HEAD is not the validated commit or its bump', () => {
+    expect(() =>
+      assertReleaseTipBeforeTag({
+        head: HEAD,
+        parent: OTHER,
+        tip: HEAD,
+        validated,
+      }),
+    ).toThrow(/not the validated commit/);
+  });
+
+  it('reads the tip sha from ls-remote output', () => {
+    expect(tipFromLsRemote(`${SHA}\trefs/heads/release\n`)).toBe(SHA);
+    expect(() => tipFromLsRemote('')).toThrow(/40 character sha/);
   });
 });
