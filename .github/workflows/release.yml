@@ -351,6 +351,7 @@ jobs:
           TARGET_SHA: ${{ github.sha }}
           TARGET_REF: ${{ github.ref }}
           CI_READINESS_SKIP_RELEASE_TIP_CHECK: ''
+          CI_READINESS_REPORT_FIXTURE: ''
         run: node scripts/ci/require-release-ci-readiness.mjs
 
       - name: Release

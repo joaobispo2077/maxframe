@@ -2,15 +2,17 @@ name: Release gate dry run
 
 # Proves the publish gate allows the green promotion and refuses the red one.
 # This workflow does not build installers and does not run semantic-release.
-# The green step skips the release tip read. A real Release job must not set
-# CI_READINESS_SKIP_RELEASE_TIP_CHECK, so publish still aborts when the tip moves.
+# It runs only on pull_request. workflow_dispatch is omitted because the skip
+# flag is rejected for that event.
+# The green step skips the release tip read and uses a recorded ci-readiness
+# fixture, so it does not depend on the 14 day artifact. A real Release job
+# must not set either variable.
 on:
   pull_request:
     branches:
       - main
       - develop
       - release
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -37,6 +39,7 @@ jobs:
           TARGET_REF: refs/heads/release
           CI_READINESS_TIMEOUT_MS: '0'
           CI_READINESS_SKIP_RELEASE_TIP_CHECK: '1'
+          CI_READINESS_REPORT_FIXTURE: scripts/ci/fixtures/ci-readiness-4f62c89.json
         run: node scripts/ci/require-release-ci-readiness.mjs
 
       - name: Dry-run the publish gate on the red promotion e4542f7
