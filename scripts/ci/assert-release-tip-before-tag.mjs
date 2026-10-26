@@ -13,10 +13,17 @@ import { normalizeSha } from './require-release-ci-readiness.mjs';
  * A push after this read and before the tag push can still move release.
  */
 export function tipFromLsRemote(stdout) {
-  const sha = String(stdout || '')
-    .trim()
-    .split(/\s+/)[0];
-  return normalizeSha(sha);
+  const lines = String(stdout || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const exact = lines.filter(
+    (line) => line.split(/\s+/)[1] === 'refs/heads/release',
+  );
+  if (exact.length !== 1) {
+    throw new Error('ls-remote must return exactly refs/heads/release');
+  }
+  return normalizeSha(exact[0].split(/\s+/)[0]);
 }
 
 export function assertReleaseTipBeforeTag({ head, parent, tip, validated }) {
@@ -58,7 +65,7 @@ export async function prepare(_pluginConfig, context, execImpl = execFileSync) {
   }
   const remote = git(
     execImpl,
-    ['ls-remote', '--heads', '--', repositoryUrl, 'release'],
+    ['ls-remote', '--heads', '--', repositoryUrl, 'refs/heads/release'],
     { cwd, env },
   );
   return assertReleaseTipBeforeTag({

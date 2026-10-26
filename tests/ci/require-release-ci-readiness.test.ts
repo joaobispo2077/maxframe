@@ -1,10 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { crc32 } from 'node:zlib';
 
 import { describe, expect, it } from 'vitest';
 
 import {
   assertReleaseTipBeforeTag,
+  prepare,
   tipFromLsRemote,
 } from '../../scripts/ci/assert-release-tip-before-tag.mjs';
 import { PUSH_SKIP_READINESS_NAME } from '../../scripts/ci/check-ci-readiness.mjs';
@@ -13,6 +14,7 @@ import {
   PUSH_SKIPPED_CHECK_NAME,
   evaluateReleaseGate,
   optionsFromEnv,
+  readReadinessFixture,
   skipReleaseTipCheckFromEnv,
 } from '../../scripts/ci/require-release-ci-readiness.mjs';
 
@@ -202,14 +204,23 @@ function pullResponse(
   return null;
 }
 
-function artifactResponse(href: string, zip: Buffer | null) {
-  if (!zip) return null;
+type Artifact = { id: number; name: string; expired: boolean };
+
+function artifactResponse(
+  href: string,
+  zip: Buffer | null,
+  artifacts: Artifact[] | null,
+) {
   if (href.includes('/artifacts?')) {
+    if (artifacts) {
+      return jsonResponse({ artifacts });
+    }
+    if (!zip) return null;
     return jsonResponse({
       artifacts: [{ id: 77, name: 'ci-readiness-attempt-1', expired: false }],
     });
   }
-  if (!href.includes('/artifacts/77/zip')) return null;
+  if (!zip || !href.includes('/artifacts/77/zip')) return null;
   return {
     ok: true,
     status: 200,
@@ -227,6 +238,7 @@ function github({
   parents = [BASE, SHA],
   commits = {},
   report = null,
+  artifacts = null,
 }: {
   pages: Pages;
   runs?: Record<string, Run | { status: number }>;
@@ -236,6 +248,7 @@ function github({
   parents?: string[];
   commits?: Record<string, string[]>;
   report?: ReadinessReport | null;
+  artifacts?: Artifact[] | null;
 }) {
   const requested: string[] = [];
   const zip = report
@@ -246,7 +259,7 @@ function github({
     requested.push(href);
     return (
       checkRunsResponse(href, pages) ||
-      artifactResponse(href, zip) ||
+      artifactResponse(href, zip, artifacts) ||
       workflowRunResponse(href, runs) ||
       releaseTipResponse(href, tip, failTip) ||
       pullResponse(href, pulls, parents, commits) ||
@@ -539,7 +552,132 @@ describe('require release CI readiness', () => {
       commits: { [MERGE]: [BASE, HEAD] },
       report: readinessReport({ baseSha: BASE }),
     });
-    await expect(gate(state)).rejects.toThrow(/stale base/);
+    await expect(gate(state)).rejects.toThrow(
+      /stale base[\s\S]*Update the branch[\s\S]*Re-running the old CI run does not count/,
+    );
+  });
+
+  function greenMergeState(
+    extras: {
+      report?: ReadinessReport | null;
+      artifacts?: Artifact[] | null;
+    } = {},
+  ) {
+    return github({
+      pages: [{ runs: [check()], total: 1 }],
+      runs: { '10': workflowRun({ head_sha: HEAD }) },
+      pulls: [
+        {
+          number: 134,
+          merged: true,
+          base: { ref: 'release', sha: BASE, repo: { full_name: REPO } },
+          head: { sha: HEAD, ref: 'develop' },
+          merge_commit_sha: SHA,
+        },
+      ],
+      parents: [BASE, HEAD],
+      tip: SHA,
+      report: extras.report === undefined ? readinessReport() : extras.report,
+      artifacts: extras.artifacts ?? null,
+    });
+  }
+
+  it('fails closed when the ci-readiness artifact has expired', async () => {
+    const state = greenMergeState({
+      report: null,
+      artifacts: [{ id: 77, name: 'ci-readiness-attempt-1', expired: true }],
+    });
+    await expect(gate(state)).rejects.toThrow(
+      /has expired[\s\S]*14 days[\s\S]*Re-run CI[\s\S]*update the branch/,
+    );
+    expect(
+      state.requested.some((url) => url.includes('/artifacts/77/zip')),
+    ).toBe(false);
+  });
+
+  it('fails closed when the ci-readiness artifact is missing', async () => {
+    const state = greenMergeState({ report: null, artifacts: [] });
+    await expect(gate(state)).rejects.toThrow(
+      /is missing[\s\S]*14 days[\s\S]*Re-run CI[\s\S]*update the branch/,
+    );
+  });
+
+  it('uses a recorded fixture instead of the live artifact', async () => {
+    const relative = 'scripts/ci/fixtures/unit-readiness.json';
+    writeFileSync(relative, JSON.stringify(readinessReport()));
+    const state = greenMergeState({ report: null });
+    try {
+      await expect(
+        gate(state, {
+          readinessReportFixture: relative,
+          skipReleaseTipCheck: true,
+          eventName: 'pull_request',
+          workflowName: 'Release gate dry run',
+        }),
+      ).resolves.toMatchObject({
+        publish: true,
+        reason: expect.stringContaining('release tip check skipped'),
+      });
+    } finally {
+      rmSync(relative, { force: true });
+    }
+    expect(state.requested.some((url) => url.includes('/artifacts'))).toBe(
+      false,
+    );
+  });
+
+  it('rejects a readiness fixture on a Release publish before any fetch', async () => {
+    const fetchImpl = async () => {
+      throw new Error('fetch should not run');
+    };
+    const base = {
+      fetchImpl,
+      repo: REPO,
+      token: 'token',
+      sha: SHA,
+      ref: 'refs/heads/release',
+      timeoutMs: 0,
+      intervalMs: 1000,
+      readinessReportFixture: 'scripts/ci/fixtures/ci-readiness-4f62c89.json',
+    };
+    await expect(
+      evaluateReleaseGate({ ...base, eventName: 'push' }),
+    ).rejects.toThrow(/cannot be set for a Release publish/);
+    await expect(
+      evaluateReleaseGate({ ...base, eventName: 'workflow_dispatch' }),
+    ).rejects.toThrow(/cannot be set for a Release publish/);
+    await expect(
+      evaluateReleaseGate({ ...base, workflowName: 'Release' }),
+    ).rejects.toThrow(/cannot be set for a Release publish/);
+  });
+
+  it('reads only a repo-relative readiness fixture', () => {
+    const recorded = readReadinessFixture(
+      'scripts/ci/fixtures/ci-readiness-4f62c89.json',
+    );
+    expect(recorded.pullRequest).toMatchObject({
+      number: '134',
+      headSha: '9f0b3ac06e2b522ac4769a48d6b9e6a1316704fe',
+      baseSha: '0e591f087dddf11aea478a2ad9858410ee493e2f',
+    });
+    expect(recorded.sha).toBe('65885338afd41af2eb573d128e95bc4e31c8b524');
+    expect(() => readReadinessFixture('../package.json')).toThrow(
+      /repo-relative path/,
+    );
+    expect(() => readReadinessFixture('/tmp/ci-readiness.json')).toThrow(
+      /repo-relative path/,
+    );
+    expect(() => readReadinessFixture('scripts\\ci\\fixture.json')).toThrow(
+      /repo-relative path/,
+    );
+    expect(() =>
+      readReadinessFixture('scripts/ci/fixtures/unit-readiness.json', () => {
+        return 'not-json';
+      }),
+    ).toThrow(/was not JSON/);
+    expect(() =>
+      readReadinessFixture('scripts/ci/fixtures/missing-readiness.json'),
+    ).toThrow(/could not be read/);
   });
 
   it('blocks a merge commit when the pull request head is red', async () => {
@@ -860,6 +998,9 @@ describe('release workflow contract', () => {
     expect(publish.slice(0, scriptAt)).toContain(
       "CI_READINESS_SKIP_RELEASE_TIP_CHECK: ''",
     );
+    expect(publish.slice(0, scriptAt)).toContain(
+      "CI_READINESS_REPORT_FIXTURE: ''",
+    );
     const releaseConfig = readFileSync('release.config.mjs', 'utf8');
     const gitAt = releaseConfig.lastIndexOf('@semantic-release/git');
     const guardAt = releaseConfig.lastIndexOf('assertReleaseTipBeforeTag');
@@ -875,7 +1016,9 @@ describe('release workflow contract', () => {
     expect(proof).toContain(RED_SHA);
     expect(proof).toContain(GREEN_SHA);
     expect(proof).toContain('node scripts/ci/require-release-ci-readiness.mjs');
-    expect(proof).toContain('workflow_dispatch');
+    const on = proof.slice(proof.indexOf('\non:'), proof.indexOf('\njobs:'));
+    expect(on).toContain('pull_request:');
+    expect(on).not.toContain('workflow_dispatch');
     expect(proof).not.toContain('npm run release');
     expect(proof).not.toContain('workflow_run');
     expect(proof).toContain(
@@ -888,9 +1031,13 @@ describe('release workflow contract', () => {
     expect(proof.slice(greenAt, redAt)).toContain(
       "CI_READINESS_SKIP_RELEASE_TIP_CHECK: '1'",
     );
+    expect(proof.slice(greenAt, redAt)).toContain(
+      'CI_READINESS_REPORT_FIXTURE: scripts/ci/fixtures/ci-readiness-4f62c89.json',
+    );
     expect(proof.slice(redAt)).not.toContain(
       'CI_READINESS_SKIP_RELEASE_TIP_CHECK',
     );
+    expect(proof.slice(redAt)).not.toContain('CI_READINESS_REPORT_FIXTURE');
   });
 });
 
@@ -942,8 +1089,98 @@ describe('release tip before tag', () => {
     ).toThrow(/not the validated commit/);
   });
 
-  it('reads the tip sha from ls-remote output', () => {
+  it('reads only the exact refs/heads/release line', () => {
     expect(tipFromLsRemote(`${SHA}\trefs/heads/release\n`)).toBe(SHA);
-    expect(() => tipFromLsRemote('')).toThrow(/40 character sha/);
+    expect(() => tipFromLsRemote('')).toThrow(/refs\/heads\/release/);
+    expect(() =>
+      tipFromLsRemote(`${SHA}\trefs/heads/feature/release\n`),
+    ).toThrow(/refs\/heads\/release/);
+    expect(
+      tipFromLsRemote(
+        `${OTHER}\trefs/heads/feature/release\n${SHA}\trefs/heads/release\n`,
+      ),
+    ).toBe(SHA);
+    expect(() =>
+      tipFromLsRemote(
+        `${SHA}\trefs/heads/release\n${OTHER}\trefs/heads/release\n`,
+      ),
+    ).toThrow(/exactly refs\/heads\/release/);
+  });
+
+  const repositoryUrl = 'https://github.com/joaobispo2077/maxframe.git';
+
+  it('asks git for HEAD and the exact release ref before tagging', async () => {
+    const calls: string[][] = [];
+    const execImpl = (_command: string, args: string[]) => {
+      calls.push(args);
+      if (args[0] === 'rev-parse' && args[1] === 'HEAD') return `${OTHER}\n`;
+      if (args[0] === 'rev-parse' && args[1] === 'HEAD^') return `${SHA}\n`;
+      if (args[0] === 'ls-remote') return `${OTHER}\trefs/heads/release\n`;
+      throw new Error(`unexpected ${args.join(' ')}`);
+    };
+    await expect(
+      prepare(
+        {},
+        {
+          cwd: '/repo',
+          env: { GITHUB_SHA: SHA },
+          options: { repositoryUrl },
+        },
+        execImpl,
+      ),
+    ).resolves.toEqual({ sha: OTHER, validated: SHA });
+    expect(calls[0]).toEqual(['rev-parse', 'HEAD']);
+    expect(calls[1]).toEqual(['rev-parse', 'HEAD^']);
+    expect(calls[2]).toEqual([
+      'ls-remote',
+      '--heads',
+      '--',
+      repositoryUrl,
+      'refs/heads/release',
+    ]);
+  });
+
+  it('does not read HEAD^ when HEAD is the validated commit', async () => {
+    const calls: string[][] = [];
+    const execImpl = (_command: string, args: string[]) => {
+      calls.push(args);
+      if (args[0] === 'rev-parse') return `${SHA}\n`;
+      return `${SHA}\trefs/heads/release\n`;
+    };
+    await expect(
+      prepare(
+        {},
+        {
+          env: { TARGET_SHA: SHA, GITHUB_SHA: OTHER },
+          options: { repositoryUrl },
+        },
+        execImpl,
+      ),
+    ).resolves.toEqual({ sha: SHA, validated: SHA });
+    expect(calls.some((args) => args.includes('HEAD^'))).toBe(false);
+    expect(calls[1]).toContain('refs/heads/release');
+  });
+
+  it('requires a repository URL before any git call', async () => {
+    const execImpl = () => {
+      throw new Error('git should not run');
+    };
+    await expect(
+      prepare({}, { env: { GITHUB_SHA: SHA }, options: {} }, execImpl),
+    ).rejects.toThrow(/repository URL is required/);
+  });
+
+  it('aborts before tag when the ls-remote tip is not HEAD', async () => {
+    const execImpl = (_command: string, args: string[]) => {
+      if (args[0] === 'rev-parse') return `${SHA}\n`;
+      return `${OTHER}\trefs/heads/release\n`;
+    };
+    await expect(
+      prepare(
+        {},
+        { env: { GITHUB_SHA: SHA }, options: { repositoryUrl } },
+        execImpl,
+      ),
+    ).rejects.toThrow(/aborting before tag/);
   });
 });
