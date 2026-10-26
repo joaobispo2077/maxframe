@@ -2,6 +2,8 @@ name: Release gate dry run
 
 # Proves the publish gate allows the green promotion and refuses the red one.
 # This workflow does not build installers and does not run semantic-release.
+# The green step skips the release tip read. A real Release job must not set
+# CI_READINESS_SKIP_RELEASE_TIP_CHECK, so publish still aborts when the tip moves.
 on:
   pull_request:
     branches:
@@ -25,12 +27,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # Historical green promotion. The skip flag is set only on this step so
+      # a later release tip does not fail every pull request. The red step
+      # below does not set it. Refusal there happens before any tip read.
       - name: Dry-run the publish gate on the green promotion 4f62c89
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: 4f62c8929d088883dae7508434dc14182169e7f7
           TARGET_REF: refs/heads/release
           CI_READINESS_TIMEOUT_MS: '0'
+          CI_READINESS_SKIP_RELEASE_TIP_CHECK: '1'
         run: node scripts/ci/require-release-ci-readiness.mjs
 
       - name: Dry-run the publish gate on the red promotion e4542f7

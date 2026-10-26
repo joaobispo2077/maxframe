@@ -343,6 +343,8 @@ jobs:
       # CI readiness check and release still points at github.sha.
       # A fast-forward uses github.sha itself as that head.
       # workflow_dispatch hits this step too. There is no skip input.
+      # Do not set CI_READINESS_SKIP_RELEASE_TIP_CHECK here. That variable
+      # belongs only to the pull request dry run.
       - name: Require pull_request CI readiness for this commit
         env:
           GH_TOKEN: ${{ github.token }}

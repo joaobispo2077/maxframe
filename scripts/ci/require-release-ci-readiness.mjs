@@ -1,5 +1,25 @@
 import { pathToFileURL } from 'node:url';
 
+/**
+ * Publish gate for the Release workflow.
+ *
+ * The remote `release` tip is read once, immediately before `npm run release`.
+ * A push that lands after that read and before semantic-release pushes can
+ * still move `release`. semantic-release compares the local branch with the
+ * remote only when its auth dry-run push fails (`isBranchUpToDate` in
+ * semantic-release `index.js`). When that dry-run succeeds, it does not read
+ * the tip again. `@semantic-release/git` later pushes `HEAD:release` without
+ * `--force`, during `prepare`, before the GitHub release is created. A
+ * non-fast-forward push fails closed. If that plugin has no files to commit,
+ * it skips the branch push, and the later tag push can still publish the
+ * checked-out sha after the branch has moved.
+ *
+ * `CI_READINESS_SKIP_RELEASE_TIP_CHECK` is only for the pull request dry run.
+ * Set it to `1` to prove a historical promotion without reading where
+ * `release` currently points. The Release job must not set it. Unset means
+ * the tip check always runs.
+ */
+
 export const CI_READINESS_CHECK_NAME = 'CI readiness';
 export const PUSH_SKIPPED_CHECK_NAME =
   'CI readiness (push skipped, PR validates)';
@@ -394,6 +414,14 @@ export function readNonNegative(raw, fallback) {
   return value;
 }
 
+export function skipReleaseTipCheckFromEnv(raw) {
+  if (raw == null || raw === '' || raw === '0' || raw === 'false') return false;
+  if (raw === '1' || raw === 'true') return true;
+  throw new Error(
+    'CI_READINESS_SKIP_RELEASE_TIP_CHECK must be unset, 0, false, 1, or true',
+  );
+}
+
 export function optionsFromEnv(env) {
   const intervalMs = readNonNegative(
     env.CI_READINESS_INTERVAL_MS,
@@ -409,6 +437,9 @@ export function optionsFromEnv(env) {
     ref: env.TARGET_REF || env.GITHUB_REF,
     timeoutMs: readNonNegative(env.CI_READINESS_TIMEOUT_MS, DEFAULT_TIMEOUT_MS),
     intervalMs,
+    skipReleaseTipCheck: skipReleaseTipCheckFromEnv(
+      env.CI_READINESS_SKIP_RELEASE_TIP_CHECK,
+    ),
   };
 }
 
@@ -416,6 +447,7 @@ export function optionsFromEnv(env) {
  * Allow publish only when the merged pull request's head has an exact
  * pull_request CI readiness success and the remote release tip is still this
  * SHA. A missing check is polled until the deadline. Every other outcome throws.
+ * `skipReleaseTipCheck` is the dry-run flag. The Release job leaves it false.
  */
 export async function evaluateReleaseGate({
   fetchImpl = globalThis.fetch,
@@ -426,6 +458,7 @@ export async function evaluateReleaseGate({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   intervalMs = DEFAULT_INTERVAL_MS,
   perPage = DEFAULT_PER_PAGE,
+  skipReleaseTipCheck = false,
   now = () => Date.now(),
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }) {
@@ -471,21 +504,27 @@ export async function evaluateReleaseGate({
     }
     await sleep(intervalMs);
   }
-  const tip = await fetchReleaseTip({ fetchImpl, repo, token });
-  if (tip !== commit) {
-    throw new Error(
-      `release tip is ${tip}, not ${commit}; aborting without publishing`,
-    );
+  if (skipReleaseTipCheck !== true) {
+    const tip = await fetchReleaseTip({ fetchImpl, repo, token });
+    if (tip !== commit) {
+      throw new Error(
+        `release tip is ${tip}, not ${commit}; aborting without publishing`,
+      );
+    }
   }
   const checked =
     promotion.kind === 'merge'
       ? `CI readiness from pull_request CI succeeded on ${promotion.headSha} for merge commit ${commit}`
       : `CI readiness from pull_request CI succeeded on ${commit}`;
+  const tipNote =
+    skipReleaseTipCheck === true
+      ? 'release tip check skipped'
+      : 'release tip matches';
   return {
     publish: true,
     sha: commit,
     headSha: promotion.headSha,
-    reason: `${checked} and release tip matches`,
+    reason: `${checked} and ${tipNote}`,
   };
 }
 

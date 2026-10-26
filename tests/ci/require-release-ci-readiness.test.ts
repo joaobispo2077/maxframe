@@ -8,6 +8,7 @@ import {
   PUSH_SKIPPED_CHECK_NAME,
   evaluateReleaseGate,
   optionsFromEnv,
+  skipReleaseTipCheckFromEnv,
 } from '../../scripts/ci/require-release-ci-readiness.mjs';
 
 const SHA = 'a'.repeat(40);
@@ -262,6 +263,25 @@ describe('require release CI readiness', () => {
       tip: OTHER,
     });
     await expect(gate(state)).rejects.toThrow(/aborting without publishing/);
+    expect(
+      state.requested.some((url) => url.includes('/git/ref/heads/release')),
+    ).toBe(true);
+  });
+
+  it('skips the release tip check only when the dry-run flag is set', async () => {
+    const state = github({
+      pages: [{ runs: [check()], total: 1 }],
+      tip: OTHER,
+    });
+    await expect(gate(state, { skipReleaseTipCheck: true })).resolves.toEqual({
+      publish: true,
+      sha: SHA,
+      headSha: SHA,
+      reason: `CI readiness from pull_request CI succeeded on ${SHA} and release tip check skipped`,
+    });
+    expect(
+      state.requested.some((url) => url.includes('/git/ref/heads/release')),
+    ).toBe(false);
   });
 
   it('allows publish when pull_request CI readiness succeeded and the tip matches', async () => {
@@ -599,6 +619,19 @@ describe('require release CI readiness', () => {
     expect(() => optionsFromEnv({ CI_READINESS_TIMEOUT_MS: 'later' })).toThrow(
       /non-negative/,
     );
+    expect(optionsFromEnv({ TARGET_SHA: SHA }).skipReleaseTipCheck).toBe(false);
+  });
+
+  it('accepts only an explicit dry-run tip skip', () => {
+    expect(skipReleaseTipCheckFromEnv(undefined)).toBe(false);
+    expect(skipReleaseTipCheckFromEnv('')).toBe(false);
+    expect(skipReleaseTipCheckFromEnv('0')).toBe(false);
+    expect(skipReleaseTipCheckFromEnv('false')).toBe(false);
+    expect(skipReleaseTipCheckFromEnv('1')).toBe(true);
+    expect(skipReleaseTipCheckFromEnv('true')).toBe(true);
+    expect(() => skipReleaseTipCheckFromEnv('yes')).toThrow(
+      /CI_READINESS_SKIP_RELEASE_TIP_CHECK/,
+    );
   });
 });
 
@@ -630,12 +663,14 @@ describe('release workflow contract', () => {
     expect(publish.slice(0, scriptAt)).toContain(
       'TARGET_SHA: ${{ github.sha }}',
     );
+    expect(release).not.toMatch(/CI_READINESS_SKIP_RELEASE_TIP_CHECK\s*:/);
     const checkouts = release.match(/uses: actions\/checkout@v6/g) || [];
     const refs = release.match(/ref: \$\{\{ github\.sha \}\}/g) || [];
     expect(refs).toHaveLength(checkouts.length);
   });
 
   it('dry-runs the publish gate against the red and green promotions', () => {
+    expect(proof).toContain('pull_request:');
     expect(proof).toContain(RED_SHA);
     expect(proof).toContain(GREEN_SHA);
     expect(proof).toContain('node scripts/ci/require-release-ci-readiness.mjs');
@@ -644,6 +679,16 @@ describe('release workflow contract', () => {
     expect(proof).not.toContain('workflow_run');
     expect(proof).toContain(
       'The publish gate would have published the red SHA.',
+    );
+    const greenAt = proof.indexOf('green promotion');
+    const redAt = proof.indexOf('red promotion');
+    expect(greenAt).toBeGreaterThan(0);
+    expect(redAt).toBeGreaterThan(greenAt);
+    expect(proof.slice(greenAt, redAt)).toContain(
+      "CI_READINESS_SKIP_RELEASE_TIP_CHECK: '1'",
+    );
+    expect(proof.slice(redAt)).not.toContain(
+      'CI_READINESS_SKIP_RELEASE_TIP_CHECK',
     );
   });
 });
