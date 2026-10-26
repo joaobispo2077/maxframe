@@ -1,23 +1,32 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /**
  * Publish gate for the Release workflow.
  *
- * The remote `release` tip is read once, immediately before `npm run release`.
- * A push that lands after that read and before semantic-release pushes can
- * still move `release`. semantic-release compares the local branch with the
- * remote only when its auth dry-run push fails (`isBranchUpToDate` in
- * semantic-release `index.js`). When that dry-run succeeds, it does not read
- * the tip again. `@semantic-release/git` later pushes `HEAD:release` without
- * `--force`, during `prepare`, before the GitHub release is created. A
- * non-fast-forward push fails closed. If that plugin has no files to commit,
- * it skips the branch push, and the later tag push can still publish the
- * checked-out sha after the branch has moved.
+ * A merge commit is allowed only when its first parent equals the base that
+ * the counted pull_request CI run tested. That base is the pull request base
+ * sha recorded in the ci-readiness artifact, and it must also be the first
+ * parent of the run's merge ref. If those two disagree, or the merge commit
+ * first parent differs, the job fails closed. The stale case is a release
+ * move after CI: the pull request base sha at merge time equals the new
+ * first parent, while the run still records the older base.
  *
- * `CI_READINESS_SKIP_RELEASE_TIP_CHECK` is only for the pull request dry run.
- * Set it to `1` to prove a historical promotion without reading where
- * `release` currently points. The Release job must not set it. Unset means
- * the tip check always runs.
+ * This script reads the remote release tip once, immediately before
+ * `npm run release`. `scripts/ci/assert-release-tip-before-tag.mjs` reads it
+ * again as the last semantic-release prepare step, immediately before the
+ * tag. HEAD must be the validated sha, or the version-bump commit whose
+ * parent is that sha, and the remote tip must equal HEAD. That covers the
+ * case where @semantic-release/git has nothing to commit. A push after that
+ * second read and before the tag push can still move release.
+ *
+ * CI_READINESS_SKIP_RELEASE_TIP_CHECK skips only this script's tip read.
+ * The only enabling value is the exact string 1. Any other non-empty value
+ * throws. The script also rejects 1 when GITHUB_EVENT_NAME is push or
+ * workflow_dispatch, and when GITHUB_WORKFLOW is Release.
  */
 
 export const CI_READINESS_CHECK_NAME = 'CI readiness';
@@ -174,6 +183,7 @@ async function fetchWorkflowRun({ fetchImpl, repo, token, runId }) {
     path: typeof body?.path === 'string' ? body.path : '',
     headSha:
       typeof body?.head_sha === 'string' ? body.head_sha.toLowerCase() : '',
+    runAttempt: Number.isInteger(body?.run_attempt) ? body.run_attempt : 0,
   };
 }
 
@@ -231,10 +241,12 @@ function readConfirmedPull(body, repo) {
     return null;
   }
   const merge = body?.merge_commit_sha;
+  const baseSha = body?.base?.sha;
   return {
     number: body.number,
     merged: body.merged === true,
     baseRef,
+    baseSha: typeof baseSha === 'string' ? baseSha.toLowerCase() : '',
     headSha: head.toLowerCase(),
     mergeCommitSha:
       typeof merge === 'string' && merge ? merge.toLowerCase() : null,
@@ -268,6 +280,7 @@ export async function resolveReleasePromotion({ fetchImpl, repo, token, sha }) {
         kind: 'fast-forward',
         headSha: pull.headSha,
         number: pull.number,
+        baseSha: pull.baseSha,
       });
       continue;
     }
@@ -276,6 +289,7 @@ export async function resolveReleasePromotion({ fetchImpl, repo, token, sha }) {
         kind: 'merge',
         headSha: pull.headSha,
         number: pull.number,
+        baseSha: pull.baseSha,
       });
     }
   }
@@ -314,6 +328,7 @@ async function assertMergeSecondParent({
       `parent mismatch for ${sha}: pull request head ${headSha} is not the merge commit second parent ${second}`,
     );
   }
+  return parents;
 }
 
 function missingMessage(sha, context) {
@@ -354,7 +369,13 @@ function classify(sha, resolved, context) {
     }
     return { state: 'pending', status: latest.status };
   }
-  if (latest.conclusion === 'success') return { state: 'success' };
+  if (latest.conclusion === 'success') {
+    return {
+      state: 'success',
+      runId: latest.runId,
+      runAttempt: latest.runAttempt,
+    };
+  }
   const conclusion = latest.conclusion || 'empty';
   return {
     state: 'rejected',
@@ -400,6 +421,8 @@ async function findPullRequestCiReadiness({
       id: Number(check.id) || 0,
       status: check.status || '',
       conclusion: check.conclusion,
+      runId,
+      runAttempt: run.runAttempt,
     });
   }
   return classify(sha, resolved, context);
@@ -415,11 +438,29 @@ export function readNonNegative(raw, fallback) {
 }
 
 export function skipReleaseTipCheckFromEnv(raw) {
-  if (raw == null || raw === '' || raw === '0' || raw === 'false') return false;
-  if (raw === '1' || raw === 'true') return true;
+  if (raw == null || raw === '') return false;
+  if (raw === '1') return true;
   throw new Error(
-    'CI_READINESS_SKIP_RELEASE_TIP_CHECK must be unset, 0, false, 1, or true',
+    'CI_READINESS_SKIP_RELEASE_TIP_CHECK must be unset or the exact value 1',
   );
+}
+
+export function assertSkipReleaseTipCheckAllowed({
+  skipReleaseTipCheck,
+  eventName,
+  workflowName,
+}) {
+  if (skipReleaseTipCheck !== true) return;
+  if (eventName === 'push' || eventName === 'workflow_dispatch') {
+    throw new Error(
+      `CI_READINESS_SKIP_RELEASE_TIP_CHECK cannot be set when GITHUB_EVENT_NAME is ${eventName}`,
+    );
+  }
+  if (workflowName === 'Release') {
+    throw new Error(
+      'CI_READINESS_SKIP_RELEASE_TIP_CHECK cannot be set when GITHUB_WORKFLOW is Release',
+    );
+  }
 }
 
 export function optionsFromEnv(env) {
@@ -440,7 +481,131 @@ export function optionsFromEnv(env) {
     skipReleaseTipCheck: skipReleaseTipCheckFromEnv(
       env.CI_READINESS_SKIP_RELEASE_TIP_CHECK,
     ),
+    eventName: env.GITHUB_EVENT_NAME || '',
+    workflowName: env.GITHUB_WORKFLOW || '',
   };
+}
+
+export function testedBaseFromReport(report, { headSha, pullNumber, runId }) {
+  const pull = report?.pullRequest;
+  const baseSha = String(pull?.baseSha || '').toLowerCase();
+  const recordedHead = String(pull?.headSha || '').toLowerCase();
+  const recordedNumber = String(pull?.number ?? '');
+  const mergeSha = String(report?.sha || '').toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(baseSha) || !/^[0-9a-f]{40}$/.test(mergeSha)) {
+    throw new Error(
+      `CI readiness report for run ${runId} is missing the tested base`,
+    );
+  }
+  if (recordedHead !== headSha || recordedNumber !== String(pullNumber)) {
+    throw new Error(
+      `base mismatch for run ${runId}: report is for pull request ${recordedNumber || 'none'} head ${recordedHead || 'missing'}, not ${pullNumber} head ${headSha}`,
+    );
+  }
+  return { baseSha, mergeSha };
+}
+
+export function assertRunMergeRef(parents, { headSha, baseSha, runId }) {
+  const first = parents[0] || 'missing';
+  const second = parents[1] || 'missing';
+  if (parents.length !== 2 || first !== baseSha || second !== headSha) {
+    throw new Error(
+      `base mismatch for run ${runId}: merge ref base ${first} does not match recorded pull request base ${baseSha}`,
+    );
+  }
+}
+
+export function assertMergeFirstParent({
+  first,
+  testedBase,
+  prBaseSha,
+  commit,
+  runId,
+}) {
+  if (first === testedBase) return;
+  if (prBaseSha && prBaseSha === first) {
+    throw new Error(
+      `stale base for ${commit}: pull_request CI run ${runId} tested ${testedBase}, merge commit first parent is ${first}`,
+    );
+  }
+  throw new Error(
+    `base mismatch for ${commit}: pull_request CI run ${runId} tested ${testedBase}, merge commit first parent is ${first}`,
+  );
+}
+
+function readReportFromZip(bytes) {
+  const dir = mkdtempSync(join(tmpdir(), 'ci-readiness-'));
+  const zipPath = join(dir, 'artifact.zip');
+  try {
+    writeFileSync(zipPath, Buffer.from(bytes));
+    const stdout = execFileSync('unzip', ['-p', zipPath, 'ci-readiness.json'], {
+      encoding: 'utf8',
+    });
+    return JSON.parse(stdout);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error('CI readiness report was not JSON');
+    }
+    throw new Error('CI readiness artifact is missing ci-readiness.json');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function fetchArtifactZip(fetchImpl, url, token, redirect = false) {
+  const response = await fetchImpl(url, {
+    redirect: 'manual',
+    headers: redirect
+      ? { 'User-Agent': 'maxframe-release-readiness-gate' }
+      : githubHeaders(token),
+  });
+  if (!redirect && response?.status >= 300 && response.status < 400) {
+    const location = response.headers?.get?.('location');
+    if (!location) {
+      throw new Error('CI readiness artifact redirect is missing a location');
+    }
+    return fetchArtifactZip(fetchImpl, location, token, true);
+  }
+  if (!response?.ok) {
+    const status = response?.status ?? 'unknown';
+    throw new Error(`CI readiness artifact request failed: ${status}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
+async function loadCiReadinessReport({
+  fetchImpl,
+  repo,
+  token,
+  runId,
+  runAttempt,
+}) {
+  if (!runId || !Number.isInteger(runAttempt) || runAttempt < 1) {
+    throw new Error(`CI readiness run ${runId || 'missing'} has no attempt`);
+  }
+  const { owner, name } = repoParts(repo);
+  const artifactName = `ci-readiness-attempt-${runAttempt}`;
+  const collected = [];
+  for (let page = 1; page <= 5; page += 1) {
+    const url = `https://api.github.com/repos/${owner}/${name}/actions/runs/${runId}/artifacts?per_page=100&page=${page}`;
+    const body = await fetchJson(fetchImpl, url, token);
+    if (!Array.isArray(body?.artifacts)) {
+      throw new Error('CI readiness artifact list is incomplete');
+    }
+    collected.push(...body.artifacts);
+    if (body.artifacts.length < 100) break;
+  }
+  const match = collected.find(
+    (item) => item?.name === artifactName && item.expired !== true && item.id,
+  );
+  if (!match) {
+    throw new Error(
+      `CI readiness artifact ${artifactName} for run ${runId} is missing`,
+    );
+  }
+  const zipUrl = `https://api.github.com/repos/${owner}/${name}/actions/artifacts/${match.id}/zip`;
+  const bytes = await fetchArtifactZip(fetchImpl, zipUrl, token);
+  return readReportFromZip(bytes);
 }
 
 /**
@@ -459,12 +624,19 @@ export async function evaluateReleaseGate({
   intervalMs = DEFAULT_INTERVAL_MS,
   perPage = DEFAULT_PER_PAGE,
   skipReleaseTipCheck = false,
+  eventName = '',
+  workflowName = '',
   now = () => Date.now(),
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }) {
   assertReleaseRef(ref);
   assertRepo(repo);
   assertToken(token);
+  assertSkipReleaseTipCheckAllowed({
+    skipReleaseTipCheck,
+    eventName,
+    workflowName,
+  });
   const commit = normalizeSha(sha);
   if (intervalMs < 1) {
     throw new Error('CI_READINESS_INTERVAL_MS must be at least 1');
@@ -475,8 +647,9 @@ export async function evaluateReleaseGate({
     token,
     sha: commit,
   });
+  let promotionParents = null;
   if (promotion.kind === 'merge') {
-    await assertMergeSecondParent({
+    promotionParents = await assertMergeSecondParent({
       fetchImpl,
       repo,
       token,
@@ -503,6 +676,38 @@ export async function evaluateReleaseGate({
       );
     }
     await sleep(intervalMs);
+  }
+  if (promotion.kind === 'merge') {
+    const report = await loadCiReadinessReport({
+      fetchImpl,
+      repo,
+      token,
+      runId: decision.runId,
+      runAttempt: decision.runAttempt,
+    });
+    const tested = testedBaseFromReport(report, {
+      headSha: promotion.headSha,
+      pullNumber: promotion.number,
+      runId: decision.runId,
+    });
+    const mergeRefParents = await fetchCommitParents({
+      fetchImpl,
+      repo,
+      token,
+      sha: tested.mergeSha,
+    });
+    assertRunMergeRef(mergeRefParents, {
+      headSha: promotion.headSha,
+      baseSha: tested.baseSha,
+      runId: decision.runId,
+    });
+    assertMergeFirstParent({
+      first: promotionParents[0] || 'missing',
+      testedBase: tested.baseSha,
+      prBaseSha: promotion.baseSha,
+      commit,
+      runId: decision.runId,
+    });
   }
   if (skipReleaseTipCheck !== true) {
     const tip = await fetchReleaseTip({ fetchImpl, repo, token });

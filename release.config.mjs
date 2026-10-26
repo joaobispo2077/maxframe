@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { prepare as assertReleaseTipBeforeTag } from './scripts/ci/assert-release-tip-before-tag.mjs';
+
 const releaseAssetsDir = join(process.cwd(), 'release-assets');
 // Matches both the NSIS installer (*-win-x64.exe) and the portable (*-portable-win-x64.exe).
 const hasWindowsInstallerInWorkspace =
@@ -86,5 +88,6 @@ export default {
           'chore(release): ${nextRelease.version} \n\n${nextRelease.notes}',
       },
     ],
+    { prepare: assertReleaseTipBeforeTag },
   ],
 };
