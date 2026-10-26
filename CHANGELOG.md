@@ -1,3 +1,11 @@
+## [1.9.1](https://github.com/joaobispo2077/maxframe/compare/v1.9.0...v1.9.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **e2e:** map the generic fixture mp4 as a video row ([f9fa8a2](https://github.com/joaobispo2077/maxframe/commit/f9fa8a23a7d498cf4e8d2e1450421a81c75f4045)), closes [#85](https://github.com/joaobispo2077/maxframe/issues/85)
+* **e2e:** pass file URLs with --enable-file-urls to yt-dlp ([9d53786](https://github.com/joaobispo2077/maxframe/commit/9d53786dfb75d0108009e2c6f9b1d8f87c5a4d5e)), closes [#85](https://github.com/joaobispo2077/maxframe/issues/85)
+
 # [1.9.0](https://github.com/joaobispo2077/maxframe/compare/v1.8.1...v1.9.0) (2026-10-25)
 
 

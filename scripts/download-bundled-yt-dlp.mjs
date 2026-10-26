@@ -65,7 +65,7 @@ export function sha256OfBytes(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-async function downloadBytes(url) {
+export async function downloadBytes(url) {
   const response = await fetch(url, { redirect: 'follow' });
   if (!response.ok) {
     throw new Error(
