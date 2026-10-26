@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /**
@@ -13,7 +13,16 @@ import { pathToFileURL } from 'node:url';
  * parent of the run's merge ref. If those two disagree, or the merge commit
  * first parent differs, the job fails closed. The stale case is a release
  * move after CI: the pull request base sha at merge time equals the new
- * first parent, while the run still records the older base.
+ * first parent, while the run still records the older base. A stale base
+ * is cleared by updating the branch. Re-running the old CI run does not
+ * count, because that re-run reuses the original event and merge sha.
+ *
+ * The ci-readiness artifact is kept for 14 days. A missing or expired
+ * artifact fails closed. Re-run CI on the pull request, or update the branch
+ * so a new pull_request run records the tested base. The pull request dry
+ * run does not download that artifact. It reads
+ * scripts/ci/fixtures/ci-readiness-4f62c89.json instead.
+ * CI_READINESS_REPORT_FIXTURE is rejected for a Release publish.
  *
  * This script reads the remote release tip once, immediately before
  * `npm run release`. `scripts/ci/assert-release-tip-before-tag.mjs` reads it
@@ -483,7 +492,60 @@ export function optionsFromEnv(env) {
     ),
     eventName: env.GITHUB_EVENT_NAME || '',
     workflowName: env.GITHUB_WORKFLOW || '',
+    readinessReportFixture: readinessReportFixtureFromEnv(
+      env.CI_READINESS_REPORT_FIXTURE,
+    ),
   };
+}
+
+export function readinessReportFixtureFromEnv(raw) {
+  if (raw == null || raw === '') return '';
+  return String(raw);
+}
+
+export function assertReadinessReportFixtureAllowed({
+  fixture,
+  eventName,
+  workflowName,
+}) {
+  if (!fixture) return;
+  if (
+    eventName === 'push' ||
+    eventName === 'workflow_dispatch' ||
+    workflowName === 'Release'
+  ) {
+    throw new Error(
+      'CI_READINESS_REPORT_FIXTURE cannot be set for a Release publish',
+    );
+  }
+}
+
+export function readReadinessFixture(relativePath, readImpl = readFileSync) {
+  const value = String(relativePath || '');
+  if (
+    !value ||
+    value.includes('..') ||
+    value.includes('\\') ||
+    isAbsolute(value)
+  ) {
+    throw new Error('CI_READINESS_REPORT_FIXTURE must be a repo-relative path');
+  }
+  let text;
+  try {
+    text = readImpl(join(process.cwd(), value), 'utf8');
+  } catch {
+    throw new Error(`CI readiness fixture ${value} could not be read`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`CI readiness fixture ${value} was not JSON`);
+  }
+}
+
+export function artifactUnavailableMessage(artifactName, runId, expired) {
+  const state = expired ? 'has expired' : 'is missing';
+  return `CI readiness artifact ${artifactName} for run ${runId} ${state}. pull_request CI readiness artifacts are kept for 14 days. Re-run CI on the pull request, or update the branch so a new pull_request run records the tested base, then promote again.`;
 }
 
 export function testedBaseFromReport(report, { headSha, pullNumber, runId }) {
@@ -525,7 +587,7 @@ export function assertMergeFirstParent({
   if (first === testedBase) return;
   if (prBaseSha && prBaseSha === first) {
     throw new Error(
-      `stale base for ${commit}: pull_request CI run ${runId} tested ${testedBase}, merge commit first parent is ${first}`,
+      `stale base for ${commit}: pull_request CI run ${runId} tested ${testedBase}, merge commit first parent is ${first}. Update the branch so a new pull_request run tests the current base. Re-running the old CI run does not count, because it reuses the original event and merge sha.`,
     );
   }
   throw new Error(
@@ -595,12 +657,15 @@ async function loadCiReadinessReport({
     collected.push(...body.artifacts);
     if (body.artifacts.length < 100) break;
   }
-  const match = collected.find(
-    (item) => item?.name === artifactName && item.expired !== true && item.id,
-  );
+  const named = collected.filter((item) => item?.name === artifactName);
+  const match = named.find((item) => item.expired !== true && item.id);
   if (!match) {
     throw new Error(
-      `CI readiness artifact ${artifactName} for run ${runId} is missing`,
+      artifactUnavailableMessage(
+        artifactName,
+        runId,
+        named.some((item) => item?.expired === true),
+      ),
     );
   }
   const zipUrl = `https://api.github.com/repos/${owner}/${name}/actions/artifacts/${match.id}/zip`;
@@ -626,6 +691,7 @@ export async function evaluateReleaseGate({
   skipReleaseTipCheck = false,
   eventName = '',
   workflowName = '',
+  readinessReportFixture = '',
   now = () => Date.now(),
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }) {
@@ -634,6 +700,11 @@ export async function evaluateReleaseGate({
   assertToken(token);
   assertSkipReleaseTipCheckAllowed({
     skipReleaseTipCheck,
+    eventName,
+    workflowName,
+  });
+  assertReadinessReportFixtureAllowed({
+    fixture: readinessReportFixture,
     eventName,
     workflowName,
   });
@@ -678,13 +749,15 @@ export async function evaluateReleaseGate({
     await sleep(intervalMs);
   }
   if (promotion.kind === 'merge') {
-    const report = await loadCiReadinessReport({
-      fetchImpl,
-      repo,
-      token,
-      runId: decision.runId,
-      runAttempt: decision.runAttempt,
-    });
+    const report = readinessReportFixture
+      ? readReadinessFixture(readinessReportFixture)
+      : await loadCiReadinessReport({
+          fetchImpl,
+          repo,
+          token,
+          runId: decision.runId,
+          runAttempt: decision.runAttempt,
+        });
     const tested = testedBaseFromReport(report, {
       headSha: promotion.headSha,
       pullNumber: promotion.number,
