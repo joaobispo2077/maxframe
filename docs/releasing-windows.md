@@ -57,7 +57,7 @@ The Windows release and installer-smoke jobs download `yt-dlp.exe` with `node sc
 
 1. **build-windows** on `windows-latest` — `npm run compile:win`, upload `dist/*-win-x64.exe` as a workflow artifact.
 2. **smoke-windows** — download the artifact, run the NSIS silent install to `%RUNNER_TEMP%`, start `Maxframe.exe`, then exit 0.
-3. **release** on `ubuntu-latest` — download the same artifact to `release-assets/`, run `npm run release` (semantic-release). The job checks out `github.sha` and does not publish until `scripts/ci/require-release-ci-readiness.mjs` has seen a successful `pull_request` `CI readiness` check on that commit and confirmed the remote `release` tip is still that commit.  
+3. **release** on `ubuntu-latest` — download the same artifact to `release-assets/`, run `npm run release` (semantic-release). The job checks out `github.sha` and does not publish until `scripts/ci/require-release-ci-readiness.mjs` has seen a successful `pull_request` `CI readiness` check on the merged pull request head (the second parent of a merge commit, or `github.sha` for a fast-forward) and confirmed the remote `release` tip is still `github.sha`.  
    [release.config.mjs](../release.config.mjs) lists `release-assets/*-win-x64.exe` for `@semantic-release/github` when that folder contains the installer, so the Windows asset is only attached when the file is present (e.g. on CI after the download step).
 
 `semantic-release` is configured for the **`release`** branch only. See [release.config.mjs](../release.config.mjs) and the **Release** section in the root [README.md](../README.md) for **`GH_TOKEN`**.

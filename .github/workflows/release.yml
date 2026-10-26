@@ -14,6 +14,7 @@ permissions:
   contents: write
   checks: read
   actions: read
+  pull-requests: read
 
 env:
   NODE_VERSION: '24.10'
@@ -338,8 +339,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Fail closed unless this exact commit has a successful pull_request
+      # Fail closed unless the merged PR head has a successful pull_request
       # CI readiness check and release still points at github.sha.
+      # A fast-forward uses github.sha itself as that head.
       # workflow_dispatch hits this step too. There is no skip input.
       - name: Require pull_request CI readiness for this commit
         env:

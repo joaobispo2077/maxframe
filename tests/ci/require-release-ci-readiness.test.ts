@@ -12,8 +12,19 @@ import {
 
 const SHA = 'a'.repeat(40);
 const OTHER = 'b'.repeat(40);
+const HEAD = 'e'.repeat(40);
+const BASE = 'f'.repeat(40);
 const REPO = 'joaobispo2077/maxframe';
 const RED_SHA = 'e4542f7500324a76972f7204f4a98a3f78f48e54';
+const GREEN_SHA = '4f62c8929d088883dae7508434dc14182169e7f7';
+
+type Pull = {
+  number: number;
+  merged?: boolean;
+  base: { ref: string; sha?: string; repo?: { full_name: string } };
+  head: { ref?: string; sha: string };
+  merge_commit_sha: string | null;
+};
 
 type Check = {
   id: number;
@@ -58,42 +69,88 @@ function jsonResponse(body: unknown, status = 200) {
   };
 }
 
+function fastForwardPull(head = SHA): Pull {
+  return {
+    number: 50,
+    merged: true,
+    base: { ref: 'release', sha: BASE, repo: { full_name: REPO } },
+    head: { ref: 'develop', sha: head },
+    merge_commit_sha: null,
+  };
+}
+
+type Pages = { runs: Check[]; total: number }[];
+
+function checkRunsResponse(href: string, pages: Pages) {
+  if (!href.includes('/check-runs')) return null;
+  const page = Number(new URL(href).searchParams.get('page') || '1');
+  const entry = pages[page - 1];
+  if (!entry) return jsonResponse({ total_count: 0, check_runs: [] });
+  return jsonResponse({ total_count: entry.total, check_runs: entry.runs });
+}
+
+function workflowRunResponse(
+  href: string,
+  runs: Record<string, Run | { status: number }>,
+) {
+  const runMatch = href.match(/\/actions\/runs\/(\d+)/);
+  if (!runMatch) return null;
+  const body = runs[runMatch[1]];
+  if (!body) return jsonResponse({}, 404);
+  if ('status' in body) return jsonResponse({}, body.status);
+  return jsonResponse(body);
+}
+
+function releaseTipResponse(href: string, tip: string, failTip: boolean) {
+  if (!href.includes('/git/ref/heads/release')) return null;
+  if (failTip) return jsonResponse({}, 500);
+  return jsonResponse({ object: { sha: tip, type: 'commit' } });
+}
+
+function pullResponse(href: string, pulls: Pull[], parents: string[]) {
+  if (href.includes('/commits/') && href.includes('/pulls')) {
+    return jsonResponse(pulls);
+  }
+  const pullMatch = href.match(/\/pulls\/(\d+)/);
+  if (pullMatch) {
+    const pull = pulls.find((item) => String(item.number) === pullMatch[1]);
+    return pull ? jsonResponse(pull) : jsonResponse({}, 404);
+  }
+  if (/\/commits\/[0-9a-f]{40}(?:\?|$)/.test(href)) {
+    return jsonResponse({
+      sha: SHA,
+      parents: parents.map((parent) => ({ sha: parent })),
+    });
+  }
+  return null;
+}
+
 function github({
   pages,
   runs = { '10': workflowRun() },
   tip = SHA,
   failTip = false,
+  pulls = [fastForwardPull()],
+  parents = [BASE, SHA],
 }: {
-  pages: { runs: Check[]; total: number }[];
+  pages: Pages;
   runs?: Record<string, Run | { status: number }>;
   tip?: string;
   failTip?: boolean;
+  pulls?: Pull[];
+  parents?: string[];
 }) {
   const requested: string[] = [];
   const fetchImpl = async (url: URL | string) => {
     const href = String(url);
     requested.push(href);
-    if (href.includes('/check-runs')) {
-      const page = Number(new URL(href).searchParams.get('page') || '1');
-      const entry = pages[page - 1];
-      if (!entry) return jsonResponse({ total_count: 0, check_runs: [] });
-      return jsonResponse({
-        total_count: entry.total,
-        check_runs: entry.runs,
-      });
-    }
-    const runMatch = href.match(/\/actions\/runs\/(\d+)/);
-    if (runMatch) {
-      const body = runs[runMatch[1]];
-      if (!body) return jsonResponse({}, 404);
-      if ('status' in body) return jsonResponse({}, body.status);
-      return jsonResponse(body);
-    }
-    if (href.includes('/git/ref/heads/release')) {
-      if (failTip) return jsonResponse({}, 500);
-      return jsonResponse({ object: { sha: tip, type: 'commit' } });
-    }
-    return jsonResponse({}, 404);
+    return (
+      checkRunsResponse(href, pages) ||
+      workflowRunResponse(href, runs) ||
+      releaseTipResponse(href, tip, failTip) ||
+      pullResponse(href, pulls, parents) ||
+      jsonResponse({}, 404)
+    );
   };
   return { fetchImpl, requested };
 }
@@ -164,17 +221,21 @@ describe('require release CI readiness', () => {
     );
   });
 
-  it.each(['cancelled', 'skipped', 'timed_out', 'neutral', 'stale'])(
-    'refuses a pull_request conclusion of %s',
-    async (conclusion) => {
-      const state = github({
-        pages: [{ runs: [check({ conclusion })], total: 1 }],
-      });
-      await expect(gate(state)).rejects.toThrow(
-        new RegExp(`conclusion ${conclusion}`),
-      );
-    },
-  );
+  it.each([
+    'cancelled',
+    'skipped',
+    'timed_out',
+    'neutral',
+    'stale',
+    'action_required',
+  ])('refuses a pull_request conclusion of %s', async (conclusion) => {
+    const state = github({
+      pages: [{ runs: [check({ conclusion })], total: 1 }],
+    });
+    await expect(gate(state)).rejects.toThrow(
+      new RegExp(`conclusion ${conclusion}`),
+    );
+  });
 
   it('refuses the push-skipped variant', async () => {
     const state = github({
@@ -227,10 +288,185 @@ describe('require release CI readiness', () => {
     await expect(gate(state)).resolves.toEqual({
       publish: true,
       sha: SHA,
+      headSha: SHA,
       reason: `CI readiness from pull_request CI succeeded on ${SHA} and release tip matches`,
     });
-    expect(state.requested[0]).toContain('filter=all');
-    expect(state.requested[0]).toContain('per_page=100');
+    const checksUrl = state.requested.find((url) =>
+      url.includes('/check-runs'),
+    );
+    expect(checksUrl).toContain('filter=all');
+    expect(checksUrl).toContain('per_page=100');
+  });
+
+  it('allows a merge commit when the pull request head is green', async () => {
+    const state = github({
+      pages: [{ runs: [check()], total: 1 }],
+      runs: { '10': workflowRun({ head_sha: HEAD }) },
+      pulls: [
+        {
+          number: 134,
+          merged: true,
+          base: { ref: 'release', sha: BASE, repo: { full_name: REPO } },
+          head: { sha: HEAD, ref: 'develop' },
+          merge_commit_sha: SHA,
+        },
+      ],
+      parents: [BASE, HEAD],
+      tip: SHA,
+    });
+    await expect(gate(state)).resolves.toMatchObject({
+      publish: true,
+      sha: SHA,
+      headSha: HEAD,
+    });
+    expect(
+      state.requested.some((url) =>
+        url.includes(`/commits/${HEAD}/check-runs`),
+      ),
+    ).toBe(true);
+  });
+
+  it('blocks a merge commit when the pull request head is red', async () => {
+    const state = github({
+      pages: [
+        {
+          total: 2,
+          runs: [
+            check({
+              id: 2,
+              conclusion: 'success',
+              details_url:
+                'https://github.com/joaobispo2077/maxframe/actions/runs/11/job/1',
+            }),
+            check({
+              id: 4,
+              conclusion: 'failure',
+              details_url:
+                'https://github.com/joaobispo2077/maxframe/actions/runs/12/job/2',
+            }),
+          ],
+        },
+      ],
+      runs: {
+        '11': workflowRun({ event: 'push', head_sha: HEAD }),
+        '12': workflowRun({ event: 'pull_request', head_sha: HEAD }),
+      },
+      pulls: [
+        {
+          number: 132,
+          merged: true,
+          base: { ref: 'release', sha: BASE },
+          head: { sha: HEAD },
+          merge_commit_sha: SHA,
+        },
+      ],
+      parents: [BASE, HEAD],
+    });
+    await expect(gate(state)).rejects.toThrow(
+      /finished with conclusion failure/,
+    );
+  });
+
+  it('blocks a merge commit when the second parent is not the pull request head', async () => {
+    const state = github({
+      pages: [{ runs: [check()], total: 1 }],
+      pulls: [
+        {
+          number: 132,
+          merged: true,
+          base: { ref: 'release', sha: BASE },
+          head: { sha: HEAD },
+          merge_commit_sha: SHA,
+        },
+      ],
+      parents: [BASE, OTHER],
+    });
+    await expect(gate(state)).rejects.toThrow(/parent mismatch/);
+    expect(state.requested.some((url) => url.includes('/check-runs'))).toBe(
+      false,
+    );
+  });
+
+  it('blocks a commit with no associated pull request', async () => {
+    const state = github({
+      pages: [{ runs: [check()], total: 1 }],
+      pulls: [],
+    });
+    await expect(gate(state)).rejects.toThrow(/no associated pull request/);
+    expect(state.requested.some((url) => url.includes('/check-runs'))).toBe(
+      false,
+    );
+  });
+
+  it('lets a later successful re-run replace an earlier failure', async () => {
+    const state = github({
+      pages: [
+        {
+          total: 2,
+          runs: [
+            check({
+              id: 1,
+              conclusion: 'failure',
+              details_url:
+                'https://github.com/joaobispo2077/maxframe/actions/runs/10/job/1',
+            }),
+            check({
+              id: 2,
+              conclusion: 'success',
+              details_url:
+                'https://github.com/joaobispo2077/maxframe/actions/runs/10/job/2',
+            }),
+          ],
+        },
+      ],
+    });
+    await expect(gate(state)).resolves.toMatchObject({ publish: true });
+  });
+
+  it('lets a later failed re-run replace an earlier success', async () => {
+    const state = github({
+      pages: [
+        {
+          total: 2,
+          runs: [
+            check({
+              id: 1,
+              conclusion: 'success',
+              details_url:
+                'https://github.com/joaobispo2077/maxframe/actions/runs/10/job/1',
+            }),
+            check({
+              id: 9,
+              conclusion: 'failure',
+              details_url:
+                'https://github.com/joaobispo2077/maxframe/actions/runs/10/job/9',
+            }),
+          ],
+        },
+      ],
+    });
+    await expect(gate(state)).rejects.toThrow(
+      /finished with conclusion failure/,
+    );
+  });
+
+  it('polls a missing check until the deadline', async () => {
+    let nowMs = 0;
+    let sleeps = 0;
+    const state = github({
+      pages: [{ runs: [check({ name: 'Lint', id: 4 })], total: 1 }],
+    });
+    await expect(
+      gate(state, {
+        timeoutMs: 1000,
+        now: () => nowMs,
+        sleep: async (ms: number) => {
+          sleeps += 1;
+          nowMs += ms;
+        },
+      }),
+    ).rejects.toThrow(/missing/);
+    expect(sleeps).toBe(1);
   });
 
   it('finds a passing check after the first 30 check runs', async () => {
@@ -381,6 +617,7 @@ describe('release workflow contract', () => {
     expect(on).toMatch(/- release\n/);
     expect(release).toContain('checks: read');
     expect(release).toContain('actions: read');
+    expect(release).toContain('pull-requests: read');
     const publish = release.slice(release.indexOf('  release:\n'));
     expect(publish).toContain('ref: ${{ github.sha }}');
     expect(publish).toContain('fetch-depth: 0');
@@ -398,8 +635,9 @@ describe('release workflow contract', () => {
     expect(refs).toHaveLength(checkouts.length);
   });
 
-  it('dry-runs the publish gate against the red v1.9.1 sha', () => {
+  it('dry-runs the publish gate against the red and green promotions', () => {
     expect(proof).toContain(RED_SHA);
+    expect(proof).toContain(GREEN_SHA);
     expect(proof).toContain('node scripts/ci/require-release-ci-readiness.mjs');
     expect(proof).toContain('workflow_dispatch');
     expect(proof).not.toContain('npm run release');

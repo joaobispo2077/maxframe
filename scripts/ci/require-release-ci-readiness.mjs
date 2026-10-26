@@ -168,6 +168,134 @@ export async function fetchReleaseTip({ fetchImpl, repo, token }) {
   return tip.toLowerCase();
 }
 
+function pullsForCommitUrl(repo, sha, page) {
+  const { owner, name } = repoParts(repo);
+  const url = new URL(
+    `https://api.github.com/repos/${owner}/${name}/commits/${sha}/pulls`,
+  );
+  url.searchParams.set('per_page', '100');
+  url.searchParams.set('page', String(page));
+  return url;
+}
+
+async function listPullsForCommit({ fetchImpl, repo, token, sha }) {
+  const collected = [];
+  for (let page = 1; page <= 5; page += 1) {
+    const body = await fetchJson(
+      fetchImpl,
+      pullsForCommitUrl(repo, sha, page),
+      token,
+    );
+    if (!Array.isArray(body)) {
+      throw new Error('associated pulls response is incomplete');
+    }
+    for (const pull of body) {
+      if (!Number.isInteger(pull?.number) || pull.number <= 0) {
+        throw new Error('associated pulls response is incomplete');
+      }
+    }
+    collected.push(...body);
+    if (body.length < 100) return collected;
+  }
+  throw new Error('associated pulls pagination exceeded 5 pages');
+}
+
+function readConfirmedPull(body, repo) {
+  const head = body?.head?.sha;
+  const baseRef = body?.base?.ref;
+  if (typeof head !== 'string' || typeof baseRef !== 'string') {
+    throw new Error('pull request response is incomplete');
+  }
+  const baseRepo = body?.base?.repo?.full_name;
+  if (typeof baseRepo === 'string' && baseRepo !== repo) {
+    return null;
+  }
+  const merge = body?.merge_commit_sha;
+  return {
+    number: body.number,
+    merged: body.merged === true,
+    baseRef,
+    headSha: head.toLowerCase(),
+    mergeCommitSha:
+      typeof merge === 'string' && merge ? merge.toLowerCase() : null,
+  };
+}
+
+async function confirmPull({ fetchImpl, repo, token, number }) {
+  const { owner, name } = repoParts(repo);
+  const url = `https://api.github.com/repos/${owner}/${name}/pulls/${number}`;
+  const body = await fetchJson(fetchImpl, url, token);
+  return readConfirmedPull(body, repo);
+}
+
+/**
+ * Exactly one merged pull request into release may promote this SHA.
+ * A merge commit matches merge_commit_sha. A fast-forward matches head.sha.
+ */
+export async function resolveReleasePromotion({ fetchImpl, repo, token, sha }) {
+  const listed = await listPullsForCommit({ fetchImpl, repo, token, sha });
+  const matches = [];
+  for (const listedPull of listed) {
+    const pull = await confirmPull({
+      fetchImpl,
+      repo,
+      token,
+      number: listedPull.number,
+    });
+    if (!pull || !pull.merged || pull.baseRef !== 'release') continue;
+    if (pull.headSha === sha) {
+      matches.push({
+        kind: 'fast-forward',
+        headSha: pull.headSha,
+        number: pull.number,
+      });
+      continue;
+    }
+    if (pull.mergeCommitSha === sha) {
+      matches.push({
+        kind: 'merge',
+        headSha: pull.headSha,
+        number: pull.number,
+      });
+    }
+  }
+  if (matches.length === 0) {
+    throw new Error(`no associated pull request for ${sha}`);
+  }
+  if (matches.length > 1) {
+    throw new Error(`more than one pull request is associated with ${sha}`);
+  }
+  return matches[0];
+}
+
+async function fetchCommitParents({ fetchImpl, repo, token, sha }) {
+  const { owner, name } = repoParts(repo);
+  const url = `https://api.github.com/repos/${owner}/${name}/commits/${sha}`;
+  const body = await fetchJson(fetchImpl, url, token);
+  if (!Array.isArray(body?.parents)) {
+    throw new Error('commit response is missing parents');
+  }
+  return body.parents.map((parent) =>
+    typeof parent?.sha === 'string' ? parent.sha.toLowerCase() : '',
+  );
+}
+
+async function assertMergeSecondParent({
+  fetchImpl,
+  repo,
+  token,
+  sha,
+  headSha,
+}) {
+  const parents = await fetchCommitParents({ fetchImpl, repo, token, sha });
+  const second = parents[1] || 'missing';
+  if (parents.length !== 2 || second !== headSha) {
+    throw new Error(
+      `parent mismatch for ${sha}: pull request head ${headSha} is not the merge commit second parent ${second}`,
+    );
+  }
+}
+
 function missingMessage(sha, context) {
   const sentences = [
     `CI readiness check from pull_request CI is missing on ${sha}.`,
@@ -187,11 +315,17 @@ function missingMessage(sha, context) {
   return sentences.join(' ');
 }
 
+/**
+ * Latest attempt wins. Check run ids increase when a job is re-run, including
+ * a new attempt of the same workflow run. A later success replaces an earlier
+ * failure. A later failure replaces an earlier success. An older attempt never
+ * overrides the newest one.
+ */
 function classify(sha, resolved, context) {
   if (resolved.length === 0) {
     return { state: 'missing', message: missingMessage(sha, context) };
   }
-  const latest = resolved.sort((left, right) => right.id - left.id)[0];
+  const latest = resolved.slice().sort((left, right) => right.id - left.id)[0];
   if (latest.status !== 'completed') {
     if (!PENDING_STATUS.has(latest.status)) {
       throw new Error(
@@ -279,8 +413,9 @@ export function optionsFromEnv(env) {
 }
 
 /**
- * Allow publish only when the exact pull_request CI readiness check succeeded
- * and the remote release tip is still this SHA. Every other outcome throws.
+ * Allow publish only when the merged pull request's head has an exact
+ * pull_request CI readiness success and the remote release tip is still this
+ * SHA. A missing check is polled until the deadline. Every other outcome throws.
  */
 export async function evaluateReleaseGate({
   fetchImpl = globalThis.fetch,
@@ -301,6 +436,21 @@ export async function evaluateReleaseGate({
   if (intervalMs < 1) {
     throw new Error('CI_READINESS_INTERVAL_MS must be at least 1');
   }
+  const promotion = await resolveReleasePromotion({
+    fetchImpl,
+    repo,
+    token,
+    sha: commit,
+  });
+  if (promotion.kind === 'merge') {
+    await assertMergeSecondParent({
+      fetchImpl,
+      repo,
+      token,
+      sha: commit,
+      headSha: promotion.headSha,
+    });
+  }
   const deadline = now() + timeoutMs;
   let decision;
   for (;;) {
@@ -308,16 +458,15 @@ export async function evaluateReleaseGate({
       fetchImpl,
       repo,
       token,
-      sha: commit,
+      sha: promotion.headSha,
       perPage,
     });
     if (decision.state === 'success') break;
-    if (decision.state === 'rejected' || decision.state === 'missing') {
-      throw new Error(decision.message);
-    }
+    if (decision.state === 'rejected') throw new Error(decision.message);
     if (now() >= deadline) {
+      if (decision.state === 'missing') throw new Error(decision.message);
       throw new Error(
-        `timed out waiting for pull_request CI readiness on ${commit}`,
+        `timed out waiting for pull_request CI readiness on ${promotion.headSha}`,
       );
     }
     await sleep(intervalMs);
@@ -328,10 +477,15 @@ export async function evaluateReleaseGate({
       `release tip is ${tip}, not ${commit}; aborting without publishing`,
     );
   }
+  const checked =
+    promotion.kind === 'merge'
+      ? `CI readiness from pull_request CI succeeded on ${promotion.headSha} for merge commit ${commit}`
+      : `CI readiness from pull_request CI succeeded on ${commit}`;
   return {
     publish: true,
     sha: commit,
-    reason: `CI readiness from pull_request CI succeeded on ${commit} and release tip matches`,
+    headSha: promotion.headSha,
+    reason: `${checked} and release tip matches`,
   };
 }
 

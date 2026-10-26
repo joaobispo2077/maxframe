@@ -1,7 +1,7 @@
 name: Release gate dry run
 
-# Proves the publish gate refuses the v1.9.1 SHA. This workflow does not
-# build installers and does not run semantic-release.
+# Proves the publish gate allows the green promotion and refuses the red one.
+# This workflow does not build installers and does not run semantic-release.
 on:
   pull_request:
     branches:
@@ -14,17 +14,26 @@ permissions:
   contents: read
   checks: read
   actions: read
+  pull-requests: read
 
 jobs:
-  refuse-red-sha:
-    name: Refuse red release SHA
+  release-gate-dry-run:
+    name: Release gate dry run
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Dry-run the publish gate on the v1.9.1 SHA
+      - name: Dry-run the publish gate on the green promotion 4f62c89
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: 4f62c8929d088883dae7508434dc14182169e7f7
+          TARGET_REF: refs/heads/release
+          CI_READINESS_TIMEOUT_MS: '0'
+        run: node scripts/ci/require-release-ci-readiness.mjs
+
+      - name: Dry-run the publish gate on the red promotion e4542f7
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: e4542f7500324a76972f7204f4a98a3f78f48e54
