@@ -56,7 +56,6 @@ describe('useActiveDownload', () => {
       useActiveDownload({
         result: BASE_RESULT,
         outputMode: 'mp4',
-        debugMode: false,
         setError,
         setDiagnosticsReport,
         setReportCopied,
@@ -82,7 +81,6 @@ describe('useActiveDownload', () => {
       useActiveDownload({
         result: BASE_RESULT,
         outputMode: 'mp4',
-        debugMode: false,
         setError: vi.fn(),
         setDiagnosticsReport: vi.fn(),
         setReportCopied: vi.fn(),
@@ -105,7 +103,6 @@ describe('useActiveDownload', () => {
       useActiveDownload({
         result: BASE_RESULT,
         outputMode: 'mp4',
-        debugMode: false,
         setError: vi.fn(),
         setDiagnosticsReport: vi.fn(),
         setReportCopied: vi.fn(),
@@ -136,7 +133,6 @@ describe('useActiveDownload', () => {
       useActiveDownload({
         result: BASE_RESULT,
         outputMode: 'mp4',
-        debugMode: false,
         setError,
         setDiagnosticsReport: vi.fn(),
         setReportCopied: vi.fn(),
@@ -166,7 +162,6 @@ describe('useActiveDownload', () => {
       useActiveDownload({
         result: BASE_RESULT,
         outputMode: 'mp4',
-        debugMode: false,
         setError,
         setDiagnosticsReport: vi.fn(),
         setReportCopied: vi.fn(),
@@ -178,5 +173,103 @@ describe('useActiveDownload', () => {
     });
 
     expect(setError).toHaveBeenCalledWith(MISSING_OUTPUT_FILE_MESSAGE);
+  });
+
+  it('maps a missing-file error that arrives with the Electron IPC prefix', async () => {
+    const mainMessage =
+      'Download finished but no output file was found next to the path you chose. Check the folder for a new .mp4 or .mkv file, or inspect the yt-dlp error output above.';
+    window.maxframeApi.downloadVideo = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          `Error invoking remote method 'app:download-video': Error: ${mainMessage}`,
+        ),
+      );
+
+    const setError = vi.fn();
+    const { result } = renderHook(() =>
+      useActiveDownload({
+        result: BASE_RESULT,
+        outputMode: 'mp4',
+        setError,
+        setDiagnosticsReport: vi.fn(),
+        setReportCopied: vi.fn(),
+      }),
+    );
+
+    await act(async () => {
+      await result.current.downloadQuality('137', false);
+    });
+
+    expect(setError).toHaveBeenCalledWith(MISSING_OUTPUT_FILE_MESSAGE);
+    expect(setError).not.toHaveBeenCalledWith(
+      expect.stringContaining('Error invoking remote method'),
+    );
+  });
+
+  it('does not set an error when a canceled download is IPC-prefixed', async () => {
+    window.maxframeApi.downloadVideo = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          "Error invoking remote method 'app:download-video': Error: Download canceled.",
+        ),
+      );
+
+    const setError = vi.fn();
+    const { result } = renderHook(() =>
+      useActiveDownload({
+        result: BASE_RESULT,
+        outputMode: 'mp4',
+        setError,
+        setDiagnosticsReport: vi.fn(),
+        setReportCopied: vi.fn(),
+      }),
+    );
+
+    await act(async () => {
+      await result.current.downloadQuality('137', false);
+    });
+
+    const shown = setError.mock.calls
+      .map((call) => call[0])
+      .filter((message) => message !== undefined);
+    expect(shown).toEqual([]);
+    expect(result.current.downloadNote).toBeUndefined();
+  });
+
+  it('retries the same url and format', async () => {
+    const downloadVideo = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({ outputPath: 'C:\\out\\file.mp4' });
+    window.maxframeApi.downloadVideo = downloadVideo;
+
+    const { result } = renderHook(() =>
+      useActiveDownload({
+        result: BASE_RESULT,
+        outputMode: 'mp4',
+        setError: vi.fn(),
+        setDiagnosticsReport: vi.fn(),
+        setReportCopied: vi.fn(),
+      }),
+    );
+
+    await act(async () => {
+      await result.current.downloadQuality('137', false);
+    });
+    await act(async () => {
+      result.current.retryDownload();
+    });
+
+    expect(downloadVideo).toHaveBeenCalledTimes(2);
+    expect(downloadVideo.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        url: BASE_RESULT.url,
+        formatId: '137',
+        hasAudio: false,
+        outputMode: 'mp4',
+      }),
+    );
   });
 });

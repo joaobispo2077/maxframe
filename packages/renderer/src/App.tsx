@@ -24,6 +24,7 @@ function App() {
   const [debugMode] = useState(
     () => localStorage.getItem('maxframe.debugMode') === 'true',
   );
+  const [downloadFailed, setDownloadFailed] = useState(false);
 
   const queue = useDownloadQueue();
   const analyze = useAnalyzeFlow({
@@ -34,8 +35,10 @@ function App() {
   const download = useActiveDownload({
     result: analyze.result,
     outputMode: analyze.outputMode,
-    debugMode,
-    setError: analyze.setError,
+    setError: (message) => {
+      setDownloadFailed(message !== undefined);
+      analyze.setError(message);
+    },
     setDiagnosticsReport: analyze.setDiagnosticsReport,
     setReportCopied: analyze.setReportCopied,
   });
@@ -60,6 +63,7 @@ function App() {
   }, []);
 
   async function handleAnalyze(): Promise<void> {
+    setDownloadFailed(false);
     download.clearSaveMessage();
     download.setHoveredFormatId(null);
     await analyze.analyzeUrl();
@@ -77,9 +81,9 @@ function App() {
         <AnalyzeView
           analyze={analyze}
           download={download}
-          debugMode={debugMode}
           queueRunnerActive={runner.running}
           onAnalyze={handleAnalyze}
+          onRetryDownload={downloadFailed ? download.retryDownload : undefined}
         />
       ) : null}
       {activeTab === 'queue' ? (

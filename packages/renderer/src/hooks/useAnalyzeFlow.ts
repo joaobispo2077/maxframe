@@ -3,8 +3,9 @@ import type { DiagnosticsReport } from '../maxframe-api.js';
 
 import { useState } from 'react';
 
+import { buildDiagnosticReport } from '@src/infrastructure/diagnostics/buildDiagnosticReport.js';
+
 import { getDefaultOutputMode } from '../lib/appPreferences.js';
-import { buildDiagnosticReport } from '../lib/buildDiagnosticReport.js';
 import {
   countNonEmptyLines,
   firstNonEmptyLine,
