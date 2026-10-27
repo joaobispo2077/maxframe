@@ -7,7 +7,7 @@ export function useYtdlpUpdate() {
 
   useEffect(() => {
     const api = window.maxframeApi;
-    if (!api.getYtdlpUpdateStatus || !api.subscribeYtdlpUpdate) {
+    if (!api?.getYtdlpUpdateStatus || !api.subscribeYtdlpUpdate) {
       return;
     }
     let eventSeen = false;
@@ -25,7 +25,7 @@ export function useYtdlpUpdate() {
 
   async function update(): Promise<void> {
     const api = window.maxframeApi;
-    if (!api.startYtdlpUpdate) {
+    if (!api?.startYtdlpUpdate) {
       return;
     }
     setView((current) =>
@@ -37,7 +37,7 @@ export function useYtdlpUpdate() {
 
   async function dismiss(): Promise<void> {
     const api = window.maxframeApi;
-    if (!api.dismissYtdlpUpdate) {
+    if (!api?.dismissYtdlpUpdate) {
       return;
     }
     setView(await api.dismissYtdlpUpdate());
@@ -45,7 +45,7 @@ export function useYtdlpUpdate() {
 
   async function checkNow(): Promise<void> {
     const api = window.maxframeApi;
-    if (!api.checkYtdlpUpdate) {
+    if (!api?.checkYtdlpUpdate) {
       return;
     }
     setView(await api.checkYtdlpUpdate());

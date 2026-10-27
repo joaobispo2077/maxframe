@@ -23,6 +23,17 @@ describe('useYtdlpUpdate', () => {
     vi.restoreAllMocks();
   });
 
+  it('does nothing when the bridge is missing', async () => {
+    delete (window as { maxframeApi?: unknown }).maxframeApi;
+    const { result } = renderHook(() => useYtdlpUpdate());
+    await act(async () => {
+      await result.current.update();
+      await result.current.dismiss();
+      await result.current.checkNow();
+    });
+    expect(result.current.view).toBeUndefined();
+  });
+
   it('does nothing when the preload methods are absent', async () => {
     window.maxframeApi = {
       getInitialAppState: vi.fn(),
