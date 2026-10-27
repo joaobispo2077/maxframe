@@ -1,7 +1,9 @@
 import type { AnalyzeVideoResult } from '../lib/analyzeVideoResultType.js';
 import type { DiagnosticsReport } from '../maxframe-api.js';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+
+import { isDownloadCanceled } from '@src/domain/errors/ipcErrorMessage.js';
 
 import {
   parentFolderFromFilePath,
@@ -15,7 +17,6 @@ import { useDownloadProgress } from './useDownloadProgress.js';
 type UseActiveDownloadOptions = {
   result: AnalyzeVideoResult | undefined;
   outputMode: 'mp3' | 'mp4';
-  debugMode: boolean;
   setError: (error: string | undefined) => void;
   setDiagnosticsReport: (report: DiagnosticsReport | undefined) => void;
   setReportCopied: (copied: boolean) => void;
@@ -24,7 +25,6 @@ type UseActiveDownloadOptions = {
 export function useActiveDownload({
   result,
   outputMode,
-  debugMode,
   setError,
   setDiagnosticsReport,
   setReportCopied,
@@ -33,6 +33,9 @@ export function useActiveDownload({
   const [downloadNote, setDownloadNote] = useState<string>();
   const [savedPath, setSavedPath] = useState<string>();
   const [hoveredFormatId, setHoveredFormatId] = useState<string | null>(null);
+  const lastAttemptRef = useRef<{ formatId: string; hasAudio: boolean } | null>(
+    null,
+  );
   const { progress, clear: clearDownloadProgress } = useDownloadProgress();
 
   const downloadBusy = Boolean(downloadFormatId);
@@ -61,6 +64,7 @@ export function useActiveDownload({
     if (!result) {
       return;
     }
+    lastAttemptRef.current = { formatId, hasAudio };
     setDownloadFormatId(formatId);
     clearDownloadProgress();
     setError(undefined);
@@ -86,16 +90,14 @@ export function useActiveDownload({
       setSavedPath(outputPath);
       setLastOutputFolder(parentFolderFromFilePath(outputPath));
     } catch (caughtError) {
-      const msg =
+      const raw =
         caughtError instanceof Error ? caughtError.message : 'Unknown error';
-      if (msg === 'Download canceled.') {
+      if (isDownloadCanceled(raw)) {
         setError(undefined);
         setDownloadNote(undefined);
       } else {
-        setError(userFacingDownloadError(msg));
-        if (debugMode) {
-          void fetchDiagnostics();
-        }
+        setError(userFacingDownloadError(raw));
+        void fetchDiagnostics();
       }
     } finally {
       setDownloadFormatId(undefined);
@@ -108,6 +110,14 @@ export function useActiveDownload({
     setSavedPath(undefined);
   }
 
+  function retryDownload(): void {
+    const last = lastAttemptRef.current;
+    if (!last) {
+      return;
+    }
+    void downloadQuality(last.formatId, last.hasAudio);
+  }
+
   return {
     downloadFormatId,
     downloadBusy,
@@ -115,6 +125,7 @@ export function useActiveDownload({
     savedPath,
     progress,
     downloadQuality,
+    retryDownload,
     cancelActiveDownload,
     clearSaveMessage,
     hoveredFormatId,

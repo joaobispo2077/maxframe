@@ -1,7 +1,7 @@
 import type { useActiveDownload } from '../hooks/useActiveDownload.js';
 import type { useAnalyzeFlow } from '../hooks/useAnalyzeFlow.js';
 
-import { Button, Field, HStack, Stack, Textarea } from '@chakra-ui/react';
+import { Button, Field, HStack, Stack, Text, Textarea } from '@chakra-ui/react';
 
 import { ActiveDownloadPanel } from '../components/ActiveDownloadPanel.js';
 import { AnalyzeErrorBanner } from '../components/AnalyzeErrorBanner.js';
@@ -12,6 +12,7 @@ import { QualityResultsPanel } from '../components/QualityResultsPanel.js';
 import { SaveMessageBanner } from '../components/SaveMessageBanner.js';
 import { VideoPreviewCard } from '../components/VideoPreviewCard.js';
 import { ANALYZE_URLS_HELPER } from '../lib/pageSubtitles.js';
+import { isPlaylistLink, PLAYLIST_NOTICE } from '../lib/playlistNotice.js';
 
 type AnalyzeFlow = ReturnType<typeof useAnalyzeFlow>;
 type ActiveDownload = ReturnType<typeof useActiveDownload>;
@@ -19,18 +20,21 @@ type ActiveDownload = ReturnType<typeof useActiveDownload>;
 type AnalyzeViewProps = {
   analyze: AnalyzeFlow;
   download: ActiveDownload;
-  debugMode: boolean;
   queueRunnerActive: boolean;
   onAnalyze: () => Promise<void>;
+  onRetryDownload?: () => void;
 };
 
 export function AnalyzeView({
   analyze,
   download,
-  debugMode,
   queueRunnerActive,
   onAnalyze,
+  onRetryDownload,
 }: AnalyzeViewProps) {
+  const playlistLink =
+    isPlaylistLink(analyze.analyzeTargetUrl) ||
+    isPlaylistLink(analyze.result?.url);
   return (
     <Stack gap={4} align="stretch" minW={0}>
       <Field.Root>
@@ -62,6 +66,16 @@ export function AnalyzeView({
         value={analyze.outputMode}
         onChange={analyze.setOutputMode}
       />
+      {playlistLink ? (
+        <Text
+          role="status"
+          data-testid="playlist-notice"
+          fontSize="sm"
+          color="fg.muted"
+        >
+          {PLAYLIST_NOTICE}
+        </Text>
+      ) : null}
       <HStack gap={3} flexWrap="wrap" align="stretch">
         <Button
           flex={{ base: '1', sm: 'initial' }}
@@ -94,10 +108,10 @@ export function AnalyzeView({
 
       <AnalyzeErrorBanner
         error={analyze.error}
-        debugMode={debugMode}
         diagnosticsReport={analyze.diagnosticsReport}
         onCopyReport={analyze.handleCopyReport}
         reportCopied={analyze.reportCopied}
+        onRetry={onRetryDownload}
       />
 
       <SaveMessageBanner

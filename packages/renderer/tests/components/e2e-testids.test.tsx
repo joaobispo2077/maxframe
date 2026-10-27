@@ -104,7 +104,6 @@ describe('AC15 data-testid hooks', () => {
       <AnalyzeView
         analyze={analyze}
         download={download}
-        debugMode={false}
         queueRunnerActive={false}
         onAnalyze={vi.fn()}
       />,
@@ -188,7 +187,6 @@ describe('AC15 data-testid hooks', () => {
     render(
       <AnalyzeErrorBanner
         error="Could not save"
-        debugMode={false}
         diagnosticsReport={undefined}
         onCopyReport={vi.fn()}
         reportCopied={false}

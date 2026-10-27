@@ -120,7 +120,49 @@ describe('getDiagnosticsHandler', () => {
     );
     const report = await getDiagnosticsHandler();
 
+    expect(report.pathEnv).toBe('(omitted)');
     expect(report.pathEnv.length).toBeLessThanOrEqual(500);
+  });
+
+  it('masks Windows user folders before the report leaves the main process', async () => {
+    const { resolveYtdlpExecutable } = await import(
+      '@src/infrastructure/youtube/resolveYtdlpExecutable.js'
+    );
+    const { resolveFfmpegExecutable } = await import(
+      '@src/infrastructure/ffmpeg/resolveFfmpegExecutable.js'
+    );
+    const { getLastError, getLastErrorDetail, getLastSubmittedUrl } =
+      await import('@src/interface/ipc/errorStore.js');
+    const { existsSync } = await import('node:fs');
+
+    vi.mocked(resolveYtdlpExecutable).mockReturnValue(
+      'C:\\Users\\João\\AppData\\yt-dlp.exe',
+    );
+    vi.mocked(resolveFfmpegExecutable).mockReturnValue(
+      'C:/Users/João/ffmpeg.exe',
+    );
+    vi.mocked(getLastError).mockReturnValue(
+      'USERPROFILE=C:\\Users\\João\\nHOMEPATH=\\Users\\João',
+    );
+    vi.mocked(getLastErrorDetail).mockReturnValue(
+      'file:///C:/Users/João/AppData/Local/Temp/yt-dlp.log',
+    );
+    vi.mocked(getLastSubmittedUrl).mockReturnValue(
+      'https://www.youtube.com/watch?v=abc',
+    );
+    vi.mocked(existsSync).mockReturnValue(true);
+
+    const { getDiagnosticsHandler } = await import(
+      '@src/interface/ipc/getDiagnosticsHandler.js'
+    );
+    const report = await getDiagnosticsHandler();
+    const packed = JSON.stringify(report);
+
+    expect(packed).not.toMatch(/joão/i);
+    expect(report.ytdlpPath).toBe('C:\\Users\\<user>\\AppData\\yt-dlp.exe');
+    expect(report.ffmpegPath).toBe('C:/Users/<user>/ffmpeg.exe');
+    expect(report.pathEnv).toBe('(omitted)');
+    expect(report.lastSubmittedUrl).toBe('https://www.youtube.com/watch?v=abc');
   });
 
   it('lastError, lastErrorDetail, and lastSubmittedUrl come from errorStore', async () => {

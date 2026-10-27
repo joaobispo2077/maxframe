@@ -8,6 +8,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import App from '@ui/App';
+import { GENERIC_DOWNLOAD_ERROR_MESSAGE } from '@ui/lib/userFacingErrors';
 import { maxframeSystem } from '@ui/theme/maxframeTheme';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -536,6 +537,27 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows a neutral playlist notice when the link has list=', () => {
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
+      target: {
+        value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ',
+      },
+    });
+
+    const notice = screen.getByTestId('playlist-notice');
+    expect(notice).toHaveTextContent(
+      'Playlist link. Only this video will be downloaded.',
+    );
+    expect(notice).toHaveAttribute('role', 'status');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('YouTube links'), {
+      target: { value: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+    });
+    expect(screen.queryByTestId('playlist-notice')).not.toBeInTheDocument();
+  });
+
   it('keeps analyze results when download fails', async () => {
     const analyzeVideoUrl = vi.fn().mockResolvedValue({
       ...EXTRA_FIELDS,
@@ -564,11 +586,27 @@ describe('App', () => {
         },
       ],
     });
+    const rawLog = 'Could not run "ffmpeg".';
     const downloadVideo = vi
       .fn()
-      .mockRejectedValue(new Error('Could not run "ffmpeg".'));
+      .mockRejectedValueOnce(new Error(rawLog))
+      .mockResolvedValueOnce({ outputPath: 'C:\\Videos\\out.mp4' });
     window.maxframeApi.analyzeVideoUrl = analyzeVideoUrl;
     window.maxframeApi.downloadVideo = downloadVideo;
+    window.maxframeApi.getDiagnostics = vi.fn().mockResolvedValue({
+      ytdlpPath: 'C:\\Users\\Joao\\yt-dlp.exe',
+      ytdlpFound: true,
+      ffmpegPath: 'ffmpeg',
+      ffmpegFound: false,
+      platform: 'win32',
+      arch: 'x64',
+      appVersion: '1.8.1',
+      pathEnv: 'C:\\Users\\Joao\\bin;C:\\Windows',
+      lastError: rawLog,
+      lastErrorDetail: undefined,
+      lastSubmittedUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      ytdlpVersion: '2026.08.19',
+    });
 
     render(<App />);
     fireEvent.change(screen.getByLabelText('YouTube links'), {
@@ -583,8 +621,41 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('Could not run');
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        GENERIC_DOWNLOAD_ERROR_MESSAGE,
+      );
     });
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Could not run');
+    expect(screen.getByRole('alert')).not.toHaveTextContent(
+      'Error invoking remote method',
+    );
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByText(rawLog)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Your Windows user name and PATH are left out of this report.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Joao/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Update yt-dlp' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Saved to C:\\Videos\\out.mp4'),
+      ).toBeInTheDocument();
+    });
+    expect(downloadVideo).toHaveBeenCalledTimes(2);
+    expect(downloadVideo.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        formatId: '137',
+        hasAudio: false,
+      }),
+    );
 
     expect(screen.getByText('Video ID: dQw4w9WgXcQ')).toBeInTheDocument();
   });

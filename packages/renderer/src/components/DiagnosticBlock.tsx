@@ -1,6 +1,7 @@
 import type { DiagnosticsReport } from '../maxframe-api.js';
 
 import { Badge, Box, Button, HStack, Text, VStack } from '@chakra-ui/react';
+import { maskDiagnosticReport } from '@src/infrastructure/diagnostics/buildDiagnosticReport.js';
 
 type DiagnosticBlockProps = {
   report: DiagnosticsReport;
@@ -46,6 +47,13 @@ export function DiagnosticBlock({
   onCopy,
   copied,
 }: DiagnosticBlockProps) {
+  const visible = maskDiagnosticReport(report);
+  const ytdlpVersion = report.ytdlpVersion ?? '(unknown)';
+  const versionLine = [
+    `Platform: ${report.platform} (${report.arch})`,
+    `App: ${report.appVersion}`,
+    `yt-dlp: ${ytdlpVersion}`,
+  ].join(' · ');
   return (
     <Box
       mt={3}
@@ -62,18 +70,18 @@ export function DiagnosticBlock({
       <VStack align="stretch" gap={2}>
         <ToolRow
           label="yt-dlp"
-          path={report.ytdlpPath}
+          path={visible.ytdlpPath}
           found={report.ytdlpFound}
         />
         <ToolRow
           label="ffmpeg"
-          path={report.ffmpegPath}
+          path={visible.ffmpegPath}
           found={report.ffmpegFound}
         />
-        <Text color="fg.muted">
-          Platform: {report.platform} ({report.arch}) · App: {report.appVersion}
+        <Text color="fg.muted" data-testid="diagnostic-versions">
+          {versionLine}
         </Text>
-        {report.lastError ? (
+        {visible.lastError ? (
           <Box>
             <Text fontWeight="semibold" mb={1}>
               Last error:
@@ -89,7 +97,7 @@ export function DiagnosticBlock({
               maxH="120px"
               overflowY="auto"
             >
-              {report.lastError}
+              {visible.lastError}
             </Box>
           </Box>
         ) : null}
@@ -103,6 +111,9 @@ export function DiagnosticBlock({
       >
         {copied ? 'Copied' : 'Copy report'}
       </Button>
+      <Text mt={2} fontSize="xs" color="fg.muted">
+        Your Windows user name and PATH are left out of this report.
+      </Text>
     </Box>
   );
 }

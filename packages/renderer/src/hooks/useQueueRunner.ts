@@ -4,6 +4,7 @@ import type { QueueJob, QueueModel } from '@src/domain/download-queue/model.js';
 import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
 
 import { selectNextAction } from '@src/domain/download-queue/model.js';
+import { isDownloadCanceled } from '@src/domain/errors/ipcErrorMessage.js';
 import { parseYtdlpProgressLine } from '@src/domain/progress/parseYtdlpProgressLine.js';
 
 import {
@@ -141,16 +142,16 @@ export function useQueueRunner({
         outputDirRef.current = parentFolderFromFilePath(outputPath);
         dispatch({ type: 'completeJob', jobId, outputPath });
       } catch (caught) {
-        const msg =
+        const raw =
           caught instanceof Error ? caught.message : 'Download failed';
-        if (msg === 'Download canceled.' || stopRequestedRef.current) {
+        if (isDownloadCanceled(raw) || stopRequestedRef.current) {
           dispatch({ type: 'cancelJob', jobId });
         } else {
           dispatch({
             type: 'failJob',
             jobId,
             status: 'Download failed',
-            detail: userFacingDownloadError(msg),
+            detail: userFacingDownloadError(raw),
           });
         }
       } finally {

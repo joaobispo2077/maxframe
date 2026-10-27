@@ -1,7 +1,9 @@
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 
 import { app } from 'electron';
 
+import { maskDiagnosticReport } from '../../infrastructure/diagnostics/buildDiagnosticReport.js';
 import { resolveFfmpegExecutable } from '../../infrastructure/ffmpeg/resolveFfmpegExecutable.js';
 import { probeYtdlpVersion } from '../../infrastructure/youtube/probeYtdlpVersion.js';
 import { resolveYtdlpExecutable } from '../../infrastructure/youtube/resolveYtdlpExecutable.js';
@@ -44,18 +46,21 @@ export async function getDiagnosticsHandler(): Promise<DiagnosticsReport> {
     ? await probeYtdlpVersion(ytdlpPath)
     : undefined;
 
-  return {
-    ytdlpPath,
-    ytdlpFound,
-    ffmpegPath,
-    ffmpegFound: !isBareExecutableName(ffmpegPath) && existsSync(ffmpegPath),
-    platform: process.platform,
-    arch: process.arch,
-    appVersion: app.getVersion(),
-    pathEnv: (process.env.PATH ?? '').slice(0, 500),
-    lastError: getLastError(),
-    lastErrorDetail: getLastErrorDetail(),
-    lastSubmittedUrl: getLastSubmittedUrl(),
-    ytdlpVersion,
-  };
+  return maskDiagnosticReport(
+    {
+      ytdlpPath,
+      ytdlpFound,
+      ffmpegPath,
+      ffmpegFound: !isBareExecutableName(ffmpegPath) && existsSync(ffmpegPath),
+      platform: process.platform,
+      arch: process.arch,
+      appVersion: app.getVersion(),
+      pathEnv: (process.env.PATH ?? '').slice(0, 500),
+      lastError: getLastError(),
+      lastErrorDetail: getLastErrorDetail(),
+      lastSubmittedUrl: getLastSubmittedUrl(),
+      ytdlpVersion,
+    },
+    { homeDir: homedir() },
+  );
 }
