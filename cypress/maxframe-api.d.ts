@@ -58,6 +58,21 @@ declare global {
       setDebugMode: (on: boolean) => Promise<void>;
       getDiagnostics: () => Promise<unknown>;
       getLogPath: () => Promise<string>;
+      getYtdlpUpdateStatus?: () => Promise<{
+        version?: string;
+        source?: string;
+        phase?: string;
+        current?: string;
+        latest?: string;
+        bundled?: string;
+        manualCheckEnabled?: boolean;
+        showLaunchDisclosure?: boolean;
+        updateAllowed?: boolean;
+      }>;
+      subscribeYtdlpUpdate?: (listener: (view: unknown) => void) => () => void;
+      startYtdlpUpdate?: () => Promise<unknown>;
+      dismissYtdlpUpdate?: () => Promise<unknown>;
+      checkYtdlpUpdate?: () => Promise<unknown>;
     };
   }
 }

@@ -8,6 +8,7 @@ import { app } from 'electron';
 
 import { AnalyzeVideoUrlError } from '../../../../src/application/errors/AnalyzeVideoErrors.js';
 import { writeLogEntry } from '../../../../src/infrastructure/diagnostics/debugLogger.js';
+import { beginYtdlpUse } from '../../../../src/infrastructure/youtube/ytdlpBusy.js';
 import { analyzeVideoHandler } from '../../../../src/interface/ipc/analyzeVideoHandler.js';
 import { setDebugMode } from '../../../../src/interface/ipc/debugModeStore.js';
 import {
@@ -16,6 +17,7 @@ import {
   recordSubmittedUrl,
 } from '../../../../src/interface/ipc/errorStore.js';
 import { getDiagnosticsHandler } from '../../../../src/interface/ipc/getDiagnosticsHandler.js';
+import { registerYtdlpUpdateHandlers } from '../../../../src/interface/ipc/ytdlpUpdateIpc.js';
 import {
   type DownloadVideoRequest,
   downloadVideoHandler,
@@ -23,6 +25,7 @@ import {
 } from '../downloadVideoHandler.js';
 import { pickOutputFolderHandler } from '../pickOutputFolderHandler.js';
 import { getTitleBarInset } from '../windowChrome.js';
+import { getYtdlpUpdateController } from '../ytdlpUpdateRuntime.js';
 
 const CHANNEL_GET_INITIAL_STATE = 'app:get-initial-state';
 const CHANNEL_PING = 'app:ping';
@@ -54,6 +57,7 @@ class IpcBridge implements AppModule {
     ipcMain.handle(CHANNEL_PING, (_event, payload: string) => payload);
 
     ipcMain.handle(CHANNEL_ANALYZE_VIDEO_URL, async (_event, url: string) => {
+      const releaseYtdlp = beginYtdlpUse();
       clearError();
       recordSubmittedUrl(url);
       try {
@@ -72,6 +76,8 @@ class IpcBridge implements AppModule {
           ...(detail ? { errorDetail: detail } : {}),
         });
         throw error;
+      } finally {
+        releaseYtdlp();
       }
     });
 
@@ -83,6 +89,7 @@ class IpcBridge implements AppModule {
         }
         const controller = new AbortController();
         activeDownloadAbort = controller;
+        const releaseYtdlp = beginYtdlpUse();
         const sink: DownloadVideoSink = {
           signal: controller.signal,
           onProgressLine: (line) => {
@@ -102,6 +109,7 @@ class IpcBridge implements AppModule {
           throw error;
         } finally {
           activeDownloadAbort = undefined;
+          releaseYtdlp();
         }
       },
     );
@@ -132,6 +140,8 @@ class IpcBridge implements AppModule {
     ipcMain.handle('app:show-item-in-folder', (_event, filePath: string) => {
       shell.showItemInFolder(filePath);
     });
+
+    registerYtdlpUpdateHandlers(ipcMain, getYtdlpUpdateController());
   }
 }
 

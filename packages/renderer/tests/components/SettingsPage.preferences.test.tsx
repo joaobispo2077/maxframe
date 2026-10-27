@@ -1,6 +1,11 @@
 import { type ReactElement } from 'react';
 
 import { ChakraProvider } from '@chakra-ui/react';
+import {
+  YTDLP_CHECK_NOW_BUTTON,
+  YTDLP_LAUNCH_DISCLOSURE,
+  YTDLP_SETTINGS_VERSION_LABEL,
+} from '@src/domain/ytdlp/ytdlpUpdateCopy';
 import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import { setLastOutputFolder } from '@ui/lib/appPreferences';
 import { SettingsPage } from '@ui/pages/SettingsPage';
@@ -61,5 +66,49 @@ describe('SettingsPage preferences', () => {
     });
 
     expect(onChange).toHaveBeenCalledWith('mp3');
+  });
+
+  it('shows the yt-dlp version outside Debug mode', () => {
+    const onCheck = vi.fn();
+    render(
+      <SettingsPage
+        embedded
+        ytdlpVersion="2026.03.17"
+        ytdlpSource="bundled"
+        showYtdlpCheckNow
+        onCheckYtdlpNow={onCheck}
+      />,
+    );
+
+    expect(screen.getByTestId('ytdlp-version')).toHaveTextContent(
+      `${YTDLP_SETTINGS_VERSION_LABEL}: 2026.03.17 (included with the app)`,
+    );
+    expect(screen.getByTestId('ytdlp-launch-disclosure')).toHaveTextContent(
+      YTDLP_LAUNCH_DISCLOSURE,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: YTDLP_CHECK_NOW_BUTTON }),
+    );
+    expect(onCheck).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the launch disclosure when that choice is off', () => {
+    render(
+      <SettingsPage
+        embedded
+        ytdlpVersion="2026.08.19"
+        ytdlpSource="updated"
+        showYtdlpDisclosure={false}
+      />,
+    );
+    expect(screen.getByTestId('ytdlp-version')).toHaveTextContent(
+      'updated copy',
+    );
+    expect(
+      screen.queryByTestId('ytdlp-launch-disclosure'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: YTDLP_CHECK_NOW_BUTTON }),
+    ).not.toBeInTheDocument();
   });
 });

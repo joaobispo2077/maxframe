@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { app } from 'electron';
 
+import { setYtdlpUserDataDir } from '../../../src/infrastructure/youtube/ytdlpUserDataDir.js';
+
 import { createModuleRunner } from './ModuleRunner.js';
 import { terminateAppOnLastWindowClose } from './modules/ApplicationTerminatorOnLastWindowClose.js';
 import { autoUpdater } from './modules/AutoUpdater.js';
@@ -13,6 +15,7 @@ import { hardwareAccelerationMode } from './modules/HardwareAccelerationModule.j
 import { createIpcBridgeModule } from './modules/IpcBridge.js';
 import { disallowMultipleAppInstance } from './modules/SingleInstanceApp.js';
 import { createWindowManagerModule } from './modules/WindowManager.js';
+import { scheduleYtdlpLaunchCheck } from './ytdlpUpdateRuntime.js';
 
 export async function initApp(initConfig: AppInitConfig) {
   const ciSmokeMode = process.env.MAXFRAME_CI_SMOKE === '1';
@@ -26,6 +29,7 @@ export async function initApp(initConfig: AppInitConfig) {
       join(process.env.PORTABLE_EXECUTABLE_DIR!, 'MaxframeData'),
     );
   }
+  setYtdlpUserDataDir(app.getPath('userData'));
 
   let moduleRunner = createModuleRunner()
     .init(
@@ -68,4 +72,5 @@ export async function initApp(initConfig: AppInitConfig) {
   }
 
   await moduleRunner;
+  scheduleYtdlpLaunchCheck();
 }
