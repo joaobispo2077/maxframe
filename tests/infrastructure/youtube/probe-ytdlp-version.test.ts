@@ -42,6 +42,34 @@ describe('probeYtdlpVersion', () => {
     await expect(probeYtdlpVersion('/bin/yt-dlp')).resolves.toBe('2026.03.17');
   });
 
+  it('passes a non-ASCII path to execFile without a shell', async () => {
+    execFileMock.mockImplementation(
+      (
+        _exe: string,
+        _args: string[],
+        _opts: unknown,
+        callback: (
+          error: Error | null,
+          result: { stdout: string; stderr: string },
+        ) => void,
+      ) => {
+        callback(null, { stdout: '2026.08.19\n', stderr: '' });
+      },
+    );
+    const { probeYtdlpVersion } = await import(
+      '@src/infrastructure/youtube/probeYtdlpVersion.js'
+    );
+    const executable =
+      'C:\\Users\\João\\AppData\\Roaming\\maxframe\\yt-dlp\\yt-dlp.exe';
+    await expect(probeYtdlpVersion(executable)).resolves.toBe('2026.08.19');
+    expect(execFileMock).toHaveBeenCalledWith(
+      executable,
+      ['--version'],
+      expect.not.objectContaining({ shell: true }),
+      expect.any(Function),
+    );
+  });
+
   it('returns undefined when execFile fails', async () => {
     execFileMock.mockImplementation(
       (
