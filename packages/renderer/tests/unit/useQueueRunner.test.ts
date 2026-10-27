@@ -7,6 +7,11 @@ import {
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { queueReducer, type QueueAction } from '@ui/hooks/useDownloadQueue';
 import { useQueueRunner } from '@ui/hooks/useQueueRunner';
+import {
+  GENERIC_DOWNLOAD_ERROR_MESSAGE,
+  MISSING_OUTPUT_FILE_MESSAGE,
+  YOUTUBE_BLOCKED_MESSAGE,
+} from '@ui/lib/userFacingErrors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const QUALITY = {
@@ -244,6 +249,129 @@ describe('useQueueRunner', () => {
     });
 
     expect(window.maxframeApi.downloadVideo).not.toHaveBeenCalled();
+  });
+
+  it('cancels a job when the IPC-prefixed message is Download canceled.', async () => {
+    window.maxframeApi.downloadVideo = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          "Error invoking remote method 'app:download-video': Error: Download canceled.",
+        ),
+      );
+
+    const { result } = renderHook(() =>
+      useHarness([{ id: 'j1', url: 'https://www.youtube.com/watch?v=aaa' }]),
+    );
+
+    await act(async () => {
+      await result.current.runner.start();
+    });
+
+    await waitFor(() => {
+      expect(result.current.model.historyJobs[0]?.terminal).toBe('cancelled');
+    });
+  });
+
+  it('maps an IPC-prefixed 403 and an unknown download error in the queue', async () => {
+    const missing =
+      'Download finished but no output file was found next to the path you chose. Check the folder for a new .mp4 or .mkv file, or inspect the yt-dlp error output above.';
+    window.maxframeApi.downloadVideo = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "Error invoking remote method 'app:download-video': Error: ERROR: HTTP Error 403: Forbidden",
+        ),
+      )
+      .mockRejectedValueOnce(
+        new Error(
+          `Error invoking remote method 'app:download-video': Error: ${missing}`,
+        ),
+      )
+      .mockRejectedValueOnce(
+        new Error(
+          "Error invoking remote method 'app:download-video': Error: ERROR: something else broke",
+        ),
+      );
+
+    const { result } = renderHook(() =>
+      useHarness([
+        { id: 'j1', url: 'https://www.youtube.com/watch?v=aaa' },
+        { id: 'j2', url: 'https://www.youtube.com/watch?v=bbb' },
+        { id: 'j3', url: 'https://www.youtube.com/watch?v=ccc' },
+      ]),
+    );
+
+    await act(async () => {
+      await result.current.runner.start();
+    });
+
+    await waitFor(
+      () => {
+        expect(result.current.model.historyJobs).toHaveLength(3);
+      },
+      { timeout: 8000 },
+    );
+
+    const details = result.current.model.historyJobs.map(
+      (job) => job.statusDetail,
+    );
+    expect(details).toEqual([
+      YOUTUBE_BLOCKED_MESSAGE,
+      MISSING_OUTPUT_FILE_MESSAGE,
+      GENERIC_DOWNLOAD_ERROR_MESSAGE,
+    ]);
+    expect(details.join('\n')).not.toContain('Error invoking remote method');
+    expect(result.current.model.historyJobs.map((job) => job.id)).toEqual([
+      'j1',
+      'j2',
+      'j3',
+    ]);
+  });
+
+  it('leaves the other rows alone when one download fails', async () => {
+    window.maxframeApi.analyzeVideoUrl = vi.fn(async (url: string) => {
+      if (url.includes('ccc')) {
+        return analyzeResult(url, 'ccc', 'Video C');
+      }
+      return analyzeResult(url, url.slice(-3), 'Video');
+    });
+    window.maxframeApi.downloadVideo = vi
+      .fn()
+      .mockResolvedValueOnce({ outputPath: 'C:\\Batch\\a.mp4' })
+      .mockRejectedValueOnce(
+        new Error(
+          "Error invoking remote method 'app:download-video': Error: ERROR: something else broke",
+        ),
+      )
+      .mockResolvedValueOnce({ outputPath: 'C:\\Batch\\c.mp4' });
+
+    const { result } = renderHook(() =>
+      useHarness([
+        { id: 'j1', url: 'https://www.youtube.com/watch?v=aaa' },
+        { id: 'j2', url: 'https://www.youtube.com/watch?v=bbb' },
+        { id: 'j3', url: 'https://www.youtube.com/watch?v=ccc' },
+      ]),
+    );
+
+    await act(async () => {
+      await result.current.runner.start();
+    });
+
+    await waitFor(() => {
+      expect(result.current.model.historyJobs).toHaveLength(3);
+    });
+
+    expect(result.current.model.historyJobs.map((job) => job.terminal)).toEqual(
+      ['complete', 'failed', 'complete'],
+    );
+    expect(result.current.model.historyJobs[0]?.statusDetail).toBeUndefined();
+    expect(result.current.model.historyJobs[1]?.statusDetail).toBe(
+      GENERIC_DOWNLOAD_ERROR_MESSAGE,
+    );
+    expect(result.current.model.historyJobs[2]?.outputPath).toBe(
+      'C:\\Batch\\c.mp4',
+    );
   });
 
   it('does not start when analyze download is busy', async () => {
