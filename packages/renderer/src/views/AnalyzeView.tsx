@@ -23,7 +23,21 @@ type AnalyzeViewProps = {
   queueRunnerActive: boolean;
   onAnalyze: () => Promise<void>;
   onRetryDownload?: () => void;
+  showYtdlpUpdate?: boolean;
+  ytdlpUpdateBlocked?: boolean;
+  onUpdateYtdlp?: () => void;
 };
+
+function analyzeButtonDisabled(
+  analyze: AnalyzeFlow,
+  download: ActiveDownload,
+): boolean {
+  return (
+    analyze.analyzeTargetUrl === undefined ||
+    analyze.loading ||
+    download.downloadBusy
+  );
+}
 
 export function AnalyzeView({
   analyze,
@@ -31,6 +45,9 @@ export function AnalyzeView({
   queueRunnerActive,
   onAnalyze,
   onRetryDownload,
+  showYtdlpUpdate = false,
+  ytdlpUpdateBlocked = false,
+  onUpdateYtdlp,
 }: AnalyzeViewProps) {
   const playlistLink =
     isPlaylistLink(analyze.analyzeTargetUrl) ||
@@ -83,11 +100,7 @@ export function AnalyzeView({
           colorPalette="purple"
           variant="surface"
           onClick={() => void onAnalyze()}
-          disabled={
-            analyze.analyzeTargetUrl === undefined ||
-            analyze.loading ||
-            download.downloadBusy
-          }
+          disabled={analyzeButtonDisabled(analyze, download)}
           loading={analyze.loading}
           loadingText="Checking…"
         >
@@ -112,6 +125,9 @@ export function AnalyzeView({
         onCopyReport={analyze.handleCopyReport}
         reportCopied={analyze.reportCopied}
         onRetry={onRetryDownload}
+        showYtdlpUpdate={showYtdlpUpdate}
+        updateBlocked={ytdlpUpdateBlocked}
+        onUpdateYtdlp={onUpdateYtdlp}
       />
 
       <SaveMessageBanner
