@@ -75,6 +75,50 @@ describe('DiagnosticBlock', () => {
     expect(screen.getByText('yt-dlp failed')).toBeInTheDocument();
   });
 
+  it('shows platform, app version, and yt-dlp version on one line', () => {
+    render(<DiagnosticBlock report={REPORT} onCopy={vi.fn()} copied={false} />);
+    expect(screen.getByTestId('diagnostic-versions')).toHaveTextContent(
+      'Platform: win32 (x64) · App: 1.0.1 · yt-dlp: (unknown)',
+    );
+
+    render(
+      <DiagnosticBlock
+        report={{ ...REPORT, ytdlpVersion: '2026.08.19' }}
+        onCopy={vi.fn()}
+        copied={false}
+      />,
+    );
+    expect(screen.getByText(/yt-dlp: 2026\.08\.19/)).toBeInTheDocument();
+  });
+
+  it('masks Windows user folders and explains what the report leaves out', () => {
+    render(
+      <DiagnosticBlock
+        report={{
+          ...REPORT,
+          ytdlpPath: 'C:\\Users\\Joao\\AppData\\yt-dlp.exe',
+          ffmpegPath: 'C:/Users/Joao/ffmpeg.exe',
+          lastError: 'USERPROFILE=C:\\Users\\Joao',
+        }}
+        onCopy={vi.fn()}
+        copied={false}
+      />,
+    );
+    expect(
+      screen.getByText('C:\\Users\\<user>\\AppData\\yt-dlp.exe'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('C:/Users/<user>/ffmpeg.exe')).toBeInTheDocument();
+    expect(
+      screen.getByText('USERPROFILE=C:\\Users\\<user>'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Joao/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Your Windows user name and PATH are left out of this report.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('does not render last error section when lastError is undefined', () => {
     const noErrorReport: DiagnosticsReport = {
       ...REPORT,
