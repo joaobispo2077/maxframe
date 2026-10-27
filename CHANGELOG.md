@@ -1,3 +1,11 @@
+# [1.10.0](https://github.com/joaobispo2077/maxframe/compare/v1.9.1...v1.10.0) (2026-10-27)
+
+
+### Features
+
+* mask the Windows user and omit PATH from diagnostics ([dd8b044](https://github.com/joaobispo2077/maxframe/commit/dd8b04452d35180d30cfc095fb52750866b7d4d2))
+* show a short download error and retry the same format ([e53e8af](https://github.com/joaobispo2077/maxframe/commit/e53e8af9dcdeae46c090a05b451735dd9bbf4bed))
+
 ## [1.9.1](https://github.com/joaobispo2077/maxframe/compare/v1.9.0...v1.9.1) (2026-10-25)
 
 
