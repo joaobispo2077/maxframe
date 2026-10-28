@@ -1,6 +1,15 @@
+import type { YtdlpUpdateView } from '../../../src/domain/ytdlp/ytdlpUpdateView.js';
 import type { IpcRendererEvent } from 'electron';
 
 import { ipcRenderer } from 'electron';
+
+import {
+  YTDLP_UPDATE_CHANGED_CHANNEL,
+  YTDLP_UPDATE_CHECK_CHANNEL,
+  YTDLP_UPDATE_DISMISS_CHANNEL,
+  YTDLP_UPDATE_START_CHANNEL,
+  YTDLP_UPDATE_STATUS_CHANNEL,
+} from '../../../src/interface/ipc/ytdlpUpdateChannels.js';
 
 export type TitleBarInset = {
   height: number;
@@ -135,4 +144,34 @@ export async function getLogPath(): Promise<string> {
 /** Reveal the file in the OS file manager (Explorer / Finder), with the file highlighted. */
 export async function showItemInFolder(filePath: string): Promise<void> {
   return ipcRenderer.invoke('app:show-item-in-folder', filePath);
+}
+
+/** Version and update phase. No path or URL is accepted or returned. */
+export async function getYtdlpUpdateStatus(): Promise<YtdlpUpdateView> {
+  return ipcRenderer.invoke(YTDLP_UPDATE_STATUS_CHANNEL);
+}
+
+export function subscribeYtdlpUpdate(
+  listener: (view: YtdlpUpdateView) => void,
+): () => void {
+  const handler = (_event: IpcRendererEvent, view: YtdlpUpdateView) => {
+    listener(view);
+  };
+  ipcRenderer.on(YTDLP_UPDATE_CHANGED_CHANNEL, handler);
+  return () => {
+    ipcRenderer.removeListener(YTDLP_UPDATE_CHANGED_CHANNEL, handler);
+  };
+}
+
+/** Starts the update the main process already chose. Arguments are ignored. */
+export async function startYtdlpUpdate(): Promise<YtdlpUpdateView> {
+  return ipcRenderer.invoke(YTDLP_UPDATE_START_CHANNEL);
+}
+
+export async function dismissYtdlpUpdate(): Promise<YtdlpUpdateView> {
+  return ipcRenderer.invoke(YTDLP_UPDATE_DISMISS_CHANNEL);
+}
+
+export async function checkYtdlpUpdate(): Promise<YtdlpUpdateView> {
+  return ipcRenderer.invoke(YTDLP_UPDATE_CHECK_CHANNEL);
 }

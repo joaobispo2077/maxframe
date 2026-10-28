@@ -1,3 +1,5 @@
+import type { YtdlpCopySource } from '@src/domain/ytdlp/ytdlpUpdateView.js';
+
 import { useEffect, useState } from 'react';
 
 import {
@@ -11,6 +13,13 @@ import {
   Text,
   VStack,
 } from '@chakra-ui/react';
+import {
+  YTDLP_CHECK_NOW_BUTTON,
+  YTDLP_LAUNCH_DISCLOSURE,
+  YTDLP_SETTINGS_VERSION_LABEL,
+  ytdlpSourceLabel,
+} from '@src/domain/ytdlp/ytdlpUpdateCopy.js';
+import { YTDLP_LAUNCH_CHECK_DISCLOSURE } from '@src/domain/ytdlp/ytdlpUpdatePolicy.js';
 
 import { PanelCard } from '../components/PanelCard.js';
 import {
@@ -24,6 +33,11 @@ type SettingsPageProps = {
   embedded?: boolean;
   defaultOutputMode?: OutputMode;
   onDefaultOutputModeChange?: (mode: OutputMode) => void;
+  ytdlpVersion?: string;
+  ytdlpSource?: YtdlpCopySource;
+  showYtdlpDisclosure?: boolean;
+  showYtdlpCheckNow?: boolean;
+  onCheckYtdlpNow?: () => void;
 };
 
 /**
@@ -34,6 +48,11 @@ export function SettingsPage({
   embedded = false,
   defaultOutputMode = 'mp4',
   onDefaultOutputModeChange,
+  ytdlpVersion,
+  ytdlpSource,
+  showYtdlpDisclosure,
+  showYtdlpCheckNow = false,
+  onCheckYtdlpNow,
 }: SettingsPageProps) {
   const [debugMode, setDebugModeState] = useState(
     () => localStorage.getItem('maxframe.debugMode') === 'true',
@@ -69,17 +88,7 @@ export function SettingsPage({
         <Heading size="lg" letterSpacing="tight">
           Settings
         </Heading>
-        {!embedded && onBack ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            colorPalette="purple"
-            onClick={onBack}
-          >
-            Back
-          </Button>
-        ) : null}
+        <SettingsBackButton embedded={embedded} onBack={onBack} />
       </HStack>
 
       <Box borderTopWidth="1px" borderColor="border" pt={4}>
@@ -109,6 +118,14 @@ export function SettingsPage({
               Applied to the Analyze tab output selector immediately.
             </Field.HelperText>
           </Field.Root>
+
+          <YtdlpVersionSetting
+            version={ytdlpVersion}
+            source={ytdlpSource}
+            showDisclosure={launchDisclosureVisible(showYtdlpDisclosure)}
+            showCheckNow={showYtdlpCheckNow}
+            onCheckNow={onCheckYtdlpNow}
+          />
 
           <Box>
             <Text fontWeight="medium" fontSize="sm">
@@ -142,47 +159,14 @@ export function SettingsPage({
                 when something goes wrong.
               </Text>
             </VStack>
-            <Button
-              size="sm"
-              variant={debugMode ? 'solid' : 'outline'}
-              colorPalette={debugMode ? 'orange' : 'purple'}
-              onClick={toggleDebugMode}
-            >
-              {debugMode ? 'On' : 'Off'}
-            </Button>
+            <DebugModeToggle enabled={debugMode} onToggle={toggleDebugMode} />
           </HStack>
 
-          {debugMode && logPath && (
-            <HStack
-              bg="surface.elevated"
-              borderRadius="md"
-              px={3}
-              py={2}
-              gap={2}
-              flexWrap="wrap"
-            >
-              <Text
-                fontSize="xs"
-                color="fg.muted"
-                flex="1"
-                wordBreak="break-all"
-              >
-                Log file:{' '}
-                <Text as="span" color="fg.muted" fontFamily="mono">
-                  {logPath}
-                </Text>
-              </Text>
-              <Button
-                size="xs"
-                variant="ghost"
-                colorPalette="purple"
-                onClick={copyLogPath}
-                flexShrink={0}
-              >
-                Copy path
-              </Button>
-            </HStack>
-          )}
+          <DebugLogPath
+            debugMode={debugMode}
+            logPath={logPath}
+            onCopy={copyLogPath}
+          />
         </VStack>
       </Box>
     </VStack>
@@ -197,6 +181,141 @@ export function SettingsPage({
       <Container maxW="960px">
         <PanelCard>{content}</PanelCard>
       </Container>
+    </Box>
+  );
+}
+
+function SettingsBackButton({
+  embedded,
+  onBack,
+}: {
+  embedded: boolean;
+  onBack?: () => void;
+}) {
+  if (embedded || !onBack) {
+    return null;
+  }
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      colorPalette="purple"
+      onClick={onBack}
+    >
+      Back
+    </Button>
+  );
+}
+
+function DebugModeToggle({
+  enabled,
+  onToggle,
+}: {
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant={enabled ? 'solid' : 'outline'}
+      colorPalette={enabled ? 'orange' : 'purple'}
+      onClick={onToggle}
+    >
+      {enabled ? 'On' : 'Off'}
+    </Button>
+  );
+}
+
+function DebugLogPath({
+  debugMode,
+  logPath,
+  onCopy,
+}: {
+  debugMode: boolean;
+  logPath: string | null;
+  onCopy: () => void;
+}) {
+  if (!debugMode || !logPath) {
+    return null;
+  }
+  return (
+    <HStack
+      bg="surface.elevated"
+      borderRadius="md"
+      px={3}
+      py={2}
+      gap={2}
+      flexWrap="wrap"
+    >
+      <Text fontSize="xs" color="fg.muted" flex="1" wordBreak="break-all">
+        Log file:{' '}
+        <Text as="span" color="fg.muted" fontFamily="mono">
+          {logPath}
+        </Text>
+      </Text>
+      <Button
+        size="xs"
+        variant="ghost"
+        colorPalette="purple"
+        onClick={onCopy}
+        flexShrink={0}
+      >
+        Copy path
+      </Button>
+    </HStack>
+  );
+}
+
+function launchDisclosureVisible(explicit: boolean | undefined): boolean {
+  return explicit ?? YTDLP_LAUNCH_CHECK_DISCLOSURE === 'settings-line';
+}
+
+function YtdlpVersionSetting({
+  version,
+  source,
+  showDisclosure,
+  showCheckNow,
+  onCheckNow,
+}: {
+  version: string | undefined;
+  source: YtdlpCopySource | undefined;
+  showDisclosure: boolean;
+  showCheckNow: boolean;
+  onCheckNow?: () => void;
+}) {
+  const versionText = version
+    ? `${YTDLP_SETTINGS_VERSION_LABEL}: ${version}${
+        source ? ` (${ytdlpSourceLabel(source)})` : ''
+      }`
+    : `${YTDLP_SETTINGS_VERSION_LABEL}: Unknown`;
+  return (
+    <Box>
+      <Text fontWeight="medium" fontSize="sm" data-testid="ytdlp-version">
+        {versionText}
+      </Text>
+      {showDisclosure ? (
+        <Text
+          fontSize="xs"
+          color="fg.muted"
+          mt={1}
+          data-testid="ytdlp-launch-disclosure"
+        >
+          {YTDLP_LAUNCH_DISCLOSURE}
+        </Text>
+      ) : null}
+      {showCheckNow ? (
+        <Button
+          type="button"
+          mt={2}
+          size="sm"
+          variant="outline"
+          colorPalette="purple"
+          onClick={onCheckNow}
+        >
+          {YTDLP_CHECK_NOW_BUTTON}
+        </Button>
+      ) : null}
     </Box>
   );
 }

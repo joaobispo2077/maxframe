@@ -466,6 +466,19 @@ describe('createYtdlpVideoMetadataGateway', () => {
     });
     expect(resolveExecutableMock).toHaveBeenCalled();
   });
+
+  it('resolves yt-dlp again before the next analyze', async () => {
+    execFileMock.mockImplementation((_exe, _args, _opts, callback) => {
+      callback?.(null, { stdout: '{"formats":[]}', stderr: '' });
+    });
+    const { createYtdlpVideoMetadataGateway } = await import(
+      '@src/infrastructure/youtube/YtdlpVideoMetadataGateway'
+    );
+    const gateway = createYtdlpVideoMetadataGateway();
+    await gateway.analyzeVideo('https://youtu.be/a');
+    await gateway.analyzeVideo('https://youtu.be/b');
+    expect(resolveExecutableMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('yt-dlp file URL args', () => {

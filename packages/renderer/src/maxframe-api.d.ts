@@ -1,3 +1,5 @@
+import type { YtdlpUpdateView } from '@src/domain/ytdlp/ytdlpUpdateView.js';
+
 type TitleBarInset = {
   height: number;
   padLeft: number;
@@ -83,6 +85,13 @@ type MaxframeApi = {
   getDiagnostics: () => Promise<DiagnosticsReport>;
   getLogPath: () => Promise<string>;
   showItemInFolder: (filePath: string) => Promise<void>;
+  getYtdlpUpdateStatus?: () => Promise<YtdlpUpdateView>;
+  subscribeYtdlpUpdate?: (
+    listener: (view: YtdlpUpdateView) => void,
+  ) => () => void;
+  startYtdlpUpdate?: () => Promise<YtdlpUpdateView>;
+  dismissYtdlpUpdate?: () => Promise<YtdlpUpdateView>;
+  checkYtdlpUpdate?: () => Promise<YtdlpUpdateView>;
 };
 
 declare global {
