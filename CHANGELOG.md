@@ -1,3 +1,18 @@
+# [1.11.0](https://github.com/joaobispo2077/maxframe/compare/v1.10.0...v1.11.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* ignore a missing yt-dlp update bridge on startup ([a578668](https://github.com/joaobispo2077/maxframe/commit/a578668e6cabf3dfefc119d75f90c5ad2ec7ee9a))
+
+
+### Features
+
+* compare yt-dlp versions and centralize update policy ([9865d35](https://github.com/joaobispo2077/maxframe/commit/9865d35aad381dc39a63bc6399f504e89aea5cb0))
+* install an official yt-dlp release only after its checksum matches ([600702e](https://github.com/joaobispo2077/maxframe/commit/600702e3305268baebdc346a2e0c56d899a2ee3c))
+* prefer a verified updated yt-dlp over the bundled copy ([1ce820f](https://github.com/joaobispo2077/maxframe/commit/1ce820f10d101537c50b50f6e4b1bc7a1da1024a))
+* warn when yt-dlp is outdated and offer an in-app update ([7cb7afa](https://github.com/joaobispo2077/maxframe/commit/7cb7afab72308314c94972ce69b5bf08563adb06))
+
 # [1.10.0](https://github.com/joaobispo2077/maxframe/compare/v1.9.1...v1.10.0) (2026-10-27)
 
 
