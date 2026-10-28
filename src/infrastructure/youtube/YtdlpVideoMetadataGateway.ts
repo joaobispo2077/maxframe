@@ -95,11 +95,11 @@ function parseStdoutToVideoAnalysis(stdout: string): VideoAnalysis {
 export function createYtdlpVideoMetadataGateway(
   options: YtdlpGatewayOptions = {},
 ): VideoMetadataGateway {
-  const executable = options.ytdlpExecutable ?? resolveYtdlpExecutable();
   const timeoutMs = options.timeoutMs ?? 90_000;
 
   return {
     async analyzeVideo(url: string): Promise<VideoAnalysis> {
+      const executable = options.ytdlpExecutable ?? resolveYtdlpExecutable();
       const stdout = await runYtdlpJsonDump(executable, url, timeoutMs);
       return parseStdoutToVideoAnalysis(stdout);
     },

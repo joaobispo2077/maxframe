@@ -14,6 +14,8 @@ const PLAYLIST_URL =
 describe('App download error', () => {
   it('shows the short 403 message once, without the IPC prefix or the yt-dlp log', () => {
     let downloads = 0;
+    let updates = 0;
+    let updateArgs: unknown[] = [];
     const api = {
       getInitialAppState: async () => ({
         appName: 'Maxframe',
@@ -47,6 +49,20 @@ describe('App download error', () => {
         ytdlpVersion: '2026.08.19',
       }),
       getLogPath: async () => 'C:\\AppData\\Maxframe\\maxframe-debug.log',
+      startYtdlpUpdate: async (...args: unknown[]) => {
+        updates += 1;
+        updateArgs = args;
+        return {
+          version: '2026.08.19',
+          source: 'updated',
+          phase: 'success',
+          current: '2026.08.19',
+          latest: '2026.08.19',
+          manualCheckEnabled: false,
+          showLaunchDisclosure: true,
+          updateAllowed: true,
+        };
+      },
       analyzeVideoUrl: async () => ({
         url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         videoId: 'dQw4w9WgXcQ',
@@ -101,7 +117,8 @@ describe('App download error', () => {
       .and('not.contain', 'HTTP Error 403')
       .and('not.contain', 'ERROR:');
     cy.contains('button', 'Try again').should('be.visible');
-    cy.get('body').should('not.contain', 'Update yt-dlp');
+    cy.contains('button', 'Update yt-dlp').should('be.visible').focus();
+    cy.focused().should('contain', 'Update yt-dlp');
     cy.contains(YTDLP_LOG).should('be.visible');
     cy.contains(
       'Platform: win32 (x64) · App: 1.8.1 · yt-dlp: 2026.08.19',
@@ -116,6 +133,13 @@ describe('App download error', () => {
       const count = $body.text().split(BLOCKED).length - 1;
       expect(count).to.eq(1);
     });
+
+    cy.contains('button', 'Update yt-dlp').click();
+    cy.then(() => {
+      expect(updates).to.eq(1);
+      expect(updateArgs).to.deep.equal([]);
+    });
+    cy.contains('yt-dlp updated to 2026.08.19.').should('be.visible');
 
     cy.contains('button', 'Try again').click();
     cy.contains('Saved to').should('be.visible');

@@ -2,16 +2,27 @@ import { useEffect, useState } from 'react';
 
 import { AppNav } from './components/AppNav.js';
 import { AppShell } from './components/AppShell.js';
+import { YtdlpUpdateBanner } from './components/YtdlpUpdateBanner.js';
 import { useActiveDownload } from './hooks/useActiveDownload.js';
 import { useAnalyzeFlow } from './hooks/useAnalyzeFlow.js';
 import { useAppNavigation } from './hooks/useAppNavigation.js';
 import { useDownloadQueue } from './hooks/useDownloadQueue.js';
 import { useQueueRunner } from './hooks/useQueueRunner.js';
+import { useYtdlpUpdate } from './hooks/useYtdlpUpdate.js';
 import { setDefaultOutputMode } from './lib/appPreferences.js';
 import { PAGE_SUBTITLES } from './lib/pageSubtitles.js';
+import { YOUTUBE_BLOCKED_MESSAGE } from './lib/userFacingErrors.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 import { AnalyzeView } from './views/AnalyzeView.js';
 import { QueueView } from './views/QueueView.js';
+
+function ytdlpWorkInProgress(input: {
+  analyzing: boolean;
+  downloading: boolean;
+  queueRunning: boolean;
+}): boolean {
+  return input.analyzing || input.downloading || input.queueRunning;
+}
 
 function App() {
   const { activeTab, setActiveTab } = useAppNavigation('analyze');
@@ -49,6 +60,12 @@ function App() {
     outputMode: analyze.outputMode,
     downloadBusy: download.downloadBusy,
   });
+  const ytdlp = useYtdlpUpdate();
+  const ytdlpBlocked = ytdlpWorkInProgress({
+    analyzing: analyze.loading,
+    downloading: download.downloadBusy,
+    queueRunning: runner.running,
+  });
 
   useEffect(() => {
     window.maxframeApi
@@ -77,6 +94,13 @@ function App() {
       onGoHome={() => setActiveTab('analyze')}
       headerActions={<AppNav activeTab={activeTab} onChange={setActiveTab} />}
     >
+      <YtdlpUpdateBanner
+        view={ytdlp.view}
+        blocked={ytdlpBlocked}
+        onUpdate={() => void ytdlp.update()}
+        onDismiss={() => void ytdlp.dismiss()}
+        onCheck={() => void ytdlp.checkNow()}
+      />
       {activeTab === 'analyze' ? (
         <AnalyzeView
           analyze={analyze}
@@ -84,6 +108,9 @@ function App() {
           queueRunnerActive={runner.running}
           onAnalyze={handleAnalyze}
           onRetryDownload={downloadFailed ? download.retryDownload : undefined}
+          showYtdlpUpdate={analyze.error === YOUTUBE_BLOCKED_MESSAGE}
+          ytdlpUpdateBlocked={ytdlpBlocked}
+          onUpdateYtdlp={() => void ytdlp.update()}
         />
       ) : null}
       {activeTab === 'queue' ? (
@@ -108,6 +135,11 @@ function App() {
             setDefaultOutputMode(mode);
             analyze.setOutputMode(mode);
           }}
+          ytdlpVersion={ytdlp.view?.version}
+          ytdlpSource={ytdlp.view?.source}
+          showYtdlpDisclosure={ytdlp.view?.showLaunchDisclosure}
+          showYtdlpCheckNow={ytdlp.view?.manualCheckEnabled}
+          onCheckYtdlpNow={() => void ytdlp.checkNow()}
         />
       ) : null}
     </AppShell>
